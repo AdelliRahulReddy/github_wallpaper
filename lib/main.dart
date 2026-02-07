@@ -38,8 +38,8 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: AppStrings.appName,
-      theme: AppTheme.lightTheme(context),
-      darkTheme: AppTheme.darkTheme(context),
+      theme: AppTheme.lightTheme(),
+      darkTheme: AppTheme.darkTheme(),
       themeMode: ThemeMode.system,
       debugShowCheckedModeBanner: false,
       home: const AppInitializer(),
@@ -150,7 +150,7 @@ class _AppInitializerState extends State<AppInitializer> {
         }());
       }
     } catch (e) {
-      debugPrint('Initialization error: $e');
+
       if (mounted) {
         final friendlyMsg = ErrorHandler.getUserFriendlyMessage(e);
         setState(() => _error = friendlyMsg);
@@ -179,17 +179,17 @@ class _AppInitializerState extends State<AppInitializer> {
         // ignore: deprecated_member_use
         appleProvider:
             kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
-      );
+      ).timeout(const Duration(seconds: 5));
     } catch (e) {
-      debugPrint('AppCheck init failed: $e');
-      rethrow; // Rethrow to allow retry logic to track success
+      // debugPrint('AppCheck init failed: $e');
+      // Non-fatal, allow app to start even if AppCheck fails (might limit API access but UI should load)
     }
 
     try {
-      await FcmService.init();
+      await FcmService.init().timeout(const Duration(seconds: 5));
     } catch (e) {
-      debugPrint('FCM init failed: $e');
-      rethrow;
+      // debugPrint('FCM init failed: $e');
+      // FCM is optional, do not block app start
     }
   }
 

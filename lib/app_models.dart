@@ -7,6 +7,12 @@ int _toInt(dynamic v) => (v is num && v >= 0) ? v.toInt() : 0;
 String? _str(dynamic v) => (v is String && v.trim().isNotEmpty) ? v.trim() : null;
 String _name(dynamic v, String f) => _str(v) ?? f;
 double _dbl(dynamic v, double d, double min, double max) => ((v is num ? v.toDouble() : d).clamp(min, max)).toDouble();
+DateTime? _parseDate(String? s) {
+  if (s == null) return null;
+  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(s);
+  return m != null ? DateTime.utc(int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!)) : DateTime.tryParse(s)?.toUtc();
+}
+String _dateStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
 
 @immutable
 class ContributionDay {
@@ -16,14 +22,14 @@ class ContributionDay {
   const ContributionDay({required this.date, required this.contributionCount, this.contributionLevel});
   
   factory ContributionDay.fromJson(Map<String, dynamic> j) => ContributionDay(
-    date: AppDateUtils.parseIsoDate(j['date']) ?? DateTime.now(),
+    date: _parseDate(j['date']) ?? DateTime.now(),
     contributionCount: _toInt(j['contributionCount']),
     contributionLevel: _str(j['contributionLevel']));
   
-  Map<String, dynamic> toJson() => {'date': AppDateUtils.toIsoDateString(date), 'contributionCount': contributionCount, 'contributionLevel': contributionLevel};
+  Map<String, dynamic> toJson() => {'date': _dateStr(date), 'contributionCount': contributionCount, 'contributionLevel': contributionLevel};
   
   bool get isActive => contributionCount > 0;
-  String get dateKey => AppDateUtils.toIsoDateString(date);
+  String get dateKey => _dateStr(date);
   
   static int _lvl(String? l) {
     switch(l) {
@@ -159,7 +165,7 @@ class CachedContributionData {
     'lastUpdated': lastUpdated.toIso8601String(), 'repositories': repositories.map((r) => r.toJson()).toList(), 'topLanguages': topLanguages.map((l) => l.toJson()).toList(),
   };
 
-  int getContributionsForDate(DateTime d) => _cache[AppDateUtils.toIsoDateString(d)]?.contributionCount ?? 0;
+  int getContributionsForDate(DateTime d) => _cache[_dateStr(d)]?.contributionCount ?? 0;
   bool isStale([Duration? t, DateTime? n]) => (n??DateTime.now()).toUtc().difference(lastUpdated).compareTo(t ?? const Duration(hours: 6)) > 0;
   
   // Getters

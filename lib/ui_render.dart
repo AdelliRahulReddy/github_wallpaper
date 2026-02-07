@@ -8,8 +8,8 @@ class MonthHeatmapRenderer {
 
   static void render({required Canvas canvas, required Size size, required CachedContributionData data, required WallpaperConfig config, DateTime? referenceDate, DateTime? todayUtc}) {
     final tEx = config.isDarkMode ? _dT : _lT;
-    final ref = (referenceDate ?? AppDateUtils.nowUtc).toUtc();
-    final daysNum = AppDateUtils.daysInMonth(ref.year, ref.month);
+    final ref = (referenceDate ?? DateTime.now().toUtc()).toUtc();
+    final daysNum = DateTime(ref.year, ref.month + 1, 0).day;
     final cells = List.generate(daysNum, (i) => _Cell(DateTime.utc(ref.year, ref.month, i + 1), i));
 
     // Bg
@@ -56,7 +56,9 @@ class MonthHeatmapRenderer {
 
     // Cells
     final fillP = Paint()..style = PaintingStyle.fill, bordP = Paint()..style = PaintingStyle.stroke..strokeWidth = (spc/1.5).clamp(1.0, boxSz*0.2)..color = tEx.heatmapTodayHighlight;
-    final rad = Radius.circular(config.cornerRadius * scale), today = AppDateUtils.toDateOnlyUtc((todayUtc ?? AppDateUtils.nowUtc).toUtc());
+    final rad = Radius.circular(config.cornerRadius * scale);
+    final n = (todayUtc ?? DateTime.now().toUtc()).toUtc();
+    final today = DateTime.utc(n.year, n.month, n.day);
     final txtCol = (config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText).withValues(alpha: 0.9);
     final cntSty = TextStyle(color: txtCol, fontSize: boxSz * 0.45, fontWeight: FontWeight.w600);
 
@@ -68,7 +70,7 @@ class MonthHeatmapRenderer {
       
       final r = RRect.fromRectAndRadius(Rect.fromLTWH(xStart + ((idx % 7) * cellSz), yGrid + ((idx ~/ 7) * cellSz), boxSz, boxSz), rad);
       canvas.drawRRect(r, fillP);
-      if (AppDateUtils.isSameDay(c.date, today)) canvas.drawRRect(r, bordP);
+      if (c.date.year == today.year && c.date.month == today.month && c.date.day == today.day) canvas.drawRRect(r, bordP);
       
       if (boxSz >= 12.0 && cnt > 0) {
         final tp = TextPainter(text: TextSpan(text: '$cnt', style: cntSty), textAlign: TextAlign.center, textDirection: TextDirection.ltr, maxLines: 1)..layout(maxWidth: boxSz);

@@ -20,7 +20,7 @@ class StorageService {
   // Token
   static Future<void> setToken(String t) async {
     if (t.trim().isEmpty) throw ArgumentError('Empty token');
-    if (ValidationUtils.validateToken(t) != null) throw ArgumentError('Invalid token');
+    if (isValidTokenFormat(t) != null) throw ArgumentError('Invalid token');
     await _ss.write(key: AppConstants.keyToken, value: t.trim());
   }
   static Future<String?> getToken() async {
@@ -82,20 +82,36 @@ class StorageService {
 // GITHUB
 class GitHubService {
   static final http.Client _c = http.Client();
-  static Future<CachedContributionData> fetchContributions({required String username, required String token}) async {
+  static Future<CachedContributionData> getContributions({required String username, required String token, bool forceRefresh = false}) async {
+    // 1. Return cache if valid and not forced
+    if (!forceRefresh) {
+      final cached = StorageService.getCachedData();
+      if (cached != null && !cached.isStale() && cached.username.toLowerCase() == username.toLowerCase()) {
+        return cached;
+      }
+    }
+
+    // 2. Fetch from API
     try {
       final res = await _req(username, token);
       final data = jsonDecode(res.body);
       if (res.statusCode != 200 || data['errors'] != null) throw GitHubException('API Error: ${res.statusCode}');
       if (data['data']?['user'] == null) throw UserNotFoundException();
-      return _parse(data, username);
+      
+      final parsed = _parse(data, username);
+      
+      // 3. Save to cache
+      await StorageService.setCachedData(parsed);
+      await StorageService.setLastUpdate(DateTime.now().toUtc());
+      
+      return parsed;
     } on SocketException { throw NetworkException(); } 
     catch (e) { rethrow; }
   }
 
   static Future<http.Response> _req(String u, String t) async {
     const q = r'''query($login:String!,$from:DateTime!,$to:DateTime!){user(login:$login){contributionsCollection(from:$from,to:$to){contributionCalendar{totalContributions weeks{contributionDays{date contributionCount contributionLevel}}} commitContributionsByRepository(maxRepositories:50){repository{nameWithOwner url isPrivate primaryLanguage{name color} languages(first:10,orderBy:{field:SIZE,direction:DESC}){edges{size node{name color}}}} contributions{totalCount}}}}}''';
-    final now = AppDateUtils.nowUtc;
+    final now = DateTime.now().toUtc();
     var a=0;
     while (true) {
       try {
@@ -127,8 +143,10 @@ class GitHubService {
     } catch (e) { throw GitHubException('Parse Error: $e'); }
   }
 
+  static bool isFormatValid(String t) => isValidTokenFormat(t) == null;
+
   static Future<bool> validateToken(String t) async {
-    if (ValidationUtils.validateToken(t) != null) return false;
+    if (!isFormatValid(t)) return false;
     try {
       final r = await _c.post(Uri.parse(AppConstants.apiUrl), headers: {'Authorization':'Bearer $t'}, body: jsonEncode({'query':'query{viewer{login}}'})).timeout(const Duration(seconds:8));
       return r.statusCode==200 && jsonDecode(r.body)['data']?['viewer']?['login'] != null;
@@ -187,8 +205,7 @@ class WallpaperService {
       if (!dec.shouldProceed) return RefreshResult.values[dec.skipReason?.index ?? 1];
       await StorageService.consumePendingWallpaperRefresh();
       try {
-        final d = await GitHubService.fetchContributions(username: StorageService.getUsername()!, token: (await StorageService.getToken())!);
-        await StorageService.setCachedData(d); await StorageService.setLastUpdate(AppDateUtils.nowUtc);
+        final d = await GitHubService.getContributions(username: StorageService.getUsername()!, token: (await StorageService.getToken())!, forceRefresh: true);
         return await generateAndSetWallpaper(data: d, config: StorageService.getWallpaperConfig()) ? RefreshResult.success : RefreshResult.noChanges;
       } catch (e) { return RefreshResult.networkError; }
     });

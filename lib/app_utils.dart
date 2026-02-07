@@ -2,18 +2,28 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'dart:async'; // Added for Timer
 import 'app_exceptions.dart';
 import 'app_theme.dart';
 
 // ERROR HANDLING
 class ErrorHandler {
+  static String getUserFriendlyMessage(dynamic e) {
+    if (e is NetworkException || e is SocketException || e.toString().contains('socket')) return 'No internet connection.';
+    if (e is TokenExpiredException || e.toString().contains('401')) return 'Invalid or expired GitHub token.';
+    if (e is AccessDeniedException || e.toString().contains('403')) return 'Access denied.';
+    if (e is UserNotFoundException) return 'User not found.';
+    if (e is RateLimitException) return 'Rate limit exceeded.';
+    return 'Something went wrong.';
+  }
+
   static void handle(BuildContext c, dynamic e, {String? userMessage, bool showSnackBar=true, VoidCallback? onRetry}) {
-    debugPrint('Err: $e');
+
     if (showSnackBar && c.mounted) {
       ScaffoldMessenger.of(c)
         ..clearSnackBars()
         ..showSnackBar(SnackBar(
-          content: Text(userMessage ?? _msg(e)), 
+          content: Text(userMessage ?? getUserFriendlyMessage(e)), 
           backgroundColor: AppTheme.errorRed,
           behavior: SnackBarBehavior.floating,
           action: onRetry != null ? SnackBarAction(label: 'Retry', textColor: Colors.white, onPressed: onRetry) : null,
@@ -22,7 +32,7 @@ class ErrorHandler {
   }
 
   static void showSuccess(BuildContext c, String m) {
-    if (c.mounted && c.mounted) ScaffoldMessenger.of(c)..clearSnackBars()..showSnackBar(SnackBar(content: Text(m), backgroundColor: AppTheme.successGreen));
+    if (c.mounted) ScaffoldMessenger.of(c)..clearSnackBars()..showSnackBar(SnackBar(content: Text(m), backgroundColor: AppTheme.successGreen));
   }
 
   static void showLoading(BuildContext c, {String? message}) {
@@ -32,51 +42,35 @@ class ErrorHandler {
   static void hideLoading(BuildContext c) {
     if (c.mounted && Navigator.canPop(c)) Navigator.of(c, rootNavigator: true).pop();
   }
-  
-  static String getUserFriendlyMessage(dynamic e) => _msg(e);
+}
 
-  static String _msg(dynamic e) {
-    if (e is NetworkException || e is SocketException || e.toString().contains('socket')) return 'No internet connection.';
-    if (e is TokenExpiredException || e.toString().contains('401')) return 'Invalid or expired GitHub token.';
-    if (e is AccessDeniedException || e.toString().contains('403')) return 'Access denied.';
-    if (e is UserNotFoundException) return 'User not found.';
-    if (e is RateLimitException) return 'Rate limit exceeded.';
-    return 'Something went wrong.';
+// DEBOUNCER
+class Debouncer {
+  final Duration delay;
+  Timer? _t;
+  Debouncer({required this.delay});
+  void run(VoidCallback action) {
+    _t?.cancel();
+    _t = Timer(delay, action);
   }
+  void dispose() => _t?.cancel();
 }
 
 // VALIDATION
-class ValidationUtils {
-  static final _uRgx = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$');
-  static final _tRgx = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$');
+// VALIDATION
+final _uRgx = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$');
+final _tRgx = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$');
 
-  static String? validateUsername(String? v) {
-    if (v == null || v.trim().isEmpty) return 'Required';
-    if (v.length > 39) return 'Too long';
-    if (v.contains('--') || !_uRgx.hasMatch(v)) return 'Invalid format';
-    return null;
-  }
-  static String? validateToken(String? v) => (v == null || !_tRgx.hasMatch(v.trim())) ? 'Invalid token' : null;
-  static String? validateQuote(String? v) => (v!=null && v.length>200) ? 'Too long' : null;
+String? isValidUsernameFormat(String? v) {
+  if (v == null || v.trim().isEmpty) return 'Required';
+  if (v.length > 39) return 'Too long';
+  if (v.contains('--') || !_uRgx.hasMatch(v)) return 'Invalid format';
+  return null;
 }
+String? isValidTokenFormat(String? v) => (v == null || !_tRgx.hasMatch(v.trim())) ? 'Invalid token' : null;
+String? isValidQuoteFormat(String? v) => (v!=null && v.length>200) ? 'Too long' : null;
 
-// DATE UTILS
-class AppDateUtils { 
-  static DateTime get nowUtc => DateTime.now().toUtc();
-  static DateTime get nowLocal => DateTime.now();
-  static DateTime toDateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-  static DateTime toDateOnlyLocal(DateTime d) => DateTime(d.year, d.month, d.day);
-  static DateTime toDateOnlyUtc(DateTime d) { final u = d.toUtc(); return DateTime.utc(u.year, u.month, u.day); }
-  static String toIsoDateString(DateTime d) => '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
-  static bool isSameDay(DateTime a, DateTime b) => a.year==b.year && a.month==b.month && a.day==b.day;
-  static int daysInMonth(int y, int m) => DateTime(y, m+1, 0).day;
-  
-  static DateTime? parseIsoDate(String? s) {
-    if (s == null) return null;
-    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(s);
-    return m != null ? DateTime.utc(int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!)) : DateTime.tryParse(s)?.toUtc();
-  }
-}
+
 
 // CONSTANTS & STRINGS
 class AppStrings {
@@ -124,7 +118,7 @@ class AppStrings {
   static const developer = 'DEVELOPED BY';
   static const developerName = 'Adelli Rahulreddy';
   static const developerTagline = 'Building tools for developers';
-  static const appVersion = '1.0.1';
+  static const appVersion = '1.0.2';
 }
 
 class AppConstants {

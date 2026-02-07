@@ -1,15 +1,10 @@
-// ══════════════════════════════════════════════════════════════════════════
-// 🧭 MAIN NAVIGATION PAGE - Shell for Home, Customize, Settings
-// ══════════════════════════════════════════════════════════════════════════
-
 import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_models.dart';
 import 'package:github_wallpaper/app_utils.dart';
+import 'package:github_wallpaper/app_theme.dart';
 
-// Import sub-pages
 import 'home_page.dart';
 import 'customize_page.dart';
 import 'settings_page.dart';
@@ -47,19 +42,15 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _checkAutoUpdate();
-    }
+    if (state == AppLifecycleState.resumed) _checkAutoUpdate();
   }
 
   Future<void> _checkAutoUpdate() async {
     if (!mounted) return;
 
-    // Re-save device dimensions (may have changed on rotate/resize)
     await AppConfig.initializeFromPlatformDispatcher();
     if (!mounted) return;
 
-    // Refresh data if needed when app resumes
     if (!StorageService.getAutoUpdate()) return;
     final lastUpdate = StorageService.getLastUpdate();
     if (lastUpdate != null) {
@@ -71,7 +62,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
   }
 
   Future<void> _loadData() async {
-    if (_isLoading) return; // Prevent race conditions
+    if (_isLoading) return;
 
     setState(() {
       _isLoading = true;
@@ -79,11 +70,9 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     });
 
     try {
-      // 1. Try to load from cache
       final cached = StorageService.getCachedData();
 
       if (cached != null) {
-        // Check if cache is "complete" (has at least 3 months of data)
         if (cached.days.length < AppConstants.minCachedContributionDays) {
           await _syncData(force: true);
         } else {
@@ -124,9 +113,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
 
     setState(() {
       _isLoading = true;
-      if (!silent) {
-        _loadError = null;
-      }
+      if (!silent) _loadError = null;
     });
 
     try {
@@ -137,9 +124,10 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         throw Exception('Credentials missing. Please login again.');
       }
 
-      final newData = await GitHubService.fetchContributions(
+      final newData = await GitHubService.getContributions(
         username: username,
         token: token,
+        forceRefresh: force,
       );
 
       await StorageService.setCachedData(newData);
@@ -163,9 +151,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
             _isLoading = false;
           });
         } else {
-          setState(() {
-            _isLoading = false;
-          });
+          setState(() => _isLoading = false);
         }
       }
     }
@@ -177,7 +163,6 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     try {
       final config = StorageService.getWallpaperConfig();
 
-      // Convert string to WallpaperTarget enum
       WallpaperTarget targetEnum;
       switch (target) {
         case 'home':
@@ -191,10 +176,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
       }
 
       await WallpaperService.generateAndSetWallpaper(
-        data: _data!,
-        config: config,
-        target: targetEnum,
-      );
+          data: _data!, config: config, target: targetEnum);
 
       if (mounted) {
         if (Platform.isAndroid) {
@@ -205,62 +187,57 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      if (mounted) {
-        ErrorHandler.handle(context, e);
-      }
+      if (mounted) ErrorHandler.handle(context, e);
     }
   }
 
   void _onItemTapped(int index) {
-    setState(() {
-      _selectedIndex = index;
-    });
+    setState(() => _selectedIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    // Screens
-    final List<Widget> screens = [
+    final cs = context.colors;
+
+    final screens = [
       HomePage(
-        data: _data,
-        isLoading: _isLoading,
-        loadError: _loadError,
-        onRefresh: () => _syncData(silent: false),
-      ),
+          data: _data,
+          isLoading: _isLoading,
+          loadError: _loadError,
+          onRefresh: () => _syncData(silent: false)),
       CustomizePage(
-        data: _data,
-        onSetWallpaper: _handleSetWallpaper,
-        onRequestSync: _requestSyncFromCustomize,
-      ),
+          data: _data,
+          onSetWallpaper: _handleSetWallpaper,
+          onRequestSync: _requestSyncFromCustomize),
       const SettingsPage(),
     ];
 
     return Scaffold(
-      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: SafeArea(
-        child: IndexedStack(
-          index: _selectedIndex,
-          children: screens,
-        ),
-      ),
+          child: IndexedStack(index: _selectedIndex, children: screens)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,
+        backgroundColor: cs.surface,
+        indicatorColor: cs.primary.withValues(alpha: 0.12),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
           NavigationDestination(
-            icon: const Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard, color: scheme.primary),
+            icon: Icon(Icons.dashboard_outlined, size: 24),
+            selectedIcon:
+                Icon(Icons.dashboard_rounded, color: cs.primary, size: 24),
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: const Icon(Icons.palette_outlined),
-            selectedIcon: Icon(Icons.palette, color: scheme.primary),
+            icon: Icon(Icons.palette_outlined, size: 24),
+            selectedIcon:
+                Icon(Icons.palette_rounded, color: cs.primary, size: 24),
             label: 'Customize',
           ),
           NavigationDestination(
-            icon: const Icon(Icons.settings_outlined),
-            selectedIcon: Icon(Icons.settings, color: scheme.primary),
+            icon: Icon(Icons.settings_outlined, size: 24),
+            selectedIcon:
+                Icon(Icons.settings_rounded, color: cs.primary, size: 24),
             label: 'Settings',
           ),
         ],
