@@ -14,6 +14,7 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final _pc = PageController();
   int _page = 0;
+  bool _isNavigatingToSetup = false;
 
   @override
   void dispose() {
@@ -30,7 +31,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
   }
 
   void _navigateToSetup() {
-    Navigator.of(context).push(PageRouteBuilder(
+    if (!mounted || _isNavigatingToSetup) return;
+    _isNavigatingToSetup = true;
+
+    Navigator.of(context)
+        .pushReplacement(PageRouteBuilder(
       pageBuilder: (context, animation, secondaryAnimation) =>
           const SetupPage(),
       transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -45,7 +50,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
         );
       },
       transitionDuration: 800.ms,
-    ));
+    ))
+        .whenComplete(() {
+      if (mounted) {
+        _isNavigatingToSetup = false;
+      }
+    });
   }
 
   @override
@@ -112,7 +122,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                         fontWeight: FontWeight.w600,
                         fontSize: AppTheme.fontMedium)),
               ),
-            ).animate().fadeIn(),
+            ),
 
             // Bottom controls
             Positioned(
@@ -154,7 +164,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                               fontWeight: FontWeight.w700,
                               letterSpacing: 0.3)),
                     ),
-                  ).animate().slideY(begin: 0.2).fadeIn(),
+                  ),
                 ],
               ),
             ),
@@ -190,10 +200,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     spreadRadius: 10)
               ],
             ),
-          ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
-              begin: const Offset(1, 1),
-              end: const Offset(1.1, 1.1),
-              duration: 3.seconds),
+          ),
         ),
         if (!isDark) ...[
           _cloud(80, null, 120, null, 0),
@@ -224,9 +231,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     spreadRadius: 15)
               ],
             ),
-          )
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .scale(duration: 4.seconds),
+          ),
         ),
       ] else ...[
         Positioned(
@@ -246,9 +251,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     spreadRadius: 8)
               ],
             ),
-          )
-              .animate(onPlay: (c) => c.repeat(reverse: true))
-              .scale(duration: 3.seconds),
+          ),
         ),
         _star(100, 80, null, null, 3, 0),
         _star(150, null, 120, null, 2, 400),
@@ -281,10 +284,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 blurRadius: AppTheme.spacing8 / 2,
               )
             ]),
-      )
-          .animate(onPlay: (c) => c.repeat(reverse: true))
-          .fadeIn(delay: Duration(milliseconds: delay), duration: 1.5.seconds)
-          .fadeOut(duration: 1.5.seconds),
+      ),
     );
   }
 
@@ -302,11 +302,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
             color:
                 Theme.of(context).colorScheme.surface.withValues(alpha: 0.32),
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
-      ).animate(onPlay: (c) => c.repeat()).slideX(
-          begin: 0,
-          end: 2,
-          delay: Duration(milliseconds: delay),
-          duration: 20.seconds),
+      ),
     );
   }
 }
@@ -337,29 +333,20 @@ class _Slide extends StatelessWidget {
               children: [
                 const SizedBox(height: AppTheme.spacing60 + AppTheme.spacing20),
                 Text(title,
-                        style: TextStyle(
-                            fontSize: AppTheme.fontDisplay + AppTheme.spacing8,
-                            fontWeight: FontWeight.w900,
-                            color:
-                                isDark ? AppTheme.darkText : AppTheme.lightText,
-                            height: 1.1,
-                            letterSpacing: -1.5))
-                    .animate()
-                    .fadeIn(duration: 600.ms)
-                    .slideX(begin: -0.2),
+                    style: TextStyle(
+                        fontSize: AppTheme.fontDisplay + AppTheme.spacing8,
+                        fontWeight: FontWeight.w900,
+                        color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                        height: 1.1,
+                        letterSpacing: -1.5)),
                 const SizedBox(height: AppTheme.spacing20),
                 Text(subtitle,
-                        style: TextStyle(
-                            fontSize: AppTheme.fontLarge,
-                            color: (isDark
-                                    ? AppTheme.darkText
-                                    : AppTheme.lightText)
-                                .withValues(alpha: 0.7),
-                            height: 1.5,
-                            fontWeight: FontWeight.w500))
-                    .animate()
-                    .fadeIn(delay: 200.ms, duration: 600.ms)
-                    .slideX(begin: -0.2),
+                    style: TextStyle(
+                        fontSize: AppTheme.fontLarge,
+                        color: (isDark ? AppTheme.darkText : AppTheme.lightText)
+                            .withValues(alpha: 0.7),
+                        height: 1.5,
+                        fontWeight: FontWeight.w500)),
                 const SizedBox(height: AppTheme.spacing40),
                 Expanded(
                   child: Center(child: content),
@@ -426,18 +413,14 @@ class _ContributionDemo extends StatelessWidget {
                         color: colors[level],
                         borderRadius:
                             BorderRadius.circular(AppTheme.radiusSmall / 2)),
-                  ).animate().scale(
-                      begin: const Offset(0, 0),
-                      delay: Duration(milliseconds: (r * 12 + c) * 20),
-                      duration: 400.ms,
-                      curve: Curves.easeOutBack),
+                  ),
                 );
               }),
             ),
           ),
         ),
       ),
-    ).animate().fadeIn(delay: 400.ms).scale(begin: const Offset(0.9, 0.9));
+    );
   }
 }
 
@@ -463,13 +446,7 @@ class _SyncDemo extends StatelessWidget {
                   color: accent.withValues(alpha: 0.2 - (i * 0.04)),
                   width: 1.5),
             ),
-          )
-              .animate(onPlay: (c) => c.repeat())
-              .fadeIn(
-                  delay: Duration(milliseconds: i * 300), duration: 1.seconds)
-              .fadeOut(
-                  delay: Duration(milliseconds: 1000 + i * 300),
-                  duration: 1.seconds),
+          ),
         ),
 
         // Center icon
@@ -479,15 +456,7 @@ class _SyncDemo extends StatelessWidget {
           decoration: BoxDecoration(
               color: accent.withValues(alpha: 0.2), shape: BoxShape.circle),
           child: Icon(Icons.sync_rounded, size: 48, color: accent),
-        )
-            .animate(onPlay: (c) => c.repeat(reverse: true))
-            .scale(
-                begin: const Offset(1, 1),
-                end: const Offset(1.15, 1.15),
-                duration: 2.seconds,
-                curve: Curves.easeInOut)
-            .then()
-            .rotate(duration: 3.seconds),
+        ),
       ],
     );
   }
@@ -569,9 +538,6 @@ class _CustomizeDemo extends StatelessWidget {
               color: onGradient.withValues(alpha: 0.8), size: 18),
         ],
       ),
-    )
-        .animate()
-        .slideX(begin: 0.3, delay: Duration(milliseconds: delay))
-        .fadeIn(delay: Duration(milliseconds: delay));
+    );
   }
 }

@@ -15,6 +15,8 @@ import 'pages/onboarding_page.dart';
 import 'pages/main_nav_page.dart';
 import 'pages/splash_screen.dart';
 
+final messengerKey = GlobalKey<ScaffoldMessengerState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -37,6 +39,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: messengerKey,
       title: AppStrings.appName,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),

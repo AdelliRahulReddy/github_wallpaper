@@ -13,7 +13,7 @@ import 'dart:io';
 
 class CustomizePage extends StatefulWidget {
   final CachedContributionData? data;
-  final Function(String) onSetWallpaper;
+  final Future<bool> Function(String) onSetWallpaper;
   final VoidCallback? onRequestSync;
 
   const CustomizePage({
@@ -166,10 +166,6 @@ class _CustomizePageState extends State<CustomizePage> {
     try {
       await StorageService.saveWallpaperConfig(_config);
       await widget.onSetWallpaper(target);
-
-      if (mounted) {
-        ErrorHandler.showSuccess(context, 'Wallpaper updated successfully!');
-      }
     } catch (e) {
       if (mounted) {
         ErrorHandler.handle(context, e);
@@ -195,14 +191,14 @@ class _CustomizePageState extends State<CustomizePage> {
     final media = MediaQuery.of(context);
     final isLandscape = media.orientation == Orientation.landscape;
     final textScale = media.textScaler.scale(1.0);
-    final previewFlex = textScale > 1.2 ? 5 : 6;
-    final controlsFlex = textScale > 1.2 ? 7 : 6;
+    final previewFlex = textScale > 1.2 ? 6 : 7;
+    final controlsFlex = textScale > 1.2 ? 6 : 5;
 
     final previewPanel = Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(
         horizontal: AppTheme.spacing20,
-        vertical: AppTheme.spacing16,
+        vertical: AppTheme.spacing12,
       ),
       decoration: BoxDecoration(
         color: scheme.surface,
@@ -364,10 +360,9 @@ class _CustomizePageState extends State<CustomizePage> {
         final maxW = constraints.maxWidth;
         final maxH = constraints.maxHeight;
 
-        // Reserve space for text info, but allow scrolling if needed
-        // Increased infoHeight buffer from 60 to 120 to be safer
-        final infoHeight = 120.0;
-        final previewMaxHeight = (maxH - infoHeight).clamp(120.0, maxH);
+        // Keep metadata compact so preview occupies more of the top panel.
+        final infoHeight = 68.0;
+        final previewMaxHeight = (maxH - infoHeight).clamp(160.0, maxH);
 
         double previewHeight = previewMaxHeight;
         double previewWidth = previewHeight * wallpaperAspectRatio;
@@ -425,7 +420,7 @@ class _CustomizePageState extends State<CustomizePage> {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Preview for $_deviceName',
                 style: TextStyle(
@@ -435,7 +430,7 @@ class _CustomizePageState extends State<CustomizePage> {
                 ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 'Wallpaper: ${physicalWidth}x${physicalHeight}px',
                 style: TextStyle(
@@ -469,6 +464,46 @@ class _CustomizePageState extends State<CustomizePage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Text(
+                  'Auto Fit Width',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontBase,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
+                ),
+              ),
+              Switch(
+                value: _config.autoFitWidth,
+                activeThumbColor: scheme.primary,
+                onChanged: (value) {
+                  _updateConfig(_config.copyWith(autoFitWidth: value));
+                },
+              ),
+            ],
+          ),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: _fitToWidth,
+              icon: const Icon(Icons.fit_screen, size: 16),
+              label: const Text(
+                'Auto Fix for Device',
+                style: TextStyle(fontSize: AppTheme.fontBody),
+              ),
+              style: TextButton.styleFrom(
+                padding: EdgeInsets.zero,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppTheme.spacing16),
+          const Divider(),
+          const SizedBox(height: AppTheme.spacing16),
           Text(
             'Text Overlay',
             style: TextStyle(
@@ -522,9 +557,6 @@ class _CustomizePageState extends State<CustomizePage> {
               },
             ),
           ],
-          const SizedBox(height: AppTheme.spacing24),
-          const Divider(),
-          const SizedBox(height: AppTheme.spacing24),
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
@@ -538,41 +570,9 @@ class _CustomizePageState extends State<CustomizePage> {
                   ),
                 ),
               ),
-              TextButton.icon(
-                onPressed: _fitToWidth,
-                icon: const Icon(Icons.fit_screen, size: 16),
-                label: const Text('Fit Width',
-                    style: TextStyle(fontSize: AppTheme.fontBody)),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
             ],
           ),
           const SizedBox(height: 8),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Expanded(
-                child: Text(
-                  'Auto Fit Width',
-                  style: TextStyle(
-                    fontSize: AppTheme.fontBase,
-                    fontWeight: FontWeight.w600,
-                    color: scheme.onSurface,
-                  ),
-                ),
-              ),
-              Switch(
-                value: _config.autoFitWidth,
-                activeThumbColor: scheme.primary,
-                onChanged: (value) {
-                  _updateConfig(_config.copyWith(autoFitWidth: value));
-                },
-              ),
-            ],
-          ),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
               activeTrackColor: scheme.primary,

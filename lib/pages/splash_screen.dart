@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_animate/flutter_animate.dart';
 import '../app_theme.dart';
 import '../app_utils.dart';
 
@@ -50,10 +49,7 @@ class SplashScreen extends StatelessWidget {
                         boxShadow: AppTheme.shadow(accent, opacity: 0.1),
                       ),
                       child: _ContributionGraph(isDark: isDark, accent: accent),
-                    ).animate().fadeIn(duration: 600.ms).scale(
-                        begin: const Offset(0.85, 0.85),
-                        curve: Curves.easeOutBack,
-                        duration: 800.ms),
+                    ),
 
                     const SizedBox(height: 40),
 
@@ -69,24 +65,19 @@ class SplashScreen extends StatelessWidget {
                               color: AppTheme.lightSurface,
                               letterSpacing: -1,
                               height: 1.1)),
-                    )
-                        .animate()
-                        .fadeIn(delay: 300.ms, duration: 600.ms)
-                        .slideY(begin: 0.3, end: 0),
+                    ),
 
                     const SizedBox(height: 12),
 
                     Text(AppStrings.appTagline,
-                            style: TextStyle(
-                                color: (isDark
-                                        ? AppTheme.darkText
-                                        : AppTheme.lightText)
-                                    .withValues(alpha: 0.7),
-                                fontSize: AppTheme.fontMedium,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.2))
-                        .animate()
-                        .fadeIn(delay: 500.ms, duration: 600.ms),
+                        style: TextStyle(
+                            color: (isDark
+                                    ? AppTheme.darkText
+                                    : AppTheme.lightText)
+                                .withValues(alpha: 0.7),
+                            fontSize: AppTheme.fontMedium,
+                            fontWeight: FontWeight.w500,
+                            letterSpacing: 0.2)),
 
                     const SizedBox(height: 60),
 
@@ -95,28 +86,21 @@ class SplashScreen extends StatelessWidget {
                       Column(
                         children: [
                           SizedBox(
-                                  width: 28,
-                                  height: 28,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 3,
-                                      valueColor:
-                                          AlwaysStoppedAnimation(accent)))
-                              .animate(onPlay: (c) => c.repeat())
-                              .fadeIn(duration: 800.ms)
-                              .fadeOut(delay: 800.ms, duration: 800.ms),
+                              width: 28,
+                              height: 28,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  valueColor: AlwaysStoppedAnimation(accent))),
                           const SizedBox(height: 20),
                           Text(_status(progress),
-                                  style: TextStyle(
-                                      color: (isDark
-                                              ? AppTheme.darkText
-                                              : AppTheme.lightText)
-                                          .withValues(alpha: 0.7),
-                                      fontSize: AppTheme.fontBody,
-                                      fontWeight: FontWeight.w600,
-                                      letterSpacing: 0.3))
-                              .animate(onPlay: (c) => c.repeat())
-                              .fadeIn(duration: 1.2.seconds)
-                              .fadeOut(delay: 1.2.seconds, duration: 800.ms),
+                              style: TextStyle(
+                                  color: (isDark
+                                          ? AppTheme.darkText
+                                          : AppTheme.lightText)
+                                      .withValues(alpha: 0.7),
+                                  fontSize: AppTheme.fontBody,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.3)),
                         ],
                       )
                     else
@@ -128,13 +112,10 @@ class SplashScreen extends StatelessWidget {
               // Progress
               if (error == null)
                 Positioned(
-                        bottom: 60,
-                        left: 48,
-                        right: 48,
-                        child:
-                            _buildProgress(context, progress, accent, isDark))
-                    .animate()
-                    .fadeIn(delay: 700.ms),
+                    bottom: 60,
+                    left: 48,
+                    right: 48,
+                    child: _buildProgress(context, progress, accent, isDark)),
 
               // Version
               Positioned(
@@ -149,7 +130,7 @@ class SplashScreen extends StatelessWidget {
                         fontSize: AppTheme.fontCaption,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.5)),
-              ).animate().fadeIn(delay: 1.seconds),
+              ),
             ],
           ),
         ),
@@ -209,10 +190,7 @@ class SplashScreen extends StatelessWidget {
           ),
         ],
       ),
-    )
-        .animate()
-        .fadeIn(duration: 400.ms)
-        .scale(begin: const Offset(0.9, 0.9), curve: Curves.easeOut);
+    );
   }
 
   Widget _buildProgress(
@@ -331,16 +309,7 @@ class _ContributionGraph extends StatelessWidget {
                       color: colors[pattern[r][c]],
                       borderRadius:
                           BorderRadius.circular(AppTheme.radiusSmall / 3)),
-                )
-                    .animate()
-                    .scale(
-                        begin: const Offset(0, 0),
-                        delay: Duration(milliseconds: (r * 9 + c) * 25),
-                        duration: 450.ms,
-                        curve: Curves.easeOutBack)
-                    .fadeIn(
-                        delay: Duration(milliseconds: (r * 9 + c) * 25),
-                        duration: 300.ms),
+                ),
               ),
             ),
           ),

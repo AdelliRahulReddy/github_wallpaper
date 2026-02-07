@@ -4,54 +4,98 @@ import 'app_utils.dart';
 import 'app_state.dart';
 
 int _toInt(dynamic v) => (v is num && v >= 0) ? v.toInt() : 0;
-String? _str(dynamic v) => (v is String && v.trim().isNotEmpty) ? v.trim() : null;
+String? _str(dynamic v) =>
+    (v is String && v.trim().isNotEmpty) ? v.trim() : null;
 String _name(dynamic v, String f) => _str(v) ?? f;
-double _dbl(dynamic v, double d, double min, double max) => ((v is num ? v.toDouble() : d).clamp(min, max)).toDouble();
+double _dbl(dynamic v, double d, double min, double max) =>
+    ((v is num ? v.toDouble() : d).clamp(min, max)).toDouble();
 DateTime? _parseDate(String? s) {
   if (s == null) return null;
   final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(s);
-  return m != null ? DateTime.utc(int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!)) : DateTime.tryParse(s)?.toUtc();
+  return m != null
+      ? DateTime.utc(int.parse(m.group(1)!), int.parse(m.group(2)!),
+          int.parse(m.group(3)!))
+      : DateTime.tryParse(s)?.toUtc();
 }
-String _dateStr(DateTime d) => '${d.year}-${d.month.toString().padLeft(2,'0')}-${d.day.toString().padLeft(2,'0')}';
+
+String _dateStr(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
 @immutable
 class ContributionDay {
   final DateTime date;
   final int contributionCount;
   final String? contributionLevel;
-  const ContributionDay({required this.date, required this.contributionCount, this.contributionLevel});
-  
+  const ContributionDay(
+      {required this.date,
+      required this.contributionCount,
+      this.contributionLevel});
+
   factory ContributionDay.fromJson(Map<String, dynamic> j) => ContributionDay(
-    date: _parseDate(j['date']) ?? DateTime.now(),
-    contributionCount: _toInt(j['contributionCount']),
-    contributionLevel: _str(j['contributionLevel']));
-  
-  Map<String, dynamic> toJson() => {'date': _dateStr(date), 'contributionCount': contributionCount, 'contributionLevel': contributionLevel};
-  
+      date: _parseDate(j['date']) ?? DateTime.now(),
+      contributionCount: _toInt(j['contributionCount']),
+      contributionLevel: _str(j['contributionLevel']));
+
+  Map<String, dynamic> toJson() => {
+        'date': _dateStr(date),
+        'contributionCount': contributionCount,
+        'contributionLevel': contributionLevel
+      };
+
   bool get isActive => contributionCount > 0;
   String get dateKey => _dateStr(date);
-  
+
   static int _lvl(String? l) {
-    switch(l) {
-      case 'FOURTH_QUARTILE': return 4;
-      case 'THIRD_QUARTILE': return 3;
-      case 'SECOND_QUARTILE': return 2;
-      case 'FIRST_QUARTILE': return 1;
-      default: return 0;
+    switch (l) {
+      case 'FOURTH_QUARTILE':
+        return 4;
+      case 'THIRD_QUARTILE':
+        return 3;
+      case 'SECOND_QUARTILE':
+        return 2;
+      case 'FIRST_QUARTILE':
+        return 1;
+      default:
+        return 0;
     }
   }
-  static String? strongestLevel(String? a, String? b) => _lvl(b) > _lvl(a) ? b : a;
+
+  static String? strongestLevel(String? a, String? b) =>
+      _lvl(b) > _lvl(a) ? b : a;
 }
 
 @immutable
 class ContributionStats {
-  final int currentStreak, longestStreak, todayContributions, activeDaysCount, peakDayContributions, totalContributions;
+  final int currentStreak,
+      longestStreak,
+      todayContributions,
+      activeDaysCount,
+      peakDayContributions,
+      totalContributions;
   final String mostActiveWeekday;
-  const ContributionStats({required this.currentStreak, required this.longestStreak, required this.todayContributions, required this.activeDaysCount, required this.peakDayContributions, required this.totalContributions, required this.mostActiveWeekday});
+  const ContributionStats(
+      {required this.currentStreak,
+      required this.longestStreak,
+      required this.todayContributions,
+      required this.activeDaysCount,
+      required this.peakDayContributions,
+      required this.totalContributions,
+      required this.mostActiveWeekday});
 
-  factory ContributionStats.fromDays(List<ContributionDay> days, {DateTime? nowUtc}) {
-    final s = ContributionAnalyzer.analyzeContributions(days, nowUtc: nowUtc, dateOf: (d) => d.date, countOf: (d) => d.contributionCount);
-    return ContributionStats(currentStreak: s['currentStreak'], longestStreak: s['longestStreak'], todayContributions: s['todayContributions'], activeDaysCount: s['activeDaysCount'], peakDayContributions: s['peakDayContributions'], totalContributions: s['totalContributions'], mostActiveWeekday: s['mostActiveWeekday']);
+  factory ContributionStats.fromDays(List<ContributionDay> days,
+      {DateTime? nowUtc}) {
+    final s = ContributionAnalyzer.analyzeContributions(days,
+        nowUtc: nowUtc,
+        dateOf: (d) => d.date,
+        countOf: (d) => d.contributionCount);
+    return ContributionStats(
+        currentStreak: s['currentStreak'],
+        longestStreak: s['longestStreak'],
+        todayContributions: s['todayContributions'],
+        activeDaysCount: s['activeDaysCount'],
+        peakDayContributions: s['peakDayContributions'],
+        totalContributions: s['totalContributions'],
+        mostActiveWeekday: s['mostActiveWeekday']);
   }
 }
 
@@ -61,7 +105,11 @@ class RepoLanguageSlice {
   final String? color;
   final int size;
   const RepoLanguageSlice({required this.name, this.color, required this.size});
-  factory RepoLanguageSlice.fromJson(Map<String, dynamic> j) => RepoLanguageSlice(name: _name(j['name'], 'Unknown'), color: j['color'], size: _toInt(j['size']));
+  factory RepoLanguageSlice.fromJson(Map<String, dynamic> j) =>
+      RepoLanguageSlice(
+          name: _name(j['name'], 'Unknown'),
+          color: j['color'],
+          size: _toInt(j['size']));
   Map<String, dynamic> toJson() => {'name': name, 'color': color, 'size': size};
 }
 
@@ -73,15 +121,37 @@ class RepoContribution {
   final int commitCount;
   final String? primaryLanguageName, primaryLanguageColor;
   final List<RepoLanguageSlice> languages;
-  
-  const RepoContribution({required this.nameWithOwner, this.url, required this.isPrivate, required this.commitCount, this.primaryLanguageName, this.primaryLanguageColor, required this.languages});
-  
-  factory RepoContribution.fromJson(Map<String, dynamic> j) => RepoContribution(
-    nameWithOwner: _name(j['nameWithOwner'], 'unknown/unknown'), url: j['url'], isPrivate: j['isPrivate'] ?? false, commitCount: _toInt(j['commitCount']),
-    primaryLanguageName: _str(j['primaryLanguageName']), primaryLanguageColor: j['primaryLanguageColor'],
-    languages: (j['languages'] as List? ?? []).map((e) => RepoLanguageSlice.fromJson(e)).where((e) => e.name != 'Unknown').toList());
 
-  Map<String, dynamic> toJson() => {'nameWithOwner': nameWithOwner, 'url': url, 'isPrivate': isPrivate, 'commitCount': commitCount, 'primaryLanguageName': primaryLanguageName, 'primaryLanguageColor': primaryLanguageColor, 'languages': languages.map((l) => l.toJson()).toList()};
+  const RepoContribution(
+      {required this.nameWithOwner,
+      this.url,
+      required this.isPrivate,
+      required this.commitCount,
+      this.primaryLanguageName,
+      this.primaryLanguageColor,
+      required this.languages});
+
+  factory RepoContribution.fromJson(Map<String, dynamic> j) => RepoContribution(
+      nameWithOwner: _name(j['nameWithOwner'], 'unknown/unknown'),
+      url: j['url'],
+      isPrivate: j['isPrivate'] ?? false,
+      commitCount: _toInt(j['commitCount']),
+      primaryLanguageName: _str(j['primaryLanguageName']),
+      primaryLanguageColor: j['primaryLanguageColor'],
+      languages: (j['languages'] as List? ?? [])
+          .map((e) => RepoLanguageSlice.fromJson(e))
+          .where((e) => e.name != 'Unknown')
+          .toList());
+
+  Map<String, dynamic> toJson() => {
+        'nameWithOwner': nameWithOwner,
+        'url': url,
+        'isPrivate': isPrivate,
+        'commitCount': commitCount,
+        'primaryLanguageName': primaryLanguageName,
+        'primaryLanguageColor': primaryLanguageColor,
+        'languages': languages.map((l) => l.toJson()).toList()
+      };
 }
 
 @immutable
@@ -89,14 +159,24 @@ class LanguageUsage {
   final String name;
   final String? color;
   final double score, percent;
-  const LanguageUsage({required this.name, this.color, required this.score, required this.percent});
-  factory LanguageUsage.fromJson(Map<String, dynamic> j) => LanguageUsage(name: _name(j['name'], 'Unknown'), color: j['color'], score: (j['score'] as num?)?.toDouble() ?? 0, percent: (j['percent'] as num?)?.toDouble() ?? 0);
-  Map<String, dynamic> toJson() => {'name': name, 'color': color, 'score': score, 'percent': percent};
+  const LanguageUsage(
+      {required this.name,
+      this.color,
+      required this.score,
+      required this.percent});
+  factory LanguageUsage.fromJson(Map<String, dynamic> j) => LanguageUsage(
+      name: _name(j['name'], 'Unknown'),
+      color: j['color'],
+      score: (j['score'] as num?)?.toDouble() ?? 0,
+      percent: (j['percent'] as num?)?.toDouble() ?? 0);
+  Map<String, dynamic> toJson() =>
+      {'name': name, 'color': color, 'score': score, 'percent': percent};
 }
 
 @immutable
 class CachedContributionData {
   final String username;
+  final String? avatarUrl;
   final int totalContributions;
   final List<ContributionDay> days;
   final DateTime lastUpdated;
@@ -106,17 +186,42 @@ class CachedContributionData {
   final List<LanguageUsage> topLanguages;
   final Map<String, ContributionDay> _cache;
 
-  CachedContributionData._(this.username, this.totalContributions, this.days, this.lastUpdated, this.stats, this.quartiles, this.repositories, this.topLanguages) 
+  CachedContributionData._(
+      this.username,
+      this.avatarUrl,
+      this.totalContributions,
+      this.days,
+      this.lastUpdated,
+      this.stats,
+      this.quartiles,
+      this.repositories,
+      this.topLanguages)
       : _cache = {for (var d in days) d.dateKey: d};
 
-  factory CachedContributionData({required String username, required int totalContributions, required List<ContributionDay> days, required DateTime lastUpdated, ContributionStats? stats, Quartiles? quartiles, List<RepoContribution>? repositories, List<LanguageUsage>? topLanguages}) {
+  factory CachedContributionData(
+      {required String username,
+      String? avatarUrl,
+      required int totalContributions,
+      required List<ContributionDay> days,
+      required DateTime lastUpdated,
+      ContributionStats? stats,
+      Quartiles? quartiles,
+      List<RepoContribution>? repositories,
+      List<LanguageUsage>? topLanguages}) {
     final norm = _merge(days);
     final total = norm.fold(0, (s, d) => s + d.contributionCount);
-    return CachedContributionData._(username.trim(), total, norm, lastUpdated.toUtc(), 
-        stats ?? ContributionStats.fromDays(norm), 
-        quartiles ?? RenderUtils.calculateQuartiles(norm.map((d) => d.contributionCount).toList()),
-        List.unmodifiable(repositories ?? []), 
-        List.unmodifiable(topLanguages ?? _calcLangs(repositories ?? [])),
+    return CachedContributionData._(
+      username.trim(),
+      avatarUrl,
+      total,
+      norm,
+      lastUpdated.toUtc(),
+      stats ?? ContributionStats.fromDays(norm),
+      quartiles ??
+          RenderUtils.calculateQuartiles(
+              norm.map((d) => d.contributionCount).toList()),
+      List.unmodifiable(repositories ?? []),
+      List.unmodifiable(topLanguages ?? _calcLangs(repositories ?? [])),
     );
   }
 
@@ -125,49 +230,94 @@ class CachedContributionData {
     for (var d in r) {
       final k = d.dateKey;
       ContributionDay? e = m[k];
-      m[k] = e == null ? d : ContributionDay(date: e.date, contributionCount: e.contributionCount + d.contributionCount, contributionLevel: ContributionDay.strongestLevel(e.contributionLevel, d.contributionLevel));
+      m[k] = e == null
+          ? d
+          : ContributionDay(
+              date: e.date,
+              contributionCount: e.contributionCount + d.contributionCount,
+              contributionLevel: ContributionDay.strongestLevel(
+                  e.contributionLevel, d.contributionLevel));
     }
     return m.values.toList()..sort((a, b) => a.date.compareTo(b.date));
   }
-  
+
   static List<LanguageUsage> _calcLangs(List<RepoContribution> repos) {
-    final t = <String, double>{}; final c = <String, String?>{};
+    final t = <String, double>{};
+    final c = <String, String?>{};
     for (var r in repos) {
-       if(r.commitCount<=0) continue;
-       final sz = r.languages.fold(0, (s,l)=>s+l.size);
-       if(sz > 0) {
-         for(var l in r.languages) { t[l.name]=(t[l.name]??0) + (r.commitCount * l.size/sz); c[l.name]??=l.color; }
-       } else if(r.primaryLanguageName!=null) {
-         t[r.primaryLanguageName!]=(t[r.primaryLanguageName!]??0)+r.commitCount; c[r.primaryLanguageName!]??=r.primaryLanguageColor;
-       }
+      if (r.commitCount <= 0) continue;
+      final sz = r.languages.fold(0, (s, l) => s + l.size);
+      if (sz > 0) {
+        for (var l in r.languages) {
+          t[l.name] = (t[l.name] ?? 0) + (r.commitCount * l.size / sz);
+          c[l.name] ??= l.color;
+        }
+      } else if (r.primaryLanguageName != null) {
+        t[r.primaryLanguageName!] =
+            (t[r.primaryLanguageName!] ?? 0) + r.commitCount;
+        c[r.primaryLanguageName!] ??= r.primaryLanguageColor;
+      }
     }
-    final tot = t.values.fold(0.0,(a,b)=>a+b);
-    final s = t.entries.toList()..sort((a,b)=>b.value.compareTo(a.value));
+    final tot = t.values.fold(0.0, (a, b) => a + b);
+    final s = t.entries.toList()..sort((a, b) => b.value.compareTo(a.value));
     final res = <LanguageUsage>[];
-    for(var e in s.take(7)) {
-      res.add(LanguageUsage(name: e.key, color: c[e.key], score: e.value, percent: tot>0?e.value/tot:0));
+    for (var e in s.take(7)) {
+      res.add(LanguageUsage(
+          name: e.key,
+          color: c[e.key],
+          score: e.value,
+          percent: tot > 0 ? e.value / tot : 0));
     }
-    if(s.length>7) { final rest = s.skip(7).fold(0.0,(x,e)=>x+e.value); if(rest>0) res.add(LanguageUsage(name: 'Other', color: null, score: rest, percent: tot>0?rest/tot:0)); }
+    if (s.length > 7) {
+      final rest = s.skip(7).fold(0.0, (x, e) => x + e.value);
+      if (rest > 0) {
+        res.add(LanguageUsage(
+            name: 'Other',
+            color: null,
+            score: rest,
+            percent: tot > 0 ? rest / tot : 0));
+      }
+    }
     return res;
   }
 
-  factory CachedContributionData.fromJson(Map<String, dynamic> j) => CachedContributionData(
-    username: _str(j['username']) ?? '',
-    totalContributions: _toInt(j['totalContributions']),
-    days: (j['days'] as List).map((d) => ContributionDay.fromJson(d)).toList(),
-    lastUpdated: DateTime.tryParse(j['lastUpdated']??'')?.toUtc() ?? DateTime.now().toUtc(),
-    repositories: (j['repositories'] as List?)?.map((r) => RepoContribution.fromJson(r)).toList(),
-    topLanguages: (j['topLanguages'] as List?)?.map((l) => LanguageUsage.fromJson(l)).toList(),
-  );
+  factory CachedContributionData.fromJson(Map<String, dynamic> j) =>
+      CachedContributionData(
+        username: _str(j['username']) ?? '',
+        avatarUrl: _str(j['avatarUrl']),
+        totalContributions: _toInt(j['totalContributions']),
+        days: (j['days'] as List)
+            .map((d) => ContributionDay.fromJson(d))
+            .toList(),
+        lastUpdated: DateTime.tryParse(j['lastUpdated'] ?? '')?.toUtc() ??
+            DateTime.now().toUtc(),
+        repositories: (j['repositories'] as List?)
+            ?.map((r) => RepoContribution.fromJson(r))
+            .toList(),
+        topLanguages: (j['topLanguages'] as List?)
+            ?.map((l) => LanguageUsage.fromJson(l))
+            .toList(),
+      );
 
   Map<String, dynamic> toJson() => {
-    'username': username, 'totalContributions': totalContributions, 'days': days.map((d) => d.toJson()).toList(),
-    'lastUpdated': lastUpdated.toIso8601String(), 'repositories': repositories.map((r) => r.toJson()).toList(), 'topLanguages': topLanguages.map((l) => l.toJson()).toList(),
-  };
+        'username': username,
+        'avatarUrl': avatarUrl,
+        'totalContributions': totalContributions,
+        'days': days.map((d) => d.toJson()).toList(),
+        'lastUpdated': lastUpdated.toIso8601String(),
+        'repositories': repositories.map((r) => r.toJson()).toList(),
+        'topLanguages': topLanguages.map((l) => l.toJson()).toList(),
+      };
 
-  int getContributionsForDate(DateTime d) => _cache[_dateStr(d)]?.contributionCount ?? 0;
-  bool isStale([Duration? t, DateTime? n]) => (n??DateTime.now()).toUtc().difference(lastUpdated).compareTo(t ?? const Duration(hours: 6)) > 0;
-  
+  int getContributionsForDate(DateTime d) =>
+      _cache[_dateStr(d)]?.contributionCount ?? 0;
+  bool isStale([Duration? t, DateTime? n]) =>
+      (n ?? DateTime.now())
+          .toUtc()
+          .difference(lastUpdated)
+          .compareTo(t ?? const Duration(hours: 6)) >
+      0;
+
   // Getters
   int get currentStreak => stats.currentStreak;
   int get longestStreak => stats.longestStreak;
@@ -176,65 +326,149 @@ class CachedContributionData {
   int get peakDay => stats.peakDayContributions;
   String get mostActiveWeekday => stats.mostActiveWeekday;
   bool get hasContributedToday => stats.todayContributions > 0;
-  int get activeRepositoriesCount => repositories.where((r) => r.commitCount > 0).length;
-  double get averagePerActiveDay => activeDaysCount == 0 ? 0 : totalContributions / activeDaysCount;
+  int get activeRepositoriesCount =>
+      repositories.where((r) => r.commitCount > 0).length;
+  double get averagePerActiveDay =>
+      activeDaysCount == 0 ? 0 : totalContributions / activeDaysCount;
 }
 
 @immutable
 class WallpaperConfig {
   final bool isDarkMode, autoFitWidth;
-  final double verticalPosition, horizontalPosition, scale, opacity, quoteFontSize, quoteOpacity, cornerRadius;
+  final double verticalPosition,
+      horizontalPosition,
+      scale,
+      opacity,
+      quoteFontSize,
+      quoteOpacity,
+      cornerRadius;
   final double paddingTop, paddingBottom, paddingLeft, paddingRight;
   final String customQuote;
 
   const WallpaperConfig({
-    this.isDarkMode = false, this.verticalPosition = 0.5, this.horizontalPosition = 0.5,
-    this.scale = 0.7, this.autoFitWidth = true, this.opacity = 1.0, this.customQuote = '',
-    this.quoteFontSize = 14.0, this.quoteOpacity = 1.0, this.cornerRadius = 2.0,
-    this.paddingTop = 0, this.paddingBottom = 0, this.paddingLeft = 0, this.paddingRight = 0,
+    this.isDarkMode = false,
+    this.verticalPosition = 0.5,
+    this.horizontalPosition = 0.5,
+    this.scale = 0.7,
+    this.autoFitWidth = true,
+    this.opacity = 1.0,
+    this.customQuote = '',
+    this.quoteFontSize = 14.0,
+    this.quoteOpacity = 1.0,
+    this.cornerRadius = 2.0,
+    this.paddingTop = 0,
+    this.paddingBottom = 0,
+    this.paddingLeft = 0,
+    this.paddingRight = 0,
   });
 
   factory WallpaperConfig.defaults() => const WallpaperConfig();
-  
+
   factory WallpaperConfig.fromJson(Map<String, dynamic> j) => WallpaperConfig(
-    isDarkMode: j['isDarkMode'] == true,
-    verticalPosition: _dbl(j['verticalPosition'], 0.5, 0, 1),
-    horizontalPosition: _dbl(j['horizontalPosition'], 0.5, 0, 1),
-    scale: _dbl(j['scale'], 0.7, 0.5, 8.0),
-    autoFitWidth: j['autoFitWidth'] != false,
-    opacity: _dbl(j['opacity'], 1.0, 0, 1),
-    customQuote: _str(j['customQuote'])?.substring(0, (_str(j['customQuote'])!.length < 200 ? _str(j['customQuote'])!.length : 200)) ?? '',
-    quoteFontSize: _dbl(j['quoteFontSize'], 14, 10, 40),
-    quoteOpacity: _dbl(j['quoteOpacity'], 1, 0, 1),
-    cornerRadius: _dbl(j['cornerRadius'], 2, 0, 20),
-    paddingTop: _dbl(j['paddingTop'], 0, 0, 500), paddingBottom: _dbl(j['paddingBottom'], 0, 0, 500),
-    paddingLeft: _dbl(j['paddingLeft'], 0, 0, 500), paddingRight: _dbl(j['paddingRight'], 0, 0, 500),
-  );
+        isDarkMode: j['isDarkMode'] == true,
+        verticalPosition: _dbl(j['verticalPosition'], 0.5, 0, 1),
+        horizontalPosition: _dbl(j['horizontalPosition'], 0.5, 0, 1),
+        scale: _dbl(j['scale'], 0.7, 0.5, 8.0),
+        autoFitWidth: j['autoFitWidth'] != false,
+        opacity: _dbl(j['opacity'], 1.0, 0, 1),
+        customQuote: _str(j['customQuote'])?.substring(
+                0,
+                (_str(j['customQuote'])!.length < 200
+                    ? _str(j['customQuote'])!.length
+                    : 200)) ??
+            '',
+        quoteFontSize: _dbl(j['quoteFontSize'], 14, 10, 40),
+        quoteOpacity: _dbl(j['quoteOpacity'], 1, 0, 1),
+        cornerRadius: _dbl(j['cornerRadius'], 2, 0, 20),
+        paddingTop: _dbl(j['paddingTop'], 0, 0, 500),
+        paddingBottom: _dbl(j['paddingBottom'], 0, 0, 500),
+        paddingLeft: _dbl(j['paddingLeft'], 0, 0, 500),
+        paddingRight: _dbl(j['paddingRight'], 0, 0, 500),
+      );
 
   Map<String, dynamic> toJson() => {
-    'isDarkMode': isDarkMode, 'verticalPosition': verticalPosition, 'horizontalPosition': horizontalPosition,
-    'scale': scale, 'autoFitWidth': autoFitWidth, 'opacity': opacity, 'customQuote': customQuote,
-    'quoteFontSize': quoteFontSize, 'quoteOpacity': quoteOpacity, 'cornerRadius': cornerRadius,
-    'paddingTop': paddingTop, 'paddingBottom': paddingBottom, 'paddingLeft': paddingLeft, 'paddingRight': paddingRight
-  };
+        'isDarkMode': isDarkMode,
+        'verticalPosition': verticalPosition,
+        'horizontalPosition': horizontalPosition,
+        'scale': scale,
+        'autoFitWidth': autoFitWidth,
+        'opacity': opacity,
+        'customQuote': customQuote,
+        'quoteFontSize': quoteFontSize,
+        'quoteOpacity': quoteOpacity,
+        'cornerRadius': cornerRadius,
+        'paddingTop': paddingTop,
+        'paddingBottom': paddingBottom,
+        'paddingLeft': paddingLeft,
+        'paddingRight': paddingRight
+      };
 
-  WallpaperConfig copyWith({bool? isDarkMode, double? verticalPosition, double? horizontalPosition, double? scale, bool? autoFitWidth, double? opacity, String? customQuote, double? quoteFontSize, double? quoteOpacity, double? cornerRadius, double? paddingTop, double? paddingBottom, double? paddingLeft, double? paddingRight}) => WallpaperConfig(
-    isDarkMode: isDarkMode ?? this.isDarkMode,
-    verticalPosition: verticalPosition ?? this.verticalPosition,
-    horizontalPosition: horizontalPosition ?? this.horizontalPosition,
-    scale: scale ?? this.scale,
-    autoFitWidth: autoFitWidth ?? this.autoFitWidth,
-    opacity: opacity ?? this.opacity,
-    customQuote: customQuote ?? this.customQuote,
-    quoteFontSize: quoteFontSize ?? this.quoteFontSize,
-    quoteOpacity: quoteOpacity ?? this.quoteOpacity,
-    cornerRadius: cornerRadius ?? this.cornerRadius,
-    paddingTop: paddingTop ?? this.paddingTop,
-    paddingBottom: paddingBottom ?? this.paddingBottom,
-    paddingLeft: paddingLeft ?? this.paddingLeft,
-    paddingRight: paddingRight ?? this.paddingRight,
-  );
+  WallpaperConfig copyWith(
+          {bool? isDarkMode,
+          double? verticalPosition,
+          double? horizontalPosition,
+          double? scale,
+          bool? autoFitWidth,
+          double? opacity,
+          String? customQuote,
+          double? quoteFontSize,
+          double? quoteOpacity,
+          double? cornerRadius,
+          double? paddingTop,
+          double? paddingBottom,
+          double? paddingLeft,
+          double? paddingRight}) =>
+      WallpaperConfig(
+        isDarkMode: isDarkMode ?? this.isDarkMode,
+        verticalPosition: verticalPosition ?? this.verticalPosition,
+        horizontalPosition: horizontalPosition ?? this.horizontalPosition,
+        scale: scale ?? this.scale,
+        autoFitWidth: autoFitWidth ?? this.autoFitWidth,
+        opacity: opacity ?? this.opacity,
+        customQuote: customQuote ?? this.customQuote,
+        quoteFontSize: quoteFontSize ?? this.quoteFontSize,
+        quoteOpacity: quoteOpacity ?? this.quoteOpacity,
+        cornerRadius: cornerRadius ?? this.cornerRadius,
+        paddingTop: paddingTop ?? this.paddingTop,
+        paddingBottom: paddingBottom ?? this.paddingBottom,
+        paddingLeft: paddingLeft ?? this.paddingLeft,
+        paddingRight: paddingRight ?? this.paddingRight,
+      );
 
-  @override bool operator ==(Object other) => other is WallpaperConfig && isDarkMode==other.isDarkMode && scale==other.scale && opacity==other.opacity && customQuote==other.customQuote; 
-  @override int get hashCode => Object.hash(isDarkMode, scale, opacity, customQuote);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is WallpaperConfig &&
+          isDarkMode == other.isDarkMode &&
+          autoFitWidth == other.autoFitWidth &&
+          verticalPosition == other.verticalPosition &&
+          horizontalPosition == other.horizontalPosition &&
+          scale == other.scale &&
+          opacity == other.opacity &&
+          quoteFontSize == other.quoteFontSize &&
+          quoteOpacity == other.quoteOpacity &&
+          cornerRadius == other.cornerRadius &&
+          paddingTop == other.paddingTop &&
+          paddingBottom == other.paddingBottom &&
+          paddingLeft == other.paddingLeft &&
+          paddingRight == other.paddingRight &&
+          customQuote == other.customQuote);
+
+  @override
+  int get hashCode => Object.hashAll([
+        isDarkMode,
+        autoFitWidth,
+        verticalPosition,
+        horizontalPosition,
+        scale,
+        opacity,
+        quoteFontSize,
+        quoteOpacity,
+        cornerRadius,
+        paddingTop,
+        paddingBottom,
+        paddingLeft,
+        paddingRight,
+        customQuote,
+      ]);
 }

@@ -48,8 +48,10 @@ class _SetupPageState extends State<SetupPage> {
       await StorageService.setOnboardingComplete(true);
 
       if (!mounted) return;
-      Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (_) => const MainNavPage()));
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const MainNavPage()),
+        (route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {

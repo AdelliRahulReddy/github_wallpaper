@@ -57,10 +57,8 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final username = StorageService.getUsername() ?? 'Developer';
-    final viewportWidth = MediaQuery.sizeOf(context).width;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final showRefreshAction = viewportWidth >= 360;
-    final toolbarHeight = textScale > 1.2 ? 148.0 : 132.0;
+    final toolbarHeight = textScale > 1.2 ? 180.0 : 160.0;
 
     if (widget.isLoading && widget.data == null) {
       return const Center(child: CircularProgressIndicator());
@@ -104,68 +102,90 @@ class _HomePageState extends State<HomePage> {
             surfaceTintColor: scheme.surface.withValues(alpha: 0),
             elevation: 0,
             toolbarHeight: toolbarHeight,
-            titleSpacing: AppTheme.spacing8,
+            titleSpacing: AppTheme.spacing20,
             title: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
+              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing16),
+              child: Row(
                 children: [
-                  Text(
-                    'WELCOME BACK',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: scheme.primary.withValues(alpha: 0.75),
-                      fontWeight: FontWeight.w800,
-                      fontSize: AppTheme.fontCaption,
-                      height: 1.25,
-                      letterSpacing: 1.2,
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'WELCOME BACK 👋',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: scheme.primary.withValues(alpha: 0.75),
+                            fontWeight: FontWeight.w800,
+                            fontSize: AppTheme.fontBase,
+                            height: 1.25,
+                            letterSpacing: 1.5,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          username,
+                          style: TextStyle(
+                            color: scheme.onSurface,
+                            fontSize: 32,
+                            fontWeight: FontWeight.w900,
+                            height: 1.1,
+                            letterSpacing: -0.8,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          titleDate.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: scheme.onSurface.withValues(alpha: 0.55),
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppTheme.fontBody,
+                            height: 1.2,
+                            letterSpacing: 1.0,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: AppTheme.spacing20 / 2),
-                  Text(
-                    username,
-                    style: TextStyle(
-                      color: scheme.onSurface,
-                      fontSize: AppTheme.fontTitle + (AppTheme.spacing8 / 2),
-                      fontWeight: FontWeight.w900,
-                      height: 1.15,
-                      letterSpacing: -0.5,
+                  const SizedBox(width: AppTheme.spacing16),
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: scheme.primary.withValues(alpha: 0.15),
+                        width: 2.0,
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    titleDate.toUpperCase(),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: scheme.onSurface.withValues(alpha: 0.55),
-                      fontWeight: FontWeight.w700,
-                      fontSize: AppTheme.fontCaption,
-                      height: 1.2,
-                      letterSpacing: 0.8,
+                    child: ClipOval(
+                      child: widget.data?.avatarUrl != null
+                          ? Image.network(
+                              widget.data!.avatarUrl!,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _buildAvatarFallback(username, scheme),
+                            )
+                          : _buildAvatarFallback(username, scheme),
                     ),
                   ),
                 ],
               ),
             ),
-            actions: showRefreshAction
-                ? [
-                    Padding(
-                      padding:
-                          const EdgeInsets.only(right: AppTheme.spacing8 / 4),
-                      child: IconButton.filledTonal(
-                        onPressed: widget.isLoading ? null : widget.onRefresh,
-                        icon: const Icon(Icons.refresh_rounded, size: 20),
-                        constraints:
-                            const BoxConstraints(minWidth: 34, minHeight: 34),
-                      ),
-                    ),
-                  ]
-                : const [],
+            actions: const [],
             bottom: widget.isLoading
                 ? PreferredSize(
                     preferredSize: const Size.fromHeight(2),
@@ -281,6 +301,11 @@ class _HomePageState extends State<HomePage> {
           child: AppSectionHeader(
             title: 'Overview',
             subtitle: updated,
+            trailing: IconButton.filledTonal(
+              onPressed: widget.isLoading ? null : widget.onRefresh,
+              icon: const Icon(Icons.refresh_rounded, size: 18),
+              visualDensity: VisualDensity.compact,
+            ),
           ),
         ),
         const SizedBox(height: AppTheme.spacing8),
@@ -387,7 +412,7 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Wrap(
-                spacing: AppTheme.spacing8,
+                spacing: AppTheme.spacing12,
                 runSpacing: AppTheme.spacing8,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
@@ -401,23 +426,46 @@ class _HomePageState extends State<HomePage> {
                   ),
                   Row(
                     mainAxisSize: MainAxisSize.min,
-                    children: List.generate(
-                      5,
-                      (i) => Container(
-                        width: 12,
-                        height: 12,
-                        margin:
-                            const EdgeInsets.only(right: AppTheme.spacing8 / 2),
-                        decoration: BoxDecoration(
-                          color: _heatmapColor(i),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusSmall),
-                          border: Border.all(
-                            color: scheme.outline.withValues(alpha: 0.35),
-                          ),
+                    children: List.generate(5, (i) {
+                      final countLabel = i == 0
+                          ? '0'
+                          : i == 1
+                              ? '1-${data.quartiles.q1}'
+                              : i == 2
+                                  ? '${data.quartiles.q1 + 1}-${data.quartiles.q2}'
+                                  : i == 3
+                                      ? '${data.quartiles.q2 + 1}-${data.quartiles.q3}'
+                                      : '${data.quartiles.q3 + 1}+';
+                      
+                      return Padding(
+                        padding: const EdgeInsets.only(right: AppTheme.spacing12),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: _heatmapColor(i),
+                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                border: Border.all(
+                                  color: scheme.outline.withValues(alpha: 0.35),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              countLabel,
+                              style: TextStyle(
+                                color: scheme.onSurface.withValues(alpha: 0.55),
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ),
+                      );
+                    }),
                   ),
                   Text(
                     'More',
@@ -920,6 +968,22 @@ class _HomePageState extends State<HomePage> {
           const SizedBox(height: AppTheme.spacing16),
           FilledButton(onPressed: widget.onRefresh, child: const Text('Retry')),
         ],
+      ),
+    );
+  }
+
+  Widget _buildAvatarFallback(String username, ColorScheme scheme) {
+    return Container(
+      color: scheme.primary.withValues(alpha: 0.1),
+      child: Center(
+        child: Text(
+          username.isNotEmpty ? username[0].toUpperCase() : '?',
+          style: TextStyle(
+            color: scheme.primary,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        ),
       ),
     );
   }

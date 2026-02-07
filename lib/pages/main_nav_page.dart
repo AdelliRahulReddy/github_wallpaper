@@ -157,8 +157,8 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _handleSetWallpaper(String target) async {
-    if (_data == null) return;
+  Future<bool> _handleSetWallpaper(String target) async {
+    if (_data == null) return false;
 
     try {
       final config = StorageService.getWallpaperConfig();
@@ -175,8 +175,12 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
           targetEnum = WallpaperTarget.both;
       }
 
-      await WallpaperService.generateAndSetWallpaper(
-          data: _data!, config: config, target: targetEnum);
+      final didApply = await WallpaperService.generateAndSetWallpaper(
+        data: _data!,
+        config: config,
+        target: targetEnum,
+        forceApply: true,
+      );
 
       if (mounted) {
         if (Platform.isAndroid) {
@@ -186,8 +190,10 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
               context, 'Wallpaper image generated successfully');
         }
       }
+      return didApply;
     } catch (e) {
       if (mounted) ErrorHandler.handle(context, e);
+      return false;
     }
   }
 

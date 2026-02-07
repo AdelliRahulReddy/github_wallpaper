@@ -5,34 +5,49 @@ import 'package:flutter/material.dart';
 import 'dart:async'; // Added for Timer
 import 'app_exceptions.dart';
 import 'app_theme.dart';
+import 'main.dart';
 
 // ERROR HANDLING
 class ErrorHandler {
   static String getUserFriendlyMessage(dynamic e) {
-    if (e is NetworkException || e is SocketException || e.toString().contains('socket')) return 'No internet connection.';
-    if (e is TokenExpiredException || e.toString().contains('401')) return 'Invalid or expired GitHub token.';
-    if (e is AccessDeniedException || e.toString().contains('403')) return 'Access denied.';
+    if (e is NetworkException ||
+        e is SocketException ||
+        e.toString().contains('socket')) {
+      return 'No internet connection.';
+    }
+    if (e is TokenExpiredException || e.toString().contains('401')) {
+      return 'Invalid or expired GitHub token.';
+    }
+    if (e is AccessDeniedException || e.toString().contains('403')) {
+      return 'Access denied.';
+    }
     if (e is UserNotFoundException) return 'User not found.';
     if (e is RateLimitException) return 'Rate limit exceeded.';
-    return 'Something went wrong.';
+
+    final msg = e.toString().replaceAll('Exception:', '').trim();
+    return msg.isNotEmpty ? 'Something went wrong. ($msg)' : 'Something went wrong.';
   }
 
-  static void handle(BuildContext c, dynamic e, {String? userMessage, bool showSnackBar=true, VoidCallback? onRetry}) {
-
-    if (showSnackBar && c.mounted) {
-      ScaffoldMessenger.of(c)
-        ..clearSnackBars()
-        ..showSnackBar(SnackBar(
-          content: Text(userMessage ?? getUserFriendlyMessage(e)), 
+  static void handle(BuildContext? c, dynamic e,
+      {String? userMessage, bool showSnackBar = true, VoidCallback? onRetry}) {
+    if (showSnackBar) {
+      messengerKey.currentState?.clearSnackBars();
+      messengerKey.currentState?.showSnackBar(SnackBar(
+          content: Text(userMessage ?? getUserFriendlyMessage(e)),
           backgroundColor: AppTheme.errorRed,
           behavior: SnackBarBehavior.floating,
-          action: onRetry != null ? SnackBarAction(label: 'Retry', textColor: Colors.white, onPressed: onRetry) : null,
+          action: onRetry != null
+              ? SnackBarAction(
+                  label: 'Retry', textColor: Colors.white, onPressed: onRetry)
+              : null,
           duration: const Duration(seconds: 4)));
     }
   }
 
-  static void showSuccess(BuildContext c, String m) {
-    if (c.mounted) ScaffoldMessenger.of(c)..clearSnackBars()..showSnackBar(SnackBar(content: Text(m), backgroundColor: AppTheme.successGreen));
+  static void showSuccess(BuildContext? c, String m) {
+    messengerKey.currentState?.clearSnackBars();
+    messengerKey.currentState?.showSnackBar(
+        SnackBar(content: Text(m), backgroundColor: AppTheme.successGreen));
   }
 
   static void showLoading(BuildContext c, {String? message}) {
