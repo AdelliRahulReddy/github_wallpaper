@@ -1,5 +1,5 @@
 /**
- * GitHub Wallpaper - Cloud Scheduler Function
+ * GitWall - Cloud Scheduler Function
  * Triggers a silent push notification to all subscribed devices.
  */
 
@@ -8,13 +8,13 @@ const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-// Schedule: Every 5 minutes
+// Schedule: Every 15 minutes
 // Timezone: UTC
 exports.triggerDailyUpdate = functions.pubsub
     .schedule("every 15 minutes")
     .timeZone("UTC")
     .onRun(async (context) => {
-        console.log("⏰ Daily Update Triggered");
+        functions.logger.info("Daily update trigger started");
 
         // Build message payload (type must match app handler: "refresh" or "daily_refresh")
         const message = {
@@ -37,19 +37,27 @@ exports.triggerDailyUpdate = functions.pubsub
             try {
                 // Send to 'daily-updates' topic
                 const response = await admin.messaging().send(message);
-                console.log(`✅ Successfully sent update message (Attempt ${attempts + 1}):`, response);
+                functions.logger.info("Daily update push sent", {
+                    attempt: attempts + 1,
+                    response,
+                });
                 return null;
             } catch (error) {
                 attempts++;
                 lastError = error;
-                console.error(`⚠️ Attempt ${attempts} failed:`, error);
+                functions.logger.warn("Daily update push attempt failed", {
+                    attempt: attempts,
+                    error: String(error),
+                });
                 if (attempts < maxAttempts) {
                     // Wait 500ms before retrying
-                    await new Promise(resolve => setTimeout(resolve, 500));
+                    await new Promise((resolve) => setTimeout(resolve, 500));
                 }
             }
         }
 
-        console.error("❌ All attempts failed. Last error:", lastError);
+        functions.logger.error("Daily update push failed after retries", {
+            error: String(lastError),
+        });
         return null;
     });

@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
       title: AppStrings.appName,
       theme: AppTheme.lightTheme(),
       darkTheme: AppTheme.darkTheme(),
-      themeMode: ThemeMode.system,
+      themeMode: ThemeMode.light,
       debugShowCheckedModeBanner: false,
       home: const AppInitializer(),
     );
@@ -183,17 +183,11 @@ class _AppInitializerState extends State<AppInitializer> {
         appleProvider:
             kDebugMode ? AppleProvider.debug : AppleProvider.appAttest,
       ).timeout(const Duration(seconds: 5));
-    } catch (e) {
-      // debugPrint('AppCheck init failed: $e');
-      // Non-fatal, allow app to start even if AppCheck fails (might limit API access but UI should load)
-    }
+    } catch (_) {}
 
     try {
       await FcmService.init().timeout(const Duration(seconds: 5));
-    } catch (e) {
-      // debugPrint('FCM init failed: $e');
-      // FCM is optional, do not block app start
-    }
+    } catch (_) {}
   }
 
   @override

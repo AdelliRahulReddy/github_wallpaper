@@ -72,24 +72,35 @@ class Debouncer {
 }
 
 // VALIDATION
-// VALIDATION
-final _uRgx = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$');
-final _tRgx = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$');
+class ValidationUtils {
+  static final _usernameRegex = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$');
+  static final _tokenRegex = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$');
+  static final _phoneCleanRegex = RegExp(r'[^\d]');
 
-String? isValidUsernameFormat(String? v) {
-  if (v == null || v.trim().isEmpty) return 'Required';
-  if (v.length > 39) return 'Too long';
-  if (v.contains('--') || !_uRgx.hasMatch(v)) return 'Invalid format';
-  return null;
+  static String? username(String? v) {
+    if (v == null || v.trim().isEmpty) return 'Required';
+    if (v.length > 39) return 'Too long';
+    if (v.contains('--') || !_usernameRegex.hasMatch(v)) return 'Invalid format';
+    return null;
+  }
+
+  static String? token(String? v) => (v == null || !_tokenRegex.hasMatch(v.trim())) ? 'Invalid token' : null;
+  
+  static String? quote(String? v) => (v != null && v.length > 200) ? 'Too long' : null;
+
+  static String cleanPhone(String original) => original.replaceAll(_phoneCleanRegex, '');
 }
-String? isValidTokenFormat(String? v) => (v == null || !_tRgx.hasMatch(v.trim())) ? 'Invalid token' : null;
-String? isValidQuoteFormat(String? v) => (v!=null && v.length>200) ? 'Too long' : null;
+
+// BACKWARD COMPAT (Deprecate later)
+String? isValidUsernameFormat(String? v) => ValidationUtils.username(v);
+String? isValidTokenFormat(String? v) => ValidationUtils.token(v);
+String? isValidQuoteFormat(String? v) => ValidationUtils.quote(v);
 
 
 
 // CONSTANTS & STRINGS
 class AppStrings {
-  static const appName = 'GitHub Wallpaper';
+  static const appName = 'GitWall';
   static const appTagline = 'Your Code Journey, Visualized';
   static const onboardingTitle1 = 'Beautiful Contributions';
   static const onboardingDesc1 = 'Turn your GitHub contribution graph into aesthetic wallpapers for your Home and Lock screen.';
@@ -133,7 +144,7 @@ class AppStrings {
   static const developer = 'DEVELOPED BY';
   static const developerName = 'Adelli Rahulreddy';
   static const developerTagline = 'Building tools for developers';
-  static const appVersion = '1.0.2';
+  static const appVersion = '1.0.0';
 }
 
 class AppConstants {
@@ -145,7 +156,7 @@ class AppConstants {
   static const int pendingRefreshDebounceMinutes = 2, refreshCooldownMinutes = 15, resumeSyncThresholdMinutes=30, backgroundSyncThresholdHours=1;
   static const Duration cacheExpiry = Duration(hours: 6), apiTimeout = Duration(seconds: 30);
   static const String keyToken = 'gh_token', keyUsername = 'username', keyCachedData = 'cached_data_v2', keyWallpaperConfig = 'wp_config_v2';
-  static const String keyLastUpdate = 'last_update', keyAutoUpdate = 'auto_update', keyOnboarding='onboarding', keyWallpaperHash = 'wp_hash', keyWallpaperPath = 'wp_path';
+  static const String keyLastUpdate = 'last_update', keyAutoUpdate = 'auto_update', keyOnboarding='onboarding', keyWallpaperHash = 'wp_hash', keyWallpaperPath = 'wp_path', keyHasSeenDashboard = 'has_seen_dashboard';
   static const String keyDimensionWidth='dim_w', keyDimensionHeight='dim_h', keyDimensionPixelRatio='dim_pr', keyDeviceModel='device_model';
   static const String keySafeInsetTop='safe_top', keySafeInsetBottom='safe_bottom', keySafeInsetLeft='safe_left', keySafeInsetRight='safe_right';
   static const String fcmTopicDailyUpdates = 'daily-updates';

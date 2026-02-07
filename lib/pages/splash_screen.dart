@@ -58,7 +58,7 @@ class SplashScreen extends StatelessWidget {
                       shaderCallback: (b) => LinearGradient(
                               colors: [accent, accent.withValues(alpha: 0.7)])
                           .createShader(b),
-                      child: const Text('GitHub Wallpaper',
+                      child: const Text('GitWall',
                           style: TextStyle(
                               fontSize: AppTheme.fontDisplay,
                               fontWeight: FontWeight.w900,

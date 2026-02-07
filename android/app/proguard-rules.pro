@@ -1,5 +1,5 @@
 # ============================================================================
-# GitHub Wallpaper - Production ProGuard Rules
+# GitWall - Production ProGuard Rules
 # Focus: Stability, FCM, Platform Channels
 # Compatible with Flutter 3.38.x + R8
 # ============================================================================

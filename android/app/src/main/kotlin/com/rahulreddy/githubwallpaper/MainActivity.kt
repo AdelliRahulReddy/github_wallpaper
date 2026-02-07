@@ -2,7 +2,6 @@ package com.rahulreddy.githubwallpaper
 
 import android.app.WallpaperManager
 import android.graphics.BitmapFactory
-import android.os.Build
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -47,51 +46,44 @@ class MainActivity : FlutterActivity() {
 
           try {
             val wm = WallpaperManager.getInstance(this)
-            
-            // ATTEMPT 1: Combined Flags (Sequential Fallback)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-              val flags = when (targetStr) {
-                "home" -> WallpaperManager.FLAG_SYSTEM
-                "lock" -> WallpaperManager.FLAG_LOCK
-                else -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
-              }
+            val flags = when (targetStr) {
+              "home" -> WallpaperManager.FLAG_SYSTEM
+              "lock" -> WallpaperManager.FLAG_LOCK
+              else -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
+            }
 
+            try {
+              // Try combined setting first (Efficient)
+              FileInputStream(file).use { stream ->
+                wm.setStream(stream, null, true, flags)
+              }
+            } catch (e1: Exception) {
+              // ATTEMPT 2: Sequential Setting (Fixes issues on some Xiaomi/Samsung implementations)
               try {
-                // Try combined setting first (Efficient)
-                FileInputStream(file).use { stream ->
-                  wm.setStream(stream, null, true, flags)
+                if (targetStr == "both" || targetStr == "home") {
+                  FileInputStream(file).use { s -> wm.setStream(s, null, true, WallpaperManager.FLAG_SYSTEM) }
                 }
-              } catch (e1: Exception) {
-                // ATTEMPT 2: Sequential Setting (Fixes issues on some Xiaomi/Samsung implementations)
-                try {
-                  if (targetStr == "both" || targetStr == "home") {
-                    FileInputStream(file).use { s -> wm.setStream(s, null, true, WallpaperManager.FLAG_SYSTEM) }
-                  }
-                  if (targetStr == "both" || targetStr == "lock") {
-                    FileInputStream(file).use { s -> wm.setStream(s, null, true, WallpaperManager.FLAG_LOCK) }
-                  }
-                } catch (e2: Exception) {
-                  // ATTEMPT 3: Bitmap Fallback (Universal / Native decoded)
-                  val bitmap = BitmapFactory.decodeFile(path)
-                  if (bitmap != null) {
-                    try {
-                      if (targetStr == "both" || targetStr == "home") {
-                        wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
-                      }
-                      if (targetStr == "both" || targetStr == "lock") {
-                        wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
-                      }
-                    } finally {
-                      bitmap.recycle()
+                if (targetStr == "both" || targetStr == "lock") {
+                  FileInputStream(file).use { s -> wm.setStream(s, null, true, WallpaperManager.FLAG_LOCK) }
+                }
+              } catch (e2: Exception) {
+                // ATTEMPT 3: Bitmap Fallback (Universal / Native decoded)
+                val bitmap = BitmapFactory.decodeFile(path)
+                if (bitmap != null) {
+                  try {
+                    if (targetStr == "both" || targetStr == "home") {
+                      wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
                     }
-                  } else {
-                    throw Exception("Bitmap decoding failed: ${e2.message}")
+                    if (targetStr == "both" || targetStr == "lock") {
+                      wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
+                    }
+                  } finally {
+                    bitmap.recycle()
                   }
+                } else {
+                  throw Exception("Bitmap decoding failed: ${e2.message}")
                 }
               }
-            } else {
-              // Legacy Android support
-              FileInputStream(file).use { stream -> wm.setStream(stream) }
             }
 
             result.success(true)

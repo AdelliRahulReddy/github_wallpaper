@@ -120,6 +120,11 @@ class StorageService {
   static Future<void> consumePendingWallpaperRefresh() async =>
       (await _init()).remove(_kRef);
 
+  static Future<void> setHasSeenDashboard(bool v) async =>
+      (await _init()).setBool(AppConstants.keyHasSeenDashboard, v);
+  static bool hasSeenDashboard() =>
+      _s?.getBool(AppConstants.keyHasSeenDashboard) ?? false;
+
   // Dimensions
   static Future<void> saveDeviceModel(String m) async =>
       (await _init()).setString(AppConstants.keyDeviceModel, m.trim());
@@ -152,13 +157,10 @@ class StorageService {
   static Map<String, double>? getDimensions() {
     final p = _s;
     final w = p?.getDouble(AppConstants.keyDimensionWidth);
-    return w != null
-        ? {
-            'width': w,
-            'height': p!.getDouble(AppConstants.keyDimensionHeight)!,
-            'pixelRatio': p.getDouble(AppConstants.keyDimensionPixelRatio)!
-          }
-        : null;
+    final h = p?.getDouble(AppConstants.keyDimensionHeight);
+    final pr = p?.getDouble(AppConstants.keyDimensionPixelRatio);
+    if (w == null || h == null || pr == null) return null;
+    return {'width': w, 'height': h, 'pixelRatio': pr};
   }
 
   // Wallpaper
@@ -212,7 +214,19 @@ class GitHubService {
       final res = await _req(username, token);
       final data = jsonDecode(res.body);
       if (res.statusCode != 200 || data['errors'] != null) {
-        throw GitHubException('API Error: ${res.statusCode}');
+        if (res.statusCode == 401) throw TokenExpiredException();
+        if (res.statusCode == 403) throw AccessDeniedException();
+        if (res.statusCode == 429) throw RateLimitException();
+        final errors = data['errors'];
+        if (errors is List && errors.isNotEmpty) {
+          final msg = errors.first['message']?.toString().toLowerCase() ?? '';
+          if (msg.contains('rate limit')) throw RateLimitException();
+          if (msg.contains('bad credentials') || msg.contains('unauthorized')) {
+            throw TokenExpiredException();
+          }
+        }
+        throw GitHubException('API Error: ${res.statusCode}',
+            statusCode: res.statusCode, details: res.body);
       }
       if (data['data']?['user'] == null) throw UserNotFoundException();
 
@@ -232,7 +246,7 @@ class GitHubService {
 
   static Future<http.Response> _req(String u, String t) async {
     const q =
-        r'''query($login:String!,$from:DateTime!,$to:DateTime!){user(login:$login){avatarUrl contributionsCollection(from:$from,to:$to){contributionCalendar{totalContributions weeks{contributionDays{date contributionCount contributionLevel}}} commitContributionsByRepository(maxRepositories:50){repository{nameWithOwner url isPrivate primaryLanguage{name color} languages(first:10,orderBy:{field:SIZE,direction:DESC}){edges{size node{name color}}}} contributions{totalCount}}}}}''';
+        r'''query($login:String!,$from:DateTime!,$to:DateTime!){user(login:$login){avatarUrl contributionsCollection(from:$from,to:$to){contributionCalendar{totalContributions weeks{contributionDays{date contributionCount contributionLevel}}} commitContributionsByRepository(maxRepositories:100){repository{nameWithOwner url isPrivate primaryLanguage{name color} languages(first:20,orderBy:{field:SIZE,direction:DESC}){edges{size node{name color}}}} contributions{totalCount}}}}}''';
     final now = DateTime.now().toUtc();
     var a = 0;
     while (true) {
@@ -367,6 +381,21 @@ class WallpaperService {
   static final _l = Lock(), _ul = Lock();
   static const _wallpaperChannel = MethodChannel('github_wallpaper/wallpaper');
 
+  static RefreshResult _resultForSkipReason(RefreshSkipReason? reason) {
+    switch (reason) {
+      case RefreshSkipReason.noChanges:
+        return RefreshResult.noChanges;
+      case RefreshSkipReason.throttled:
+        return RefreshResult.throttled;
+      case RefreshSkipReason.networkError:
+        return RefreshResult.networkError;
+      case RefreshSkipReason.authError:
+        return RefreshResult.authError;
+      case null:
+        return RefreshResult.noChanges;
+    }
+  }
+
   static Future<bool> generateAndSetWallpaper({
     required CachedContributionData data,
     required WallpaperConfig config,
@@ -479,37 +508,44 @@ class WallpaperService {
           hasPendingRefresh: StorageService.hasPendingWallpaperRefresh(),
           lastUpdate: StorageService.getLastUpdate(),
           username: StorageService.getUsername(),
-          token: await StorageService.getToken(),
-          hasConnectivity: await _hasConn());
+          token: await StorageService.getToken());
       if (!dec.shouldProceed) {
-        return RefreshResult.values[dec.skipReason?.index ?? 1];
+        final result = _resultForSkipReason(dec.skipReason);
+        if (result == RefreshResult.noChanges) {
+          await StorageService.consumePendingWallpaperRefresh();
+        }
+        return result;
       }
-      await StorageService.consumePendingWallpaperRefresh();
       try {
         final d = await GitHubService.getContributions(
             username: StorageService.getUsername()!,
             token: (await StorageService.getToken())!,
             forceRefresh: true);
-        return await generateAndSetWallpaper(
+        final result = await generateAndSetWallpaper(
                 data: d, config: StorageService.getWallpaperConfig())
             ? RefreshResult.success
             : RefreshResult.noChanges;
-      } catch (e) {
+        if (result.isSuccess) {
+          await StorageService.consumePendingWallpaperRefresh();
+        }
+        return result;
+      } on NetworkException {
         return RefreshResult.networkError;
+      } on SocketException {
+        return RefreshResult.networkError;
+      } on TokenExpiredException {
+        return RefreshResult.authError;
+      } on AccessDeniedException {
+        return RefreshResult.authError;
+      } on RateLimitException {
+        return RefreshResult.throttled;
+      } catch (e) {
+        return RefreshResult.unknownError;
       }
     });
   }
 
-  static Future<bool> _hasConn() async {
-    try {
-      final r = await http
-          .head(Uri.parse('https://api.github.com'))
-          .timeout(const Duration(seconds: 4));
-      return r.statusCode < 400;
-    } catch (_) {
-      return false;
-    }
-  }
+  // Connectivity check removed in favor of standard http error handling
 
   static String _hash(
       CachedContributionData d, WallpaperConfig c, WallpaperTarget t) {

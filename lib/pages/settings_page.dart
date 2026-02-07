@@ -378,6 +378,36 @@ class _SettingsPageState extends State<SettingsPage> {
 
           const SizedBox(height: 12),
 
+          // Privacy Policy
+          _buildSettingButton(
+            icon: Icons.privacy_tip_outlined,
+            iconColor: AppTheme.primaryBlue,
+            title: 'Privacy Policy',
+            subtitle: 'Read our privacy policy',
+            trailing: Icons.open_in_new,
+            onTap: () async {
+              final messenger = ScaffoldMessenger.of(context);
+              final uri = Uri.parse(
+                  'https://adellirahulreddy.github.io/github_wallpaper/privacy_policy.html');
+              try {
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                } else {
+                  throw Exception('Could not launch Privacy Policy');
+                }
+              } catch (e) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ErrorHandler.getUserFriendlyMessage(e)),
+                    backgroundColor: AppTheme.errorRed,
+                  ),
+                );
+              }
+            },
+          ),
+
+          const SizedBox(height: 12),
+
           // Developer
           _buildSettingButton(
             icon: Icons.developer_mode,
@@ -400,7 +430,7 @@ class _SettingsPageState extends State<SettingsPage> {
               if (!context.mounted) return;
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               final phone =
-                  AppStrings.supportPhone.replaceAll(RegExp(r'[^\d]'), '');
+                  ValidationUtils.cleanPhone(AppStrings.supportPhone);
               final uri = Uri.parse('https://wa.me/$phone');
 
               try {

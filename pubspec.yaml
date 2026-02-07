@@ -1,5 +1,5 @@
 name: github_wallpaper
-description: "Display your GitHub contributions as an auto-updating wallpaper"
+description: "GitWall - Display your GitHub contributions as an auto-updating wallpaper"
 publish_to: 'none'
 version: 1.0.1+2
 

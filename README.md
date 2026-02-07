@@ -1,4 +1,4 @@
-# GitHub Wallpaper
+# GitWall
 
 Display your GitHub contributions as an auto-updating wallpaper on your phone.
 

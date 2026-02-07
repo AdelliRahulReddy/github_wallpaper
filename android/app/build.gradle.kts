@@ -1,5 +1,6 @@
 import java.util.Properties
 import java.io.FileInputStream
+import org.gradle.api.GradleException
 
 plugins {
     id("com.android.application")
@@ -35,7 +36,7 @@ android {
     defaultConfig {
         applicationId = "com.rahulreddy.githubwallpaper"
         minSdk = 24
-        targetSdk = 35
+        targetSdk = 36
         versionCode = flutter.versionCode ?: 1
         versionName = flutter.versionName
     }
@@ -66,7 +67,10 @@ android {
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
             } else {
-                signingConfig = signingConfigs.getByName("debug")
+                throw GradleException(
+                    "Missing key.properties for release signing. " +
+                    "Create android/key.properties before building release."
+                )
             }
         }
     }
