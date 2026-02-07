@@ -116,8 +116,6 @@ class _SettingsPageState extends State<SettingsPage> {
     }
   }
 
-
-
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -159,7 +157,7 @@ class _SettingsPageState extends State<SettingsPage> {
           // Logout Button
           _buildLogoutButton(),
 
-          const SizedBox(height: 40),
+          const SizedBox(height: AppTheme.spacing40),
         ],
       ),
     );
@@ -187,7 +185,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.20)),
+                  border:
+                      Border.all(color: scheme.primary.withValues(alpha: 0.20)),
                 ),
                 child: Icon(
                   Icons.person,
@@ -195,7 +194,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppTheme.spacing16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -203,16 +202,16 @@ class _SettingsPageState extends State<SettingsPage> {
                     Text(
                       _username ?? 'Unknown',
                       style: TextStyle(
-                        fontSize: 16,
+                        fontSize: AppTheme.fontLarge,
                         fontWeight: FontWeight.w800,
                         color: scheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: AppTheme.spacing8 / 2),
                     Text(
                       'GitHub Account',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: AppTheme.fontBody,
                         color: scheme.onSurface.withValues(alpha: 0.72),
                         fontWeight: FontWeight.w600,
                       ),
@@ -228,11 +227,12 @@ class _SettingsPageState extends State<SettingsPage> {
           // Last Sync
           if (_lastUpdate != null)
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(AppTheme.spacing12),
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest,
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                border: Border.all(color: scheme.outline.withValues(alpha: 0.55)),
+                border:
+                    Border.all(color: scheme.outline.withValues(alpha: 0.55)),
               ),
               child: Row(
                 children: [
@@ -241,11 +241,11 @@ class _SettingsPageState extends State<SettingsPage> {
                     size: 18,
                     color: scheme.onSurface.withValues(alpha: 0.72),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: AppTheme.spacing8),
                   Text(
                     'Last synced: ${PresentationFormatter.formatTimeSince(_lastUpdate!)}',
                     style: TextStyle(
-                      fontSize: 13,
+                      fontSize: AppTheme.fontBody,
                       color: scheme.onSurface.withValues(alpha: 0.72),
                       fontWeight: FontWeight.w600,
                     ),
@@ -280,7 +280,8 @@ class _SettingsPageState extends State<SettingsPage> {
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                  border: Border.all(color: scheme.primary.withValues(alpha: 0.20)),
+                  border:
+                      Border.all(color: scheme.primary.withValues(alpha: 0.20)),
                 ),
                 child: Icon(
                   Icons.autorenew,
@@ -288,7 +289,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: AppTheme.spacing16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -380,7 +381,7 @@ class _SettingsPageState extends State<SettingsPage> {
           // Developer
           _buildSettingButton(
             icon: Icons.developer_mode,
-            iconColor: AppTheme.skyDuskAccent,
+            iconColor: AppTheme.accentViolet,
             title: 'Developer',
             subtitle: 'Adelli Rahulreddy',
             onTap: null, // Read-only
@@ -398,7 +399,8 @@ class _SettingsPageState extends State<SettingsPage> {
             onTap: () async {
               if (!context.mounted) return;
               final scaffoldMessenger = ScaffoldMessenger.of(context);
-              final phone = AppStrings.supportPhone.replaceAll(RegExp(r'[^\d]'), '');
+              final phone =
+                  AppStrings.supportPhone.replaceAll(RegExp(r'[^\d]'), '');
               final uri = Uri.parse('https://wa.me/$phone');
 
               try {
@@ -437,11 +439,12 @@ class _SettingsPageState extends State<SettingsPage> {
     IconData? trailing,
     VoidCallback? onTap,
   }) {
+    final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
       child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
+        padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
         child: Row(
           children: [
             Container(
@@ -453,25 +456,25 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: AppTheme.spacing16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      fontSize: 15,
+                    style: TextStyle(
+                      fontSize: AppTheme.fontMedium,
                       fontWeight: FontWeight.w600,
-                      color: AppTheme.lightText,
+                      color: scheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  const SizedBox(height: AppTheme.spacing8 / 4),
                   Text(
                     subtitle,
                     style: TextStyle(
-                      fontSize: 12,
-                      color: AppTheme.lightText.withValues(alpha: 0.7),
+                      fontSize: AppTheme.fontSmall,
+                      color: scheme.onSurface.withValues(alpha: 0.7),
                     ),
                   ),
                 ],
@@ -480,7 +483,7 @@ class _SettingsPageState extends State<SettingsPage> {
             if (trailing != null)
               Icon(
                 trailing,
-                color: AppTheme.darkText,
+                color: scheme.onSurface.withValues(alpha: 0.72),
                 size: 18,
               ),
           ],

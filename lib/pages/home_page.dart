@@ -57,6 +57,10 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final username = StorageService.getUsername() ?? 'Developer';
+    final viewportWidth = MediaQuery.sizeOf(context).width;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final showRefreshAction = viewportWidth >= 360;
+    final toolbarHeight = textScale > 1.2 ? 148.0 : 132.0;
 
     if (widget.isLoading && widget.data == null) {
       return const Center(child: CircularProgressIndicator());
@@ -94,50 +98,74 @@ class _HomePageState extends State<HomePage> {
         slivers: [
           SliverAppBar(
             pinned: true,
+            centerTitle: false,
             automaticallyImplyLeading: false,
             backgroundColor: scheme.surface,
-            surfaceTintColor: Colors.transparent,
+            surfaceTintColor: scheme.surface.withValues(alpha: 0),
             elevation: 0,
-            titleSpacing: AppTheme.spacing20,
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  titleDate.toUpperCase(),
-                  style: TextStyle(
-                    color: scheme.onSurface.withValues(alpha: 0.60),
-                    fontWeight: FontWeight.w700,
-                    fontSize: AppTheme.fontCaption,
-                    letterSpacing: 1.1,
+            toolbarHeight: toolbarHeight,
+            titleSpacing: AppTheme.spacing8,
+            title: Padding(
+              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'WELCOME BACK',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: scheme.primary.withValues(alpha: 0.75),
+                      fontWeight: FontWeight.w800,
+                      fontSize: AppTheme.fontCaption,
+                      height: 1.25,
+                      letterSpacing: 1.2,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 2),
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        '${PresentationFormatter.getGreeting()}, $username',
-                        style: TextStyle(
-                          color: scheme.onSurface,
-                          fontSize: AppTheme.fontTitle,
-                          fontWeight: FontWeight.w800,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                  const SizedBox(height: AppTheme.spacing20 / 2),
+                  Text(
+                    username,
+                    style: TextStyle(
+                      color: scheme.onSurface,
+                      fontSize: AppTheme.fontTitle + (AppTheme.spacing8 / 2),
+                      fontWeight: FontWeight.w900,
+                      height: 1.15,
+                      letterSpacing: -0.5,
                     ),
-                    const SizedBox(width: AppTheme.spacing12),
-                    IconButton(
-                      tooltip: 'Refresh',
-                      onPressed: widget.isLoading ? null : widget.onRefresh,
-                      icon: Icon(
-                        Icons.refresh_rounded,
-                        color: scheme.primary,
-                      ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    titleDate.toUpperCase(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.55),
+                      fontWeight: FontWeight.w700,
+                      fontSize: AppTheme.fontCaption,
+                      height: 1.2,
+                      letterSpacing: 0.8,
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
+            actions: showRefreshAction
+                ? [
+                    Padding(
+                      padding:
+                          const EdgeInsets.only(right: AppTheme.spacing8 / 4),
+                      child: IconButton.filledTonal(
+                        onPressed: widget.isLoading ? null : widget.onRefresh,
+                        icon: const Icon(Icons.refresh_rounded, size: 20),
+                        constraints:
+                            const BoxConstraints(minWidth: 34, minHeight: 34),
+                      ),
+                    ),
+                  ]
+                : const [],
             bottom: widget.isLoading
                 ? PreferredSize(
                     preferredSize: const Size.fromHeight(2),
@@ -193,7 +221,8 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           AppSectionHeader(
                             title: 'No data yet',
-                            subtitle: 'Pull to refresh to sync your GitHub activity.',
+                            subtitle:
+                                'Pull to refresh to sync your GitHub activity.',
                           ),
                           const SizedBox(height: AppTheme.spacing16),
                           SizedBox(
@@ -238,26 +267,47 @@ class _HomePageState extends State<HomePage> {
     required TrendSummary trend30d,
   }) {
     final scheme = Theme.of(context).colorScheme;
-    final updated = 'Updated ${PresentationFormatter.formatTimeAgoCompact(data.lastUpdated)}';
+    final updated =
+        'Updated ${PresentationFormatter.formatTimeAgoCompact(data.lastUpdated)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppSectionHeader(
-          title: 'Overview',
-          subtitle: updated,
-          trailing: FilledButton.tonalIcon(
-            onPressed: widget.onRefresh,
-            icon: const Icon(Icons.sync_rounded, size: 18),
-            label: const Text('Sync'),
+        Padding(
+          padding: const EdgeInsets.only(
+            top: AppTheme.spacing8,
+            bottom: AppTheme.spacing12,
+          ),
+          child: AppSectionHeader(
+            title: 'Overview',
+            subtitle: updated,
           ),
         ),
-        const SizedBox(height: AppTheme.spacing12),
+        const SizedBox(height: AppTheme.spacing8),
+        HeroMetricCard(
+          title: 'Total Contributions',
+          value: PresentationFormatter.formatCompactNumber(
+              data.totalContributions),
+          subtitle: 'Cumulative commits across all years',
+          icon: Icons.auto_graph_rounded,
+          color: scheme.primary,
+        ),
+        const SizedBox(height: AppTheme.spacing16),
         LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
-            final crossAxisCount = w >= 980 ? 4 : w >= 680 ? 3 : 2;
-            final aspect = w >= 680 ? 1.9 : 1.75;
+            final crossAxisCount = w >= 980
+                ? 4
+                : w >= 680
+                    ? 3
+                    : 2;
+            final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+            final baseAspect = crossAxisCount >= 4
+                ? 1.45
+                : crossAxisCount == 3
+                    ? 1.35
+                    : 1.2;
+            final aspect = baseAspect / textScale.clamp(1.0, 1.5);
 
             return GridView.count(
               crossAxisCount: crossAxisCount,
@@ -268,10 +318,10 @@ class _HomePageState extends State<HomePage> {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 MetricTile(
-                  label: 'Total commits',
-                  value: PresentationFormatter.formatCompactNumber(data.totalContributions),
-                  icon: Icons.commit_rounded,
-                  iconColor: scheme.primary,
+                  label: 'Current streak',
+                  value: '${data.currentStreak}d',
+                  icon: Icons.local_fire_department_rounded,
+                  iconColor: AppTheme.warningOrange,
                 ),
                 MetricTile(
                   label: 'Today',
@@ -280,16 +330,10 @@ class _HomePageState extends State<HomePage> {
                   iconColor: scheme.secondary,
                 ),
                 MetricTile(
-                  label: 'Current streak',
-                  value: '${data.currentStreak}d',
-                  icon: Icons.local_fire_department_rounded,
-                  iconColor: AppTheme.warningOrange,
-                ),
-                MetricTile(
                   label: 'Longest streak',
                   value: '${data.longestStreak}d',
                   icon: Icons.emoji_events_rounded,
-                  iconColor: AppTheme.skyDuskAccent,
+                  iconColor: AppTheme.accentViolet,
                 ),
                 MetricTile(
                   label: 'Active repos',
@@ -298,21 +342,17 @@ class _HomePageState extends State<HomePage> {
                   iconColor: scheme.primary,
                 ),
                 MetricTile(
-                  label: 'Active days',
-                  value: '${data.activeDaysCount}',
-                  icon: Icons.event_available_rounded,
-                  iconColor: scheme.secondary,
-                ),
-                MetricTile(
                   label: '7-day trend',
-                  value: PresentationFormatter.formatCompactNumber(trend7d.current),
+                  value: PresentationFormatter.formatCompactNumber(
+                      trend7d.current),
                   helper: trend7d.deltaLabel,
                   icon: Icons.show_chart_rounded,
                   iconColor: scheme.primary,
                 ),
                 MetricTile(
                   label: '30-day trend',
-                  value: PresentationFormatter.formatCompactNumber(trend30d.current),
+                  value: PresentationFormatter.formatCompactNumber(
+                      trend30d.current),
                   helper: trend30d.deltaLabel,
                   icon: Icons.timeline_rounded,
                   iconColor: scheme.primary,
@@ -337,7 +377,8 @@ class _HomePageState extends State<HomePage> {
       children: [
         AppSectionHeader(
           title: 'Activity graph',
-          subtitle: 'Last 6 months • ${PresentationFormatter.formatCompactNumber(total)} commits',
+          subtitle:
+              'Last 6 months • ${PresentationFormatter.formatCompactNumber(total)} commits',
         ),
         const SizedBox(height: AppTheme.spacing12),
         AppCard(
@@ -345,7 +386,10 @@ class _HomePageState extends State<HomePage> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
+              Wrap(
+                spacing: AppTheme.spacing8,
+                runSpacing: AppTheme.spacing8,
+                crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
                     'Less',
@@ -355,24 +399,26 @@ class _HomePageState extends State<HomePage> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(width: AppTheme.spacing8),
-                  ...List.generate(
-                    5,
-                    (i) => Container(
-                      width: 12,
-                      height: 12,
-                      margin: const EdgeInsets.only(right: 4),
-                      decoration: BoxDecoration(
-                        color: _heatmapColor(i),
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall),
-                        border: Border.all(
-                          color: scheme.outline.withValues(alpha: 0.35),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: List.generate(
+                      5,
+                      (i) => Container(
+                        width: 12,
+                        height: 12,
+                        margin:
+                            const EdgeInsets.only(right: AppTheme.spacing8 / 2),
+                        decoration: BoxDecoration(
+                          color: _heatmapColor(i),
+                          borderRadius:
+                              BorderRadius.circular(AppTheme.radiusSmall),
+                          border: Border.all(
+                            color: scheme.outline.withValues(alpha: 0.35),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(width: AppTheme.spacing8),
                   Text(
                     'More',
                     style: TextStyle(
@@ -419,7 +465,8 @@ class _HomePageState extends State<HomePage> {
       children: [
         AppSectionHeader(
           title: 'Commit frequency',
-          subtitle: 'Last $_trendDays days • ${PresentationFormatter.formatCompactNumber(total)} commits',
+          subtitle:
+              'Last $_trendDays days • ${PresentationFormatter.formatCompactNumber(total)} commits',
         ),
         const SizedBox(height: AppTheme.spacing12),
         AppCard(
@@ -457,7 +504,8 @@ class _HomePageState extends State<HomePage> {
                             ),
                             builder: (context) => SafeArea(
                               child: Padding(
-                                padding: const EdgeInsets.all(AppTheme.spacing20),
+                                padding:
+                                    const EdgeInsets.all(AppTheme.spacing20),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -573,13 +621,21 @@ class _HomePageState extends State<HomePage> {
                                 color: scheme.onSurface.withValues(alpha: 0.70),
                                 fontWeight: FontWeight.w600,
                               ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
-                      trailing: Text(
-                        '${PresentationFormatter.formatCompactNumber(r.commitCount)} commits',
-                        style: TextStyle(
-                          color: scheme.onSurface.withValues(alpha: 0.70),
-                          fontWeight: FontWeight.w700,
-                          fontSize: AppTheme.fontBody,
+                      trailing: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 110),
+                        child: Text(
+                          '${PresentationFormatter.formatCompactNumber(r.commitCount)} commits',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.end,
+                          style: TextStyle(
+                            color: scheme.onSurface.withValues(alpha: 0.70),
+                            fontWeight: FontWeight.w700,
+                            fontSize: AppTheme.fontBody,
+                          ),
                         ),
                       ),
                     );
@@ -699,22 +755,47 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: AppTheme.spacing12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  _MiniStat(
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 420 ||
+                      MediaQuery.of(context).textScaler.scale(1.0) > 1.15;
+
+                  final weekdayStat = _MiniStat(
                     label: 'Weekdays',
-                    value: PresentationFormatter.formatCompactNumber(weekdayTotal),
+                    value: PresentationFormatter.formatCompactNumber(
+                      weekdayTotal,
+                    ),
                     pct: '${(weekdayPct * 100).toStringAsFixed(0)}%',
                     color: scheme.primary,
-                  ),
-                  _MiniStat(
+                  );
+                  final weekendStat = _MiniStat(
                     label: 'Weekends',
-                    value: PresentationFormatter.formatCompactNumber(weekendTotal),
+                    value: PresentationFormatter.formatCompactNumber(
+                      weekendTotal,
+                    ),
                     pct: '${(weekendPct * 100).toStringAsFixed(0)}%',
                     color: scheme.secondary,
-                  ),
-                ],
+                  );
+
+                  if (isCompact) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        weekdayStat,
+                        const SizedBox(height: AppTheme.spacing12),
+                        weekendStat,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(child: weekdayStat),
+                      const SizedBox(width: AppTheme.spacing16),
+                      Expanded(child: weekendStat),
+                    ],
+                  );
+                },
               ),
               const SizedBox(height: AppTheme.spacing20),
               Text(
@@ -726,16 +807,93 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: AppTheme.spacing12),
-              Row(
-                children: [
-                  _ImpactChip(label: 'Low', count: levels[1], color: _heatmapColor(1)),
-                  const SizedBox(width: AppTheme.spacing8),
-                  _ImpactChip(label: 'Med', count: levels[2], color: _heatmapColor(2)),
-                  const SizedBox(width: AppTheme.spacing8),
-                  _ImpactChip(label: 'High', count: levels[3], color: _heatmapColor(3)),
-                  const SizedBox(width: AppTheme.spacing8),
-                  _ImpactChip(label: 'Max', count: levels[4], color: _heatmapColor(4)),
-                ],
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isCompact = constraints.maxWidth < 560 ||
+                      MediaQuery.of(context).textScaler.scale(1.0) > 1.15;
+
+                  if (isCompact) {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ImpactChip(
+                                label: 'Low',
+                                count: levels[1],
+                                color: _heatmapColor(1),
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.spacing8),
+                            Expanded(
+                              child: _ImpactChip(
+                                label: 'Med',
+                                count: levels[2],
+                                color: _heatmapColor(2),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: AppTheme.spacing8),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _ImpactChip(
+                                label: 'High',
+                                count: levels[3],
+                                color: _heatmapColor(3),
+                              ),
+                            ),
+                            const SizedBox(width: AppTheme.spacing8),
+                            Expanded(
+                              child: _ImpactChip(
+                                label: 'Max',
+                                count: levels[4],
+                                color: _heatmapColor(4),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: _ImpactChip(
+                          label: 'Low',
+                          count: levels[1],
+                          color: _heatmapColor(1),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spacing8),
+                      Expanded(
+                        child: _ImpactChip(
+                          label: 'Med',
+                          count: levels[2],
+                          color: _heatmapColor(2),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spacing8),
+                      Expanded(
+                        child: _ImpactChip(
+                          label: 'High',
+                          count: levels[3],
+                          color: _heatmapColor(3),
+                        ),
+                      ),
+                      const SizedBox(width: AppTheme.spacing8),
+                      Expanded(
+                        child: _ImpactChip(
+                          label: 'Max',
+                          count: levels[4],
+                          color: _heatmapColor(4),
+                        ),
+                      ),
+                    ],
+                  );
+                },
               ),
             ],
           ),
@@ -757,7 +915,8 @@ class _HomePageState extends State<HomePage> {
           Icon(Icons.error_outline, size: 48, color: scheme.error),
           const SizedBox(height: AppTheme.spacing16),
           Text(widget.loadError ?? 'Unknown error',
-              style: TextStyle(color: scheme.onSurface.withValues(alpha: 0.72))),
+              style:
+                  TextStyle(color: scheme.onSurface.withValues(alpha: 0.72))),
           const SizedBox(height: AppTheme.spacing16),
           FilledButton(onPressed: widget.onRefresh, child: const Text('Retry')),
         ],
@@ -787,6 +946,7 @@ class _MiniStat extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
           width: 8,
@@ -794,37 +954,43 @@ class _MiniStat extends StatelessWidget {
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: AppTheme.spacing8),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: AppTheme.fontBody,
-                color: scheme.onSurface.withValues(alpha: 0.72),
-                fontWeight: FontWeight.w600,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: AppTheme.fontBody,
+                  color: scheme.onSurface.withValues(alpha: 0.72),
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
-            Row(
-              children: [
-                Text(
-                  value,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w800,
-                    color: scheme.onSurface,
+              Wrap(
+                spacing: 4,
+                runSpacing: 2,
+                children: [
+                  Text(
+                    value,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: scheme.onSurface,
+                    ),
                   ),
-                ),
-                Text(
-                  ' ($pct)',
-                  style: TextStyle(
-                    fontSize: AppTheme.fontSmall,
-                    color: scheme.onSurface.withValues(alpha: 0.60),
-                    fontWeight: FontWeight.w700,
+                  Text(
+                    '($pct)',
+                    style: TextStyle(
+                      fontSize: AppTheme.fontSmall,
+                      color: scheme.onSurface.withValues(alpha: 0.60),
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -845,50 +1011,53 @@ class _ImpactChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: AppTheme.spacing12,
-          vertical: AppTheme.spacing12,
-        ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          border: Border.all(color: scheme.outline.withValues(alpha: 0.65)),
-          color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 10,
-              height: 10,
-              decoration: BoxDecoration(
-                color: color,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                border: Border.all(
-                  color: scheme.outline.withValues(alpha: 0.35),
-                ),
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing12,
+        vertical: AppTheme.spacing12,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: scheme.outline.withValues(alpha: 0.65)),
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.35),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              border: Border.all(
+                color: scheme.outline.withValues(alpha: 0.35),
               ),
             ),
-            const SizedBox(width: AppTheme.spacing8),
-            Expanded(
-              child: Text(
-                label,
-                style: TextStyle(
-                  color: scheme.onSurface.withValues(alpha: 0.72),
-                  fontWeight: FontWeight.w700,
-                  fontSize: AppTheme.fontSmall,
-                ),
-              ),
-            ),
-            Text(
-              '$count',
+          ),
+          const SizedBox(width: AppTheme.spacing8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                color: scheme.onSurface,
-                fontWeight: FontWeight.w900,
+                color: scheme.onSurface.withValues(alpha: 0.72),
+                fontWeight: FontWeight.w700,
+                fontSize: AppTheme.fontSmall,
               ),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 4),
+          Text(
+            '$count',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: scheme.onSurface,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1109,14 +1278,16 @@ class _ScrollableHeatmapGrid extends StatelessWidget {
       final d = day.date;
       final weekStart = DateTime(d.year, d.month, d.day)
           .subtract(Duration(days: d.weekday % 7));
-      final key = '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
+      final key =
+          '${weekStart.year}-${weekStart.month.toString().padLeft(2, '0')}-${weekStart.day.toString().padLeft(2, '0')}';
       weekKeyToSlots.putIfAbsent(key, () => List.filled(7, null));
       weekKeyToSlots[key]![d.weekday % 7] = day;
     }
 
     final sortedKeys = weekKeyToSlots.keys.toList()..sort();
-    final List<List<ContributionDay?>> weeks =
-        sortedKeys.map((k) => List<ContributionDay?>.from(weekKeyToSlots[k]!)).toList();
+    final List<List<ContributionDay?>> weeks = sortedKeys
+        .map((k) => List<ContributionDay?>.from(weekKeyToSlots[k]!))
+        .toList();
 
     return ListView.separated(
       scrollDirection: Axis.horizontal,
@@ -1173,7 +1344,7 @@ class _HeatmapCell extends StatelessWidget {
       button: true,
       label: '$dateStr. ${day!.contributionCount} commits.',
       child: Material(
-        color: Colors.transparent,
+        color: scheme.surface.withValues(alpha: 0),
         child: InkWell(
           borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           onTap: () {
@@ -1223,7 +1394,7 @@ class _HeatmapCell extends StatelessWidget {
             );
           },
           child: Container(
-            width: 28, 
+            width: 28,
             height: 28,
             alignment: Alignment.center,
             child: Container(
@@ -1232,7 +1403,8 @@ class _HeatmapCell extends StatelessWidget {
               decoration: BoxDecoration(
                 color: color,
                 borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),
+                border:
+                    Border.all(color: scheme.outline.withValues(alpha: 0.35)),
               ),
             ),
           ),

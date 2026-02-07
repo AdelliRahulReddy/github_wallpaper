@@ -99,9 +99,10 @@ class _CustomizePageState extends State<CustomizePage> {
   }
 
   Future<void> _saveAndApply() async {
+    final scheme = Theme.of(context).colorScheme;
     final target = await showModalBottomSheet<String>(
       context: context,
-      backgroundColor: AppTheme.lightBg,
+      backgroundColor: scheme.surfaceContainerHighest,
       shape: const RoundedRectangleBorder(
         borderRadius:
             BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
@@ -112,12 +113,12 @@ class _CustomizePageState extends State<CustomizePage> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
+              Text(
                 'Set Wallpaper',
                 style: TextStyle(
                   fontSize: AppTheme.fontTitle,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.lightText,
+                  color: scheme.onSurface,
                 ),
               ),
               const SizedBox(height: AppTheme.spacing16),
@@ -143,10 +144,10 @@ class _CustomizePageState extends State<CustomizePage> {
       ),
     );
 
-    if (target == null) return;
+    if (target == null || !mounted) return;
 
     // Validate quote
-    final validationError = ValidationUtils.validateQuote(_config.customQuote);
+    final validationError = isValidQuoteFormat(_config.customQuote);
     if (validationError != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -192,13 +193,10 @@ class _CustomizePageState extends State<CustomizePage> {
 
     final scheme = Theme.of(context).colorScheme;
     final media = MediaQuery.of(context);
-    final viewportHeight = media.size.height;
     final isLandscape = media.orientation == Orientation.landscape;
-    final previewPanelHeight =
-        (viewportHeight * (isLandscape ? 0.72 : 0.55)).clamp(
-      viewportHeight * (isLandscape ? 0.60 : 0.50),
-      viewportHeight * (isLandscape ? 0.82 : 0.60),
-    );
+    final textScale = media.textScaler.scale(1.0);
+    final previewFlex = textScale > 1.2 ? 5 : 6;
+    final controlsFlex = textScale > 1.2 ? 7 : 6;
 
     final previewPanel = Container(
       width: double.infinity,
@@ -213,7 +211,7 @@ class _CustomizePageState extends State<CustomizePage> {
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: scheme.shadow.withValues(alpha: 0.08),
             blurRadius: 10,
             offset: const Offset(0, 5),
           ),
@@ -264,8 +262,8 @@ class _CustomizePageState extends State<CustomizePage> {
 
     return Column(
       children: [
-        SizedBox(height: previewPanelHeight, child: previewPanel),
-        Expanded(child: controlsPanel),
+        Expanded(flex: previewFlex, child: previewPanel),
+        Expanded(flex: controlsFlex, child: controlsPanel),
       ],
     );
   }
@@ -275,23 +273,25 @@ class _CustomizePageState extends State<CustomizePage> {
   // ══════════════════════════════════════════════════════════════════════
 
   Widget _buildNoDataState() {
-    return Center(
-      child: Padding(
+    final scheme = Theme.of(context).colorScheme;
+    return SafeArea(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(AppTheme.spacing32),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: AppTheme.darkText.withValues(alpha: 0.1),
+                color: scheme.onSurface.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(AppTheme.radiusXL),
               ),
-              child: const Icon(
+              child: Icon(
                 Icons.palette_outlined,
                 size: 40,
-                color: AppTheme.darkText,
+                color: scheme.onSurface.withValues(alpha: 0.8),
               ),
             ),
             const SizedBox(height: AppTheme.spacing24),
@@ -300,21 +300,20 @@ class _CustomizePageState extends State<CustomizePage> {
               style: TextStyle(
                 fontSize: AppTheme.fontLarge,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.lightText.withValues(alpha: 0.7),
+                color: scheme.onSurface.withValues(alpha: 0.75),
               ),
             ),
             const SizedBox(height: AppTheme.spacing8),
-            const Text(
+            Text(
               'Sync your GitHub data first',
               style: TextStyle(
-                fontSize: 14,
-                color: AppTheme.darkText,
+                fontSize: AppTheme.fontBase,
+                color: scheme.onSurface.withValues(alpha: 0.65),
               ),
             ),
             const SizedBox(height: AppTheme.spacing24),
             SizedBox(
               width: double.infinity,
-              height: 48,
               child: ElevatedButton.icon(
                 onPressed: widget.onRequestSync,
                 icon: const Icon(Icons.sync),
@@ -326,8 +325,9 @@ class _CustomizePageState extends State<CustomizePage> {
                   ),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.primaryBlue,
-                  foregroundColor: AppTheme.lightSurface,
+                  minimumSize: const Size.fromHeight(48),
+                  backgroundColor: scheme.primary,
+                  foregroundColor: scheme.onPrimary,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                   ),
@@ -345,6 +345,7 @@ class _CustomizePageState extends State<CustomizePage> {
   // ══════════════════════════════════════════════════════════════════════
 
   Widget _buildPreviewSection() {
+    final scheme = Theme.of(context).colorScheme;
     final dims = StorageService.getDimensions();
     var wallpaperWidth = dims?['width'] ?? AppConstants.defaultWallpaperWidth;
     var wallpaperHeight =
@@ -359,11 +360,13 @@ class _CustomizePageState extends State<CustomizePage> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        // Calculate limits
         final maxW = constraints.maxWidth;
         final maxH = constraints.maxHeight;
 
-        // Increased infoHeight buffer from 60 to 100 to prevent vertical overflows on some devices
-        final infoHeight = 100.0;
+        // Reserve space for text info, but allow scrolling if needed
+        // Increased infoHeight buffer from 60 to 120 to be safer
+        final infoHeight = 120.0;
         final previewMaxHeight = (maxH - infoHeight).clamp(120.0, maxH);
 
         double previewHeight = previewMaxHeight;
@@ -374,75 +377,75 @@ class _CustomizePageState extends State<CustomizePage> {
           previewHeight = previewWidth / wallpaperAspectRatio;
         }
 
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // 100% Unified: Removed target selector as requested ("ONE FIXED")
-            // All targets (Home/Lock/Both) now share the exact same professional layout.
-            const SizedBox(height: 10),
-            Semantics(
-              label:
-                  'Wallpaper preview for $_deviceName. Resolution $physicalWidth by $physicalHeight pixels.',
-              image: true,
-              child: Container(
-                height: previewHeight,
-                width: previewWidth,
-                decoration: BoxDecoration(
-                  color: AppTheme.lightBg,
-                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                  boxShadow: AppTheme.shadow(Colors.black),
-                  border: Border.all(color: AppTheme.lightBorder, width: 1),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                  child: Stack(
-                    children: [
-                      RepaintBoundary(
-                        child: CustomPaint(
-                          key: ValueKey(
-                              '${_config.hashCode}_${_previewTarget.name}'),
-                          painter: _WallpaperPreviewPainter(
-                            data: widget.data!,
-                            wallpaperWidth: wallpaperWidth,
-                            wallpaperHeight: wallpaperHeight,
-                            target: _previewTarget,
-                            config: DeviceCompatibilityChecker.applyPlacement(
-                              base: _config,
+        return SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // 100% Unified: Removed target selector as requested ("ONE FIXED")
+              // All targets (Home/Lock/Both) now share the exact same professional layout.
+              const SizedBox(height: 10),
+              Semantics(
+                label:
+                    'Wallpaper preview for $_deviceName. Resolution $physicalWidth by $physicalHeight pixels.',
+                image: true,
+                child: Container(
+                  height: previewHeight,
+                  width: previewWidth,
+                  decoration: BoxDecoration(
+                    color: scheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    boxShadow: AppTheme.shadow(scheme.shadow),
+                    border: Border.all(color: scheme.outline, width: 1),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                    child: Stack(
+                      children: [
+                        RepaintBoundary(
+                          child: CustomPaint(
+                            key: ValueKey(
+                                '${_config.hashCode}_${_previewTarget.name}'),
+                            painter: _WallpaperPreviewPainter(
+                              data: widget.data!,
+                              wallpaperWidth: wallpaperWidth,
+                              wallpaperHeight: wallpaperHeight,
                               target: _previewTarget,
+                              config: DeviceCompatibilityChecker.applyPlacement(
+                                base: _config,
+                                target: _previewTarget,
+                              ),
                             ),
+                            child: Container(),
                           ),
-                          child: Container(),
                         ),
-                      ),
-                      // Visual Guide for System UI
-                      _buildSystemUiGuides(previewHeight / wallpaperHeight),
-                    ],
+                        // Visual Guide for System UI
+                        _buildSystemUiGuides(previewHeight / wallpaperHeight),
+                      ],
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Preview for $_deviceName',
-              style: const TextStyle(
-                fontSize: AppTheme.fontBody,
-                fontWeight: FontWeight.w500,
-                color: AppTheme.lightText,
+              const SizedBox(height: 8),
+              Text(
+                'Preview for $_deviceName',
+                style: TextStyle(
+                  fontSize: AppTheme.fontBody,
+                  fontWeight: FontWeight.w500,
+                  color: scheme.onSurface,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Wallpaper: ${physicalWidth}x${physicalHeight}px',
-              style: const TextStyle(
-                fontSize: AppTheme.fontCaption,
-                color: AppTheme.darkText,
+              const SizedBox(height: 4),
+              Text(
+                'Wallpaper: ${physicalWidth}x${physicalHeight}px',
+                style: TextStyle(
+                  fontSize: AppTheme.fontCaption,
+                  color: scheme.onSurface.withValues(alpha: 0.65),
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -459,18 +462,19 @@ class _CustomizePageState extends State<CustomizePage> {
   // ══════════════════════════════════════════════════════════════════════
 
   Widget _buildCustomizationSection() {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
       padding: const EdgeInsets.all(AppTheme.spacing20),
       decoration: AppTheme.glassCard(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             'Text Overlay',
             style: TextStyle(
               fontSize: AppTheme.fontBase,
               fontWeight: FontWeight.w600,
-              color: AppTheme.lightText,
+              color: scheme.onSurface,
             ),
           ),
           const SizedBox(height: 12),
@@ -480,13 +484,15 @@ class _CustomizePageState extends State<CustomizePage> {
               labelText: 'Custom Quote',
               hintText: 'Enter your motivation...',
               filled: true,
-              fillColor: AppTheme.lightBg,
+              fillColor: scheme.surfaceContainerHighest,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
                 borderSide: BorderSide.none,
               ),
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spacing16,
+                vertical: AppTheme.spacing12,
+              ),
             ),
             onChanged: (value) {
               _updateConfig(_config.copyWith(customQuote: value));
@@ -520,14 +526,16 @@ class _CustomizePageState extends State<CustomizePage> {
           const Divider(),
           const SizedBox(height: AppTheme.spacing24),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                'Scale',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.lightText,
+              Expanded(
+                child: Text(
+                  'Scale',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontBase,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
                 ),
               ),
               TextButton.icon(
@@ -544,19 +552,21 @@ class _CustomizePageState extends State<CustomizePage> {
           ),
           const SizedBox(height: 8),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              const Text(
-                'Auto Fit Width',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.lightText,
+              Expanded(
+                child: Text(
+                  'Auto Fit Width',
+                  style: TextStyle(
+                    fontSize: AppTheme.fontBase,
+                    fontWeight: FontWeight.w600,
+                    color: scheme.onSurface,
+                  ),
                 ),
               ),
               Switch(
                 value: _config.autoFitWidth,
-                activeThumbColor: AppTheme.primaryBlue,
+                activeThumbColor: scheme.primary,
                 onChanged: (value) {
                   _updateConfig(_config.copyWith(autoFitWidth: value));
                 },
@@ -565,10 +575,10 @@ class _CustomizePageState extends State<CustomizePage> {
           ),
           SliderTheme(
             data: SliderTheme.of(context).copyWith(
-              activeTrackColor: AppTheme.primaryBlue,
-              inactiveTrackColor: AppTheme.lightBorder,
-              thumbColor: AppTheme.primaryBlue,
-              overlayColor: AppTheme.primaryBlue.withValues(alpha: 0.2),
+              activeTrackColor: scheme.primary,
+              inactiveTrackColor: scheme.outline.withValues(alpha: 0.6),
+              thumbColor: scheme.primary,
+              overlayColor: scheme.primary.withValues(alpha: 0.2),
               trackHeight: 4,
             ),
             child: Slider(
@@ -606,11 +616,11 @@ class _CustomizePageState extends State<CustomizePage> {
             },
           ),
           const SizedBox(height: AppTheme.spacing20),
-          const Text(
+          Text(
             'Layout automatically reserves space for the status bar/notch and lock-screen clock. Position controls are applied after that.',
             style: TextStyle(
               fontSize: AppTheme.fontCaption,
-              color: AppTheme.darkText,
+              color: scheme.onSurface.withValues(alpha: 0.65),
             ),
           ),
           const SizedBox(height: AppTheme.spacing12),
@@ -652,26 +662,30 @@ class _CustomizePageState extends State<CustomizePage> {
     required int divisions,
     required ValueChanged<double> onChanged,
   }) {
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              label,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: AppTheme.lightText,
+            Expanded(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: AppTheme.fontBase,
+                  fontWeight: FontWeight.w600,
+                  color: scheme.onSurface,
+                ),
               ),
             ),
+            const SizedBox(width: AppTheme.spacing12),
             Text(
               value.toStringAsFixed(2),
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: AppTheme.fontSmall,
                 fontWeight: FontWeight.w600,
-                color: AppTheme.primaryBlue,
+                color: scheme.primary,
               ),
             ),
           ],
@@ -679,10 +693,10 @@ class _CustomizePageState extends State<CustomizePage> {
         const SizedBox(height: 8),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: AppTheme.primaryBlue,
-            inactiveTrackColor: AppTheme.lightBorder,
-            thumbColor: AppTheme.primaryBlue,
-            overlayColor: AppTheme.primaryBlue.withValues(alpha: 0.2),
+            activeTrackColor: scheme.primary,
+            inactiveTrackColor: scheme.outline.withValues(alpha: 0.6),
+            thumbColor: scheme.primary,
+            overlayColor: scheme.primary.withValues(alpha: 0.2),
             trackHeight: 4,
           ),
           child: Slider(
@@ -702,9 +716,9 @@ class _CustomizePageState extends State<CustomizePage> {
   // ══════════════════════════════════════════════════════════════════════
 
   Widget _buildApplyButton() {
+    final scheme = Theme.of(context).colorScheme;
     return SizedBox(
       width: double.infinity,
-      height: 56,
       child: Semantics(
         button: true,
         enabled: !_isGenerating,
@@ -712,31 +726,41 @@ class _CustomizePageState extends State<CustomizePage> {
         child: ElevatedButton(
           onPressed: _isGenerating ? null : _saveAndApply,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppTheme.primaryBlue,
+            minimumSize: const Size.fromHeight(56),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppTheme.spacing16,
+              vertical: AppTheme.spacing12,
+            ),
+            backgroundColor: scheme.primary,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
             ),
           ),
           child: _isGenerating
-              ? const SizedBox(
+              ? SizedBox(
                   width: 24,
                   height: 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    color: AppTheme.lightSurface,
+                    color: scheme.onPrimary,
                   ),
                 )
-              : const Row(
+              : Row(
                   mainAxisAlignment: MainAxisAlignment.center,
+                  mainAxisSize: MainAxisSize.max,
                   children: [
-                    Icon(Icons.check_circle_outline, size: 22),
-                    SizedBox(width: 8),
-                    Text(
-                      'Apply Wallpaper',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontLarge,
-                        fontWeight: FontWeight.w600,
-                        color: AppTheme.lightSurface,
+                    const Icon(Icons.check_circle_outline, size: 22),
+                    const SizedBox(width: 8),
+                    Flexible(
+                      child: Text(
+                        'Apply Wallpaper',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: AppTheme.fontLarge,
+                          fontWeight: FontWeight.w600,
+                          color: scheme.onPrimary,
+                        ),
                       ),
                     ),
                   ],
@@ -765,13 +789,13 @@ class _CustomizePageState extends State<CustomizePage> {
             height:
                 safeInsets.top * previewScale + 60, // Padding + space for clock
             child: Container(
-              color: Colors.red.withValues(alpha: 0.1),
+              color: AppTheme.errorRed.withValues(alpha: 0.1),
               child: const Center(
                 child: Text(
                   'SYSTEM CLOCK AREA',
                   style: TextStyle(
-                      color: Colors.red,
-                      fontSize: 10,
+                      color: AppTheme.errorRed,
+                      fontSize: AppTheme.fontCaption,
                       fontWeight: FontWeight.bold),
                 ),
               ),
@@ -784,13 +808,13 @@ class _CustomizePageState extends State<CustomizePage> {
             right: 0,
             height: safeInsets.bottom * previewScale + 20,
             child: Container(
-              color: Colors.blue.withValues(alpha: 0.1),
+              color: AppTheme.primaryBlue.withValues(alpha: 0.1),
               child: const Center(
                 child: Text(
                   'GESTURE AREA',
                   style: TextStyle(
-                      color: Colors.blue,
-                      fontSize: 10,
+                      color: AppTheme.primaryBlue,
+                      fontSize: AppTheme.fontCaption,
                       fontWeight: FontWeight.bold),
                 ),
               ),

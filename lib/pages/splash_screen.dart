@@ -13,9 +13,18 @@ class SplashScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final gradient = AppTheme.skyGradient(progress);
-    final accent = AppTheme.skyAccent(progress);
-    final isDark = AppTheme.isSkyDark(progress);
+    // 100% System Theme Adaptation
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final accent = AppTheme.primaryBrandAccent;
+
+    final Gradient gradient = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: isDark
+          ? [AppTheme.darkBg, AppTheme.darkSurface]
+          : [AppTheme.lightBg, AppTheme.lightSurface],
+    );
 
     return Scaffold(
       body: AnimatedContainer(
@@ -24,9 +33,6 @@ class SplashScreen extends StatelessWidget {
         child: SafeArea(
           child: Stack(
             children: [
-              // Sky elements
-              ..._buildSky(progress, accent, isDark),
-
               // Content
               Center(
                 child: Column(
@@ -34,14 +40,14 @@ class SplashScreen extends StatelessWidget {
                   children: [
                     // Logo
                     Container(
-                      padding: const EdgeInsets.all(28),
+                      padding: const EdgeInsets.all(AppTheme.spacing24),
                       decoration: BoxDecoration(
-                        color:
-                            Colors.white.withValues(alpha: isDark ? 0.1 : 0.9),
+                        color: (isDark ? scheme.surface : scheme.onSurface)
+                            .withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(AppTheme.radiusXL),
                         border: Border.all(
                             color: accent.withValues(alpha: 0.3), width: 1.5),
-                        boxShadow: AppTheme.shadow(accent, opacity: 0.2),
+                        boxShadow: AppTheme.shadow(accent, opacity: 0.1),
                       ),
                       child: _ContributionGraph(isDark: isDark, accent: accent),
                     ).animate().fadeIn(duration: 600.ms).scale(
@@ -60,7 +66,7 @@ class SplashScreen extends StatelessWidget {
                           style: TextStyle(
                               fontSize: AppTheme.fontDisplay,
                               fontWeight: FontWeight.w900,
-                              color: Colors.white,
+                              color: AppTheme.lightSurface,
                               letterSpacing: -1,
                               height: 1.1)),
                     )
@@ -72,7 +78,10 @@ class SplashScreen extends StatelessWidget {
 
                     Text(AppStrings.appTagline,
                             style: TextStyle(
-                                color: AppTheme.skySubtextColor(isDark),
+                                color: (isDark
+                                        ? AppTheme.darkText
+                                        : AppTheme.lightText)
+                                    .withValues(alpha: 0.7),
                                 fontSize: AppTheme.fontMedium,
                                 fontWeight: FontWeight.w500,
                                 letterSpacing: 0.2))
@@ -98,7 +107,10 @@ class SplashScreen extends StatelessWidget {
                           const SizedBox(height: 20),
                           Text(_status(progress),
                                   style: TextStyle(
-                                      color: AppTheme.skySubtextColor(isDark),
+                                      color: (isDark
+                                              ? AppTheme.darkText
+                                              : AppTheme.lightText)
+                                          .withValues(alpha: 0.7),
                                       fontSize: AppTheme.fontBody,
                                       fontWeight: FontWeight.w600,
                                       letterSpacing: 0.3))
@@ -108,7 +120,7 @@ class SplashScreen extends StatelessWidget {
                         ],
                       )
                     else
-                      _buildError(error!, accent, onRetry, isDark),
+                      _buildError(context, error!, accent, onRetry, isDark),
                   ],
                 ),
               ),
@@ -132,7 +144,7 @@ class SplashScreen extends StatelessWidget {
                 child: Text('v${AppStrings.appVersion}',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: AppTheme.skyTextColor(isDark)
+                        color: (isDark ? AppTheme.darkText : AppTheme.lightText)
                             .withValues(alpha: 0.3),
                         fontSize: AppTheme.fontCaption,
                         fontWeight: FontWeight.w500,
@@ -145,99 +157,14 @@ class SplashScreen extends StatelessWidget {
     );
   }
 
-  List<Widget> _buildSky(double progress, Color accent, bool isDark) {
-    return [
-      // Sun/Moon
-      Positioned(
-        top: 60,
-        right: 40,
-        child: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: isDark
-                ? Colors.white.withValues(alpha: 0.9)
-                : Colors.yellow.shade300,
-            boxShadow: [
-              BoxShadow(
-                  color: isDark
-                      ? Colors.white.withValues(alpha: 0.3)
-                      : Colors.yellow.withValues(alpha: 0.4),
-                  blurRadius: 40,
-                  spreadRadius: 10)
-            ],
-          ),
-        ).animate(onPlay: (c) => c.repeat(reverse: true)).scale(
-            begin: const Offset(1, 1),
-            end: const Offset(1.1, 1.1),
-            duration: 3.seconds),
-      ),
-
-      // Stars (night) or clouds (day)
-      if (isDark) ...[
-        _star(100, 80, null, null, 3, 0),
-        _star(150, null, 120, null, 2, 400),
-        _star(80, null, null, 180, 2.5, 800),
-        _star(null, 90, 140, null, 2, 1200),
-        _star(null, 200, null, 100, 3, 600),
-      ] else ...[
-        _cloud(80, null, 120, null, 0),
-        _cloud(null, 200, 60, null, 600),
-      ],
-    ];
-  }
-
-  Widget _star(double? top, double? right, double? left, double? bottom,
-      double size, int delay) {
-    return Positioned(
-      top: top,
-      right: right,
-      left: left,
-      bottom: bottom,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white,
-            boxShadow: [BoxShadow(color: Colors.white60, blurRadius: 8)]),
-      )
-          .animate(onPlay: (c) => c.repeat(reverse: true))
-          .fadeIn(delay: Duration(milliseconds: delay), duration: 1.5.seconds)
-          .fadeOut(duration: 1.5.seconds),
-    );
-  }
-
-  Widget _cloud(
-      double? top, double? bottom, double? left, double? right, int delay) {
-    return Positioned(
-      top: top,
-      bottom: bottom,
-      left: left,
-      right: right,
-      child: Container(
-        width: 80,
-        height: 30,
-        decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(15)),
-      ).animate(onPlay: (c) => c.repeat()).slideX(
-          begin: 0,
-          end: 2,
-          delay: Duration(milliseconds: delay),
-          duration: 20.seconds),
-    );
-  }
-
-  Widget _buildError(
-      String error, Color accent, VoidCallback? onRetry, bool isDark) {
+  Widget _buildError(BuildContext context, String error, Color accent,
+      VoidCallback? onRetry, bool isDark) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 40),
+      padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing40),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(AppTheme.spacing20),
             decoration: BoxDecoration(
               color: AppTheme.errorRed.withValues(alpha: isDark ? 0.2 : 0.1),
               borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
@@ -270,8 +197,11 @@ class SplashScreen extends StatelessWidget {
                     letterSpacing: 0.2)),
             style: FilledButton.styleFrom(
               backgroundColor: accent,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+              foregroundColor: Theme.of(context).colorScheme.onPrimary,
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppTheme.spacing32,
+                vertical: AppTheme.spacing16,
+              ),
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
               elevation: 2,
@@ -294,7 +224,8 @@ class SplashScreen extends StatelessWidget {
           children: [
             Text('Loading',
                 style: TextStyle(
-                    color: AppTheme.skyTextColor(isDark).withValues(alpha: 0.5),
+                    color: (isDark ? AppTheme.darkText : AppTheme.lightText)
+                        .withValues(alpha: 0.5),
                     fontSize: AppTheme.fontCaption,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.8)),
@@ -308,15 +239,16 @@ class SplashScreen extends StatelessWidget {
         ),
         const SizedBox(height: 10),
         ClipRRect(
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
           child: Stack(
             children: [
               Container(
                   height: 5,
                   decoration: BoxDecoration(
-                      color:
-                          AppTheme.skyTextColor(isDark).withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(6))),
+                      color: (isDark ? AppTheme.darkText : AppTheme.lightText)
+                          .withValues(alpha: 0.15),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSmall))),
               AnimatedContainer(
                 duration: const Duration(milliseconds: 300),
                 curve: Curves.easeOut,
@@ -325,7 +257,7 @@ class SplashScreen extends StatelessWidget {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                       colors: [accent, accent.withValues(alpha: 0.8)]),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
                   boxShadow: [
                     BoxShadow(
                         color: accent.withValues(alpha: 0.5),
@@ -359,7 +291,10 @@ class _ContributionGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = isDark ? const Color(0xFF1A1A1A) : const Color(0xFFEEEEEE);
+    final base = Theme.of(context)
+        .colorScheme
+        .surfaceContainerHighest
+        .withValues(alpha: isDark ? 0.9 : 1);
     final colors = [
       base,
       accent.withValues(alpha: 0.3),
@@ -382,19 +317,20 @@ class _ContributionGraph extends StatelessWidget {
       children: List.generate(
         7,
         (r) => Padding(
-          padding: const EdgeInsets.only(bottom: 3.5),
+          padding: const EdgeInsets.only(bottom: AppTheme.spacing8 / 2),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: List.generate(
               9,
               (c) => Padding(
-                padding: const EdgeInsets.only(right: 3.5),
+                padding: const EdgeInsets.only(right: AppTheme.spacing8 / 2),
                 child: Container(
                   width: 13,
                   height: 13,
                   decoration: BoxDecoration(
                       color: colors[pattern[r][c]],
-                      borderRadius: BorderRadius.circular(2.5)),
+                      borderRadius:
+                          BorderRadius.circular(AppTheme.radiusSmall / 3)),
                 )
                     .animate()
                     .scale(
