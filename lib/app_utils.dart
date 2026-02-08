@@ -2,10 +2,12 @@
 import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'dart:async'; // Added for Timer
 import 'app_exceptions.dart';
 import 'app_theme.dart';
-import 'main.dart';
+final messengerKey = GlobalKey<ScaffoldMessengerState>();
 
 // ERROR HANDLING
 class ErrorHandler {
@@ -25,7 +27,7 @@ class ErrorHandler {
     if (e is RateLimitException) return 'Rate limit exceeded.';
 
     final msg = e.toString().replaceAll('Exception:', '').trim();
-    return msg.isNotEmpty ? 'Something went wrong. ($msg)' : 'Something went wrong.';
+    return msg.isNotEmpty ? '${AppStrings.errorGeneric} ($msg)' : AppStrings.errorGeneric;
   }
 
   static void handle(BuildContext? c, dynamic e,
@@ -59,6 +61,24 @@ class ErrorHandler {
   }
 }
 
+// LOGGING
+class AppLog {
+  static void info(String m) {
+    if (kDebugMode) {
+      debugPrint("🟢 [INFO]: $m");
+    } else {
+      try { FirebaseCrashlytics.instance.log(m); } catch (_) {}
+    }
+  }
+
+  static void error(dynamic e, [StackTrace? s]) {
+    if (kDebugMode) {
+      debugPrint("🔴 [ERROR]: $e");
+    }
+    try { FirebaseCrashlytics.instance.recordError(e, s); } catch (_) {}
+  }
+}
+
 // DEBOUNCER
 class Debouncer {
   final Duration delay;
@@ -73,8 +93,8 @@ class Debouncer {
 
 // VALIDATION
 class ValidationUtils {
-  static final _usernameRegex = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$');
-  static final _tokenRegex = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$');
+  static final _usernameRegex = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$'); // Alphanumeric with dashes, no consecutive dashes
+  static final _tokenRegex = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$'); // Supports all GitHub PAT prefixes
   static final _phoneCleanRegex = RegExp(r'[^\d]');
 
   static String? username(String? v) {
@@ -107,6 +127,7 @@ class AppStrings {
   static const onboardingTitle2 = 'Always Updated';
   static const onboardingDesc2 = 'Your wallpaper updates automatically in the background. Keep your coding streak visible!';
   static const onboardingTitle3 = 'Built by Developer';
+  static const onboardingDesc3 = 'Loved the app? Reach out for support or just to say hi. Built with ❤️ by Rahulreddy.';
   static const connectGitHub = 'Connect GitHub';
   static const connectAccount = 'Connect Account';
   static const backToIntro = 'Back to Introduction';
@@ -128,6 +149,9 @@ class AppStrings {
   static const applyingWallpaper = 'Applying wallpaper...';
   static const refreshingData = 'Refreshing data...';
   static const wallpaperApplied = 'Wallpaper applied successfully!';
+  static const wallpaperGenerated = 'Wallpaper image generated successfully';
+  static const dataSynced = 'Data synced successfully';
+  static const credentialsMissing = 'Credentials missing. Please login again.';
   static const settingsSaved = 'Settings saved';
   static const cacheCleared = 'Cache cleared successfully';
   static const errorGeneric = 'Something went wrong. Please try again.';
@@ -144,7 +168,10 @@ class AppStrings {
   static const developer = 'DEVELOPED BY';
   static const developerName = 'Adelli Rahulreddy';
   static const developerTagline = 'Building tools for developers';
-  static const appVersion = '1.0.0';
+  static const appVersion = '1.0.1';
+  static const privacyPolicyUrl = 'https://adellirahulreddy.github.io/github_wallpaper/privacy_policy.html';
+  static const whatsAppUrlScheme = 'https://wa.me/';
+  static const defaultDeviceName = 'Mobile Device';
 }
 
 class AppConstants {
@@ -165,6 +192,8 @@ class AppConstants {
   static const String apiUrl = 'https://api.github.com/graphql';
   static const int intensity1 = 3, intensity2 = 6, intensity3 = 9, usernameMaxLength = 39, quoteMaxLength = 200, monthGridColumns = 7;
   static const double deviceClockBufferHeightFraction = 0.15, deviceClockBufferMinPx = 120.0, deviceClockBufferMaxPx = 300.0;
+  static const double minWallpaperScale = 0.1, maxWallpaperScale = 10.0;
+  static const int wallpaperScaleDivisions = 40;
   static bool isValidContributionLevel(int l) => l >= 0 && l <= 4;
 }
 
@@ -180,9 +209,19 @@ class RefreshPolicy {
   static RefreshDecision shouldRefresh({required bool isBackground, required bool isAndroid, required bool autoUpdateEnabled, required bool hasPendingRefresh, DateTime? lastUpdate, String? username, String? token, bool hasConnectivity = true, DateTime? now}) {
     if (!isAndroid && isBackground) return const RefreshDecision.skip(RefreshSkipReason.noChanges);
     final nowUtc = (now ?? DateTime.now()).toUtc();
-    if (hasPendingRefresh && lastUpdate != null && nowUtc.difference(lastUpdate.toUtc()).inMinutes < 2) return const RefreshDecision.skip(RefreshSkipReason.noChanges);
+    if (hasPendingRefresh &&
+        lastUpdate != null &&
+        nowUtc.difference(lastUpdate.toUtc()).inMinutes <
+            AppConstants.pendingRefreshDebounceMinutes) {
+      return const RefreshDecision.skip(RefreshSkipReason.noChanges);
+    }
     if (!autoUpdateEnabled && isBackground) return const RefreshDecision.skip(RefreshSkipReason.noChanges);
-    if (isBackground && lastUpdate != null && nowUtc.difference(lastUpdate.toUtc()).inMinutes < 15) return const RefreshDecision.skip(RefreshSkipReason.throttled);
+    if (isBackground &&
+        lastUpdate != null &&
+        nowUtc.difference(lastUpdate.toUtc()).inMinutes <
+            AppConstants.refreshCooldownMinutes) {
+      return const RefreshDecision.skip(RefreshSkipReason.throttled);
+    }
     if (!hasConnectivity) return const RefreshDecision.skip(RefreshSkipReason.networkError);
     if (username == null || token == null) return const RefreshDecision.skip(RefreshSkipReason.authError);
     return const RefreshDecision.proceed();
@@ -223,6 +262,18 @@ class RenderUtils {
   
   static ui.Radius getCachedRadius(double r, double s) => _rc.putIfAbsent('${r}_$s', () => Radius.circular(r * s));
   static void clearCaches() => _rc.clear();
+}
+
+class AppDateUtils {
+  static String formatDate(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+  static DateTime? parseDate(String? s) {
+    if (s == null) return null;
+    final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(s);
+    return m != null
+        ? DateTime.utc(int.parse(m.group(1)!), int.parse(m.group(2)!), int.parse(m.group(3)!))
+        : DateTime.tryParse(s)?.toUtc();
+  }
 }
 
 class Quartiles { final int q1, q2, q3; const Quartiles(this.q1, this.q2, this.q3); }

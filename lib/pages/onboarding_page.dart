@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:github_wallpaper/app_theme.dart';
+import 'package:github_wallpaper/app_utils.dart';
 import 'package:github_wallpaper/pages/setup_page.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -99,12 +100,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   content: _SyncDemo(accent: accent),
                 ),
                 _Slide(
-                  title: 'Make It\nYours',
-                  subtitle:
-                      'Customize colors, layout, and style to match your aesthetic',
+                  title: 'Built by\nDeveloper',
+                  subtitle: AppStrings.onboardingDesc3,
                   isDark: isDark,
                   accent: accent,
-                  content: const _CustomizeDemo(),
+                  content: const _SupportDemo(),
                 ),
               ],
             ),
@@ -143,28 +143,15 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       spacing: AppTheme.spacing8 / 1.33,
                     ),
                   ),
-                  const SizedBox(height: AppTheme.spacing24),
-                  SizedBox(
-                    width: double.infinity,
-                    height: AppTheme.spacing32 + AppTheme.spacing24,
-                    child: FilledButton(
-                      onPressed: _next,
-                      style: FilledButton.styleFrom(
-                        backgroundColor: accent,
-                        foregroundColor: scheme.onPrimary,
-                        shape: RoundedRectangleBorder(
-                            borderRadius:
-                                BorderRadius.circular(AppTheme.radiusLarge)),
-                        elevation: 2,
-                        shadowColor: accent.withValues(alpha: 0.2),
+                  AppTheme.h24,
+                    SizedBox(
+                      width: double.infinity,
+                      height: AppTheme.spacing48 + AppTheme.spacing8, // 56
+                      child: FilledButton(
+                        onPressed: _next,
+                        child: Text(_page < 2 ? 'Continue' : 'Get Started'),
                       ),
-                      child: Text(_page < 2 ? 'Continue' : 'Get Started',
-                          style: const TextStyle(
-                              fontSize: AppTheme.fontLarge,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 0.3)),
                     ),
-                  ),
                 ],
               ),
             ),
@@ -203,11 +190,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
           ),
         ),
         if (!isDark) ...[
-          _cloud(80, null, 120, null, 0),
-          _cloud(null, 200, 60, null, 800),
+          _cloud(80, null, 120, null),
+          _cloud(null, 200, 60, null),
         ] else ...[
-          _star(100, 80, null, null, 3, 0),
-          _star(200, null, 60, null, 2, 800),
+          _star(100, 80, null, null, 3),
+          _star(200, null, 60, null, 2),
         ]
       ] else if (page == 1) ...[
         Positioned(
@@ -253,17 +240,16 @@ class _OnboardingPageState extends State<OnboardingPage> {
             ),
           ),
         ),
-        _star(100, 80, null, null, 3, 0),
-        _star(150, null, 120, null, 2, 400),
-        _star(80, null, null, 180, 2.5, 800),
-        _star(null, 90, 140, null, 2, 1200),
+        _star(100, 80, null, null, 3),
+        _star(150, null, 120, null, 2),
+        _star(80, null, null, 180, 2.5),
+        _star(null, 90, 140, null, 2),
       ],
     ];
   }
 
-  // ... (keep _star and _cloud helpers if needed, or remove if unused in modified logic)
   Widget _star(double? top, double? right, double? left, double? bottom,
-      double size, int delay) {
+      double size) {
     return Positioned(
       top: top,
       right: right,
@@ -281,15 +267,14 @@ class _OnboardingPageState extends State<OnboardingPage> {
                     .colorScheme
                     .surface
                     .withValues(alpha: 0.5),
-                blurRadius: AppTheme.spacing8 / 2,
+                blurRadius: 4.0,
               )
             ]),
       ),
     );
   }
 
-  Widget _cloud(
-      double? top, double? bottom, double? left, double? right, int delay) {
+  Widget _cloud(double? top, double? bottom, double? left, double? right) {
     return Positioned(
       top: top,
       bottom: bottom,
@@ -301,7 +286,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
         decoration: BoxDecoration(
             color:
                 Theme.of(context).colorScheme.surface.withValues(alpha: 0.32),
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+            borderRadius: AppTheme.brMedium),
       ),
     );
   }
@@ -327,11 +312,11 @@ class _Slide extends StatelessWidget {
         SliverFillRemaining(
           hasScrollBody: false,
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AppTheme.spacing32),
+            padding: AppTheme.pSymH32,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const SizedBox(height: AppTheme.spacing60 + AppTheme.spacing20),
+                AppTheme.h80, // spacing60 + spacing20
                 Text(title,
                     style: TextStyle(
                         fontSize: AppTheme.fontDisplay + AppTheme.spacing8,
@@ -339,7 +324,7 @@ class _Slide extends StatelessWidget {
                         color: isDark ? AppTheme.darkText : AppTheme.lightText,
                         height: 1.1,
                         letterSpacing: -1.5)),
-                const SizedBox(height: AppTheme.spacing20),
+                AppTheme.h20,
                 Text(subtitle,
                     style: TextStyle(
                         fontSize: AppTheme.fontLarge,
@@ -347,16 +332,11 @@ class _Slide extends StatelessWidget {
                             .withValues(alpha: 0.7),
                         height: 1.5,
                         fontWeight: FontWeight.w500)),
-                const SizedBox(height: AppTheme.spacing40),
+                AppTheme.h40,
                 Expanded(
                   child: Center(child: content),
                 ),
-                const SizedBox(
-                    height: AppTheme.spacing32 +
-                        AppTheme.spacing32 +
-                        AppTheme.spacing32 +
-                        AppTheme.spacing32 +
-                        AppTheme.spacing12),
+                AppTheme.h140, // spacer for bottom controls
               ],
             ),
           ),
@@ -387,10 +367,10 @@ class _ContributionDemo extends StatelessWidget {
     ];
 
     return Container(
-      padding: const EdgeInsets.all(AppTheme.spacing32),
+      padding: AppTheme.pAll32,
       decoration: BoxDecoration(
         color: scheme.surface.withValues(alpha: isDark ? 0.45 : 0.95),
-        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+        borderRadius: AppTheme.brXL,
         border: Border.all(color: accent.withValues(alpha: 0.2)),
         boxShadow: AppTheme.shadow(accent, opacity: 0.15),
       ),
@@ -399,20 +379,19 @@ class _ContributionDemo extends StatelessWidget {
         children: List.generate(
           7,
           (r) => Padding(
-            padding: const EdgeInsets.only(bottom: AppTheme.spacing8 / 2),
+            padding: AppTheme.pOnlyB4,
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: List.generate(12, (c) {
                 final level = (r + c) % 5;
                 return Padding(
-                  padding: const EdgeInsets.only(right: AppTheme.spacing8 / 2),
+                  padding: AppTheme.pOnlyR4,
                   child: Container(
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
                         color: colors[level],
-                        borderRadius:
-                            BorderRadius.circular(AppTheme.radiusSmall / 2)),
+                        borderRadius: AppTheme.brXS),
                   ),
                 );
               }),
@@ -462,80 +441,100 @@ class _SyncDemo extends StatelessWidget {
   }
 }
 
-// Slide 3: Customize Demo
-class _CustomizeDemo extends StatelessWidget {
-  const _CustomizeDemo();
+// Slide 3: Support Demo
+class _SupportDemo extends StatelessWidget {
+  const _SupportDemo();
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _card(
-            LinearGradient(
-                colors: [scheme.primary, AppTheme.primaryBrandAccent]),
-            'Ocean Blue',
-            0,
-            context),
-        const SizedBox(height: AppTheme.spacing16),
-        _card(
-            LinearGradient(
-                colors: [AppTheme.primaryBrandAccent, AppTheme.accentViolet]),
-            'Purple Dream',
-            200,
-            context),
-        const SizedBox(height: AppTheme.spacing16),
-        _card(LinearGradient(colors: [scheme.secondary, scheme.primary]),
-            'Green Energy', 400, context),
-      ],
+    final s = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      padding: AppTheme.pAll24,
+      decoration: BoxDecoration(
+        color: s.surface.withValues(alpha: isDark ? 0.45 : 0.95),
+        borderRadius: AppTheme.brXL,
+        border: Border.all(color: s.primary.withValues(alpha: 0.15)),
+        boxShadow: AppTheme.shadow(s.primary, opacity: 0.1),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                  color: s.primary.withValues(alpha: 0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: s.primary.withValues(alpha: 0.2)),
+                ),
+                child: Center(
+                  child: Text(
+                    "RR",
+                    style: TextStyle(
+                      color: s.primary,
+                      fontSize: AppTheme.fontHeadline,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+              AppTheme.w16,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppStrings.developerName,
+                      style: TextStyle(
+                        fontSize: AppTheme.fontLarge,
+                        fontWeight: FontWeight.w800,
+                        color: s.onSurface,
+                      ),
+                    ),
+                    Text(
+                      AppStrings.developerTagline,
+                      style: TextStyle(
+                        fontSize: AppTheme.fontSmall,
+                        color: s.onSurface.withValues(alpha: 0.6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          AppTheme.h24,
+          _supportItem(Icons.alternate_email_rounded, AppStrings.supportEmail, s),
+          AppTheme.h12,
+          _supportItem(Icons.phone_android_rounded, AppStrings.supportPhone, s),
+        ],
+      ),
     );
   }
 
-  Widget _card(
-      LinearGradient gradient, String name, int delay, BuildContext context) {
-    final onGradient =
-        ThemeData.estimateBrightnessForColor(gradient.colors[0]) ==
-                Brightness.dark
-            ? AppTheme.lightSurface
-            : AppTheme.darkBg;
+  Widget _supportItem(IconData icon, String text, ColorScheme s) {
     return Container(
-      height: 70,
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing24,
-        vertical: AppTheme.spacing16,
-      ),
+      padding: AppTheme.pSymH20V12,
       decoration: BoxDecoration(
-        gradient: gradient,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        boxShadow: [
-          BoxShadow(
-              color:
-                  Theme.of(context).colorScheme.shadow.withValues(alpha: 0.15),
-              blurRadius: 16,
-              offset: const Offset(0, 4))
-        ],
+        color: s.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: AppTheme.brMedium,
       ),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-                color: onGradient.withValues(alpha: 0.25),
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium - 2)),
-            child: Icon(Icons.palette_rounded, color: onGradient, size: 22),
+          Icon(icon, size: 20, color: s.primary),
+          AppTheme.w12,
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: AppTheme.fontMedium,
+              fontWeight: FontWeight.w600,
+              color: s.onSurface,
+            ),
           ),
-          const SizedBox(width: AppTheme.spacing16),
-          Text(name,
-              style: TextStyle(
-                  color: onGradient,
-                  fontSize: AppTheme.fontLarge,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 0.2)),
-          const Spacer(),
-          Icon(Icons.arrow_forward_ios_rounded,
-              color: onGradient.withValues(alpha: 0.8), size: 18),
         ],
       ),
     );

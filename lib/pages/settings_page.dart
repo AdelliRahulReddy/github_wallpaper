@@ -8,6 +8,7 @@ import 'package:github_wallpaper/app_theme.dart';
 import 'package:github_wallpaper/app_utils.dart';
 import 'package:github_wallpaper/app_state.dart';
 import 'package:github_wallpaper/pages/onboarding_page.dart';
+import 'package:github_wallpaper/ui_render.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -22,7 +23,7 @@ class _SettingsPageState extends State<SettingsPage> {
   String? _username;
   bool _autoUpdate = true;
   DateTime? _lastUpdate;
-  String _appVersion = '1.0.0';
+  String _appVersion = AppStrings.appVersion;
 
   @override
   void initState() {
@@ -120,11 +121,11 @@ class _SettingsPageState extends State<SettingsPage> {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return SingleChildScrollView(
-      padding: const EdgeInsets.all(AppTheme.spacing20),
+      padding: AppTheme.pAll20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
 
           AppSectionHeader(
             title: 'Settings',
@@ -132,32 +133,29 @@ class _SettingsPageState extends State<SettingsPage> {
             trailing: Icon(Icons.tune_rounded, color: scheme.primary),
           ),
 
-          const SizedBox(height: AppTheme.spacing24),
+          AppTheme.h24,
 
           // Account Section
           _buildAccountSection(),
 
-          const SizedBox(height: AppTheme.spacing20),
+          AppTheme.h20,
 
           // Preferences Section
           _buildPreferencesSection(),
 
-          const SizedBox(height: AppTheme.spacing20),
+          AppTheme.h20,
 
           // Data Section
           _buildDataSection(),
-
-          const SizedBox(height: AppTheme.spacing20),
+          AppTheme.h20,
 
           // About Section
           _buildAboutSection(),
-
-          const SizedBox(height: AppTheme.spacing20),
+          AppTheme.h20,
 
           // Logout Button
           _buildLogoutButton(),
-
-          const SizedBox(height: AppTheme.spacing40),
+          AppTheme.h40,
         ],
       ),
     );
@@ -174,7 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppSectionHeader(title: 'Account'),
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
 
           // Username
           Row(
@@ -184,7 +182,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 height: 48,
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  borderRadius: AppTheme.brMedium,
                   border:
                       Border.all(color: scheme.primary.withValues(alpha: 0.20)),
                 ),
@@ -194,7 +192,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 24,
                 ),
               ),
-              const SizedBox(width: AppTheme.spacing16),
+              AppTheme.w16,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -207,7 +205,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         color: scheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: AppTheme.spacing8 / 2),
+                    AppTheme.h4,
                     Text(
                       'GitHub Account',
                       style: TextStyle(
@@ -222,15 +220,15 @@ class _SettingsPageState extends State<SettingsPage> {
             ],
           ),
 
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
 
           // Last Sync
           if (_lastUpdate != null)
             Container(
-              padding: const EdgeInsets.all(AppTheme.spacing12),
+              padding: AppTheme.pAll12,
               decoration: BoxDecoration(
                 color: scheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                borderRadius: AppTheme.brSmall,
                 border:
                     Border.all(color: scheme.outline.withValues(alpha: 0.55)),
               ),
@@ -241,7 +239,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     size: 18,
                     color: scheme.onSurface.withValues(alpha: 0.72),
                   ),
-                  const SizedBox(width: AppTheme.spacing8),
+                  AppTheme.w8,
                   Text(
                     'Last synced: ${PresentationFormatter.formatTimeSince(_lastUpdate!)}',
                     style: TextStyle(
@@ -269,7 +267,7 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppSectionHeader(title: 'Preferences'),
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
 
           // Auto Update Toggle
           Row(
@@ -279,7 +277,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 height: 40,
                 decoration: BoxDecoration(
                   color: scheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                  borderRadius: AppTheme.brSmall,
                   border:
                       Border.all(color: scheme.primary.withValues(alpha: 0.20)),
                 ),
@@ -289,7 +287,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: AppTheme.spacing16),
+              AppTheme.w16,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -302,7 +300,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         color: scheme.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    AppTheme.h2,
                     Text(
                       'Refresh wallpaper when push notification arrives',
                       style: TextStyle(
@@ -340,7 +338,7 @@ class _SettingsPageState extends State<SettingsPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppSectionHeader(title: 'Data'),
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
 
           // Clear Cache Button
           _buildSettingButton(
@@ -360,23 +358,24 @@ class _SettingsPageState extends State<SettingsPage> {
   // ══════════════════════════════════════════════════════════════════════
 
   Widget _buildAboutSection() {
+    final scheme = Theme.of(context).colorScheme;
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const AppSectionHeader(title: 'About'),
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
 
           // App Version
           _buildSettingButton(
             icon: Icons.info_outline,
-            iconColor: AppTheme.primaryBlue,
+            iconColor: AppTheme.accentViolet,
             title: 'Version',
             subtitle: _appVersion,
             onTap: null, // Read-only
           ),
 
-          const SizedBox(height: 12),
+          AppTheme.h12,
 
           // Privacy Policy
           _buildSettingButton(
@@ -387,8 +386,7 @@ class _SettingsPageState extends State<SettingsPage> {
             trailing: Icons.open_in_new,
             onTap: () async {
               final messenger = ScaffoldMessenger.of(context);
-              final uri = Uri.parse(
-                  'https://adellirahulreddy.github.io/github_wallpaper/privacy_policy.html');
+              final uri = Uri.parse(AppStrings.privacyPolicyUrl);
               try {
                 if (await canLaunchUrl(uri)) {
                   await launchUrl(uri, mode: LaunchMode.externalApplication);
@@ -406,18 +404,18 @@ class _SettingsPageState extends State<SettingsPage> {
             },
           ),
 
-          const SizedBox(height: 12),
+          AppTheme.h12,
 
           // Developer
           _buildSettingButton(
-            icon: Icons.developer_mode,
-            iconColor: AppTheme.accentViolet,
+            icon: Icons.code,
+            iconColor: scheme.secondary,
             title: 'Developer',
             subtitle: 'Adelli Rahulreddy',
             onTap: null, // Read-only
           ),
 
-          const SizedBox(height: 12),
+          AppTheme.h12,
 
           // Help & Support
           _buildSettingButton(
@@ -431,7 +429,7 @@ class _SettingsPageState extends State<SettingsPage> {
               final scaffoldMessenger = ScaffoldMessenger.of(context);
               final phone =
                   ValidationUtils.cleanPhone(AppStrings.supportPhone);
-              final uri = Uri.parse('https://wa.me/$phone');
+              final uri = Uri.parse('${AppStrings.whatsAppUrlScheme}$phone');
 
               try {
                 if (await canLaunchUrl(uri)) {
@@ -472,9 +470,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+      borderRadius: AppTheme.brSmall,
       child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing8),
+        padding: AppTheme.pSymV8,
         child: Row(
           children: [
             Container(
@@ -482,11 +480,11 @@ class _SettingsPageState extends State<SettingsPage> {
               height: 40,
               decoration: BoxDecoration(
                 color: iconColor.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                borderRadius: AppTheme.brSmall,
               ),
               child: Icon(icon, color: iconColor, size: 20),
             ),
-            const SizedBox(width: AppTheme.spacing16),
+            AppTheme.w16,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -499,7 +497,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       color: scheme.onSurface,
                     ),
                   ),
-                  const SizedBox(height: AppTheme.spacing8 / 4),
+                  AppTheme.h2,
                   Text(
                     subtitle,
                     style: TextStyle(
@@ -536,15 +534,15 @@ class _SettingsPageState extends State<SettingsPage> {
           foregroundColor: AppTheme.errorRed,
           side: const BorderSide(color: AppTheme.errorRed, width: 1.5),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            borderRadius: AppTheme.brMedium,
           ),
         ),
-        child: const Row(
+        child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.logout, size: 20),
-            SizedBox(width: 8),
-            Text(
+            const Icon(Icons.logout, size: 20),
+            AppTheme.w8,
+            const Text(
               'Logout',
               style: TextStyle(
                 fontSize: AppTheme.fontLarge,

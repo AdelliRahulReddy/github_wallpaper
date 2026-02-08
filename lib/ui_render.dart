@@ -1,4 +1,8 @@
+import 'dart:ui' as ui;
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'app_models.dart';
 import 'app_utils.dart';
 import 'app_theme.dart';
@@ -255,4 +259,340 @@ class _Cell {
   final DateTime date;
   final int idx;
   _Cell(this.date, this.idx);
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// REUSABLE COMPONENT WIDGETS (Moved from AppTheme)
+// ══════════════════════════════════════════════════════════════════════════
+
+class AppCard extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+  final VoidCallback? onTap;
+
+  const AppCard({super.key, required this.child, this.padding, this.onTap});
+
+  @override
+  Widget build(BuildContext c) {
+    final theme = Theme.of(c);
+    final cardTheme = theme.cardTheme;
+
+    final card = Container(
+      padding: padding ?? AppTheme.pAll20,
+      decoration: BoxDecoration(
+        color: cardTheme.color,
+        borderRadius: (cardTheme.shape as RoundedRectangleBorder).borderRadius,
+        border: Border.fromBorderSide((cardTheme.shape as RoundedRectangleBorder).side),
+        boxShadow: onTap != null ? AppTheme.shadow(theme.colorScheme.shadow) : null,
+      ),
+      child: child,
+    );
+    return onTap == null ? card : GestureDetector(onTap: onTap, child: card);
+  }
+}
+
+class AppSectionHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+
+  const AppSectionHeader(
+      {super.key, required this.title, this.subtitle, this.trailing});
+
+  @override
+  Widget build(BuildContext c) {
+    final s = Theme.of(c).colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title,
+                  style: GoogleFonts.plusJakartaSans(
+                      color: s.onSurface,
+                      fontSize: AppTheme.fontTitle,
+                      fontWeight: FontWeight.w700,
+                      height: AppTheme.heightTight)),
+              if (subtitle != null) ...[
+                AppTheme.h8,
+                Text(subtitle!,
+                    style: GoogleFonts.plusJakartaSans(
+                        color: s.onSurface.withValues(alpha: 0.7),
+                        fontSize: AppTheme.fontBody,
+                        fontWeight: FontWeight.w500,
+                        height: AppTheme.heightRelaxed)),
+              ],
+            ],
+          ),
+        ),
+        if (trailing != null) ...[
+          AppTheme.w12,
+          trailing!
+        ],
+      ],
+    );
+  }
+}
+
+class MetricTile extends StatelessWidget {
+  final String label;
+  final String value;
+  final String? helper;
+  final IconData icon;
+  final Color? iconColor;
+  final VoidCallback? onTap;
+
+  const MetricTile(
+      {super.key,
+      required this.label,
+      required this.value,
+      this.helper,
+      required this.icon,
+      this.iconColor,
+      this.onTap});
+
+  @override
+  Widget build(BuildContext c) {
+    final s = Theme.of(c).colorScheme;
+    final col = iconColor ?? s.primary;
+    final textScale = MediaQuery.textScalerOf(c).scale(1.0);
+
+    return AppCard(
+      padding: AppTheme.pAll12,
+      onTap: onTap,
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: col.withValues(alpha: 0.12),
+              borderRadius: AppTheme.brMedium,
+              border: Border.all(color: col.withValues(alpha: 0.2)),
+            ),
+            child: Icon(icon, color: col, size: AppTheme.iconSM),
+          ),
+          AppTheme.w12,
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final isCompact =
+                    constraints.maxHeight < 88 || textScale > 1.15;
+                final isVeryTight = constraints.maxHeight < 72;
+                final showHelper = helper != null && !isCompact;
+                final showLabel = !isVeryTight;
+
+                return Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.plusJakartaSans(
+                            color: s.onSurface,
+                            fontSize: AppTheme.fontHeadline,
+                            fontWeight: FontWeight.w800,
+                            height: AppTheme.heightTight)),
+                    if (showHelper) ...[
+                      AppTheme.h4,
+                      Text(helper!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                              color: col,
+                              fontSize: AppTheme.fontCaption,
+                              fontWeight: FontWeight.w700)),
+                    ],
+                    if (showLabel) ...[
+                      AppTheme.h4,
+                      Text(label,
+                          maxLines: isCompact ? 1 : 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.plusJakartaSans(
+                              color: s.onSurface.withValues(alpha: 0.7),
+                              fontSize: AppTheme.fontBody,
+                              fontWeight: FontWeight.w600)),
+                    ],
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class HeroMetricCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final String? subtitle;
+  final IconData icon;
+  final Color? color;
+  final VoidCallback? onTap;
+
+  const HeroMetricCard({
+    super.key,
+    required this.title,
+    required this.value,
+    this.subtitle,
+    required this.icon,
+    this.color,
+    this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext c) {
+    final s = Theme.of(c).colorScheme;
+    final col = color ?? s.primary;
+    final isDark = Theme.of(c).brightness == Brightness.dark;
+
+    return AppCard(
+      padding: AppTheme.pZero,
+      onTap: onTap,
+      child: Container(
+        padding: AppTheme.pAll24,
+        decoration: BoxDecoration(
+          borderRadius: AppTheme.brLarge,
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              col.withValues(alpha: isDark ? 0.15 : 0.05),
+              col.withValues(alpha: isDark ? 0.05 : 0.01),
+            ],
+          ),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title.toUpperCase(),
+                    style: GoogleFonts.plusJakartaSans(
+                      color: col.withValues(alpha: 0.8),
+                      fontSize: AppTheme.fontCaption,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  AppTheme.h8,
+                  Text(
+                    value,
+                    style: GoogleFonts.plusJakartaSans(
+                      color: s.onSurface,
+                      fontSize: 36,
+                      fontWeight: FontWeight.w900,
+                      height: 1.0,
+                    ),
+                  ),
+                  if (subtitle != null) ...[
+                    AppTheme.h4,
+                    Text(
+                      subtitle!,
+                      style: GoogleFonts.plusJakartaSans(
+                        color: s.onSurface.withValues(alpha: 0.6),
+                        fontSize: AppTheme.fontBody,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            Container(
+              padding: AppTheme.pAll16,
+              decoration: BoxDecoration(
+                color: col.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+                border: Border.all(color: col.withValues(alpha: 0.1)),
+              ),
+              child: Icon(icon, color: col, size: 32),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class WallpaperPreviewPainter extends CustomPainter {
+  final CachedContributionData data;
+  final double wallpaperWidth;
+  final double wallpaperHeight;
+  final WallpaperTarget target;
+  final WallpaperConfig config;
+
+  WallpaperPreviewPainter({
+    required this.data,
+    required this.wallpaperWidth,
+    required this.wallpaperHeight,
+    required this.target,
+    required this.config,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // 1. Draw Background
+    final paint = Paint()
+      ..color = config.isDarkMode ? AppTheme.darkBg : AppTheme.lightBg
+      ..style = PaintingStyle.fill;
+    canvas.drawRect(Offset.zero & size, paint);
+
+    // 2. Scale context to match wallpaper resolution
+    final scaleX = size.width / wallpaperWidth;
+    final scaleY = size.height / wallpaperHeight;
+    final scale = scaleX < scaleY ? scaleX : scaleY;
+
+    canvas.save();
+    canvas.scale(scale);
+
+    // 3. Render Heatmap
+    MonthHeatmapRenderer.render(
+      canvas: canvas,
+      size: Size(wallpaperWidth, wallpaperHeight),
+      data: data,
+      config: config,
+    );
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant WallpaperPreviewPainter old) {
+    return old.config != config || old.data != data || old.target != target;
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════════════
+// WALLPAPER GENERATION TASK (Moved from AppServices)
+// ══════════════════════════════════════════════════════════════════════════
+
+@pragma('vm:entry-point')
+Future<Uint8List> generateWallpaperTask(Map<String, dynamic> args) async {
+  final d = CachedContributionData.fromJson(jsonDecode(args['data']));
+  final c = WallpaperConfig.fromJson(jsonDecode(args['config']));
+  final w = args['width'] as double,
+      h = args['height'] as double,
+      pr = args['pixelRatio'] as double;
+
+  final r = ui.PictureRecorder();
+  final canvas = ui.Canvas(r, ui.Rect.fromLTWH(0, 0, w * pr, h * pr));
+  canvas.scale(pr);
+
+  MonthHeatmapRenderer.render(
+      canvas: canvas, size: ui.Size(w, h), data: d, config: c);
+
+  final p = r.endRecording();
+  final img = await p.toImage((w * pr).round(), (h * pr).round());
+  final b = await img.toByteData(format: ui.ImageByteFormat.png);
+  img.dispose();
+  p.dispose();
+  return b!.buffer.asUint8List();
 }

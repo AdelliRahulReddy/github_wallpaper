@@ -34,23 +34,22 @@ Create a token at [github.com/settings/tokens](https://github.com/settings/token
 ```
 lib/
 ├── main.dart              # App entry, initialization
-├── app_constants.dart     # Configuration constants
-├── exceptions.dart        # Custom exceptions
-├── models.dart            # Data models, date utils
-├── services.dart          # GitHub, Wallpaper, Storage, FCM
-├── theme.dart             # App theme
-├── utils.dart             # Error handling, validation, strings
+├── app_utils.dart         # Constants, strings, validation, helpers
+├── app_services.dart      # GitHub, wallpaper, storage, FCM services
+├── app_models.dart        # Data models and serialization
+├── app_state.dart         # Analytics and trend/state helpers
+├── app_theme.dart         # Theme + reusable UI widgets
+├── app_exceptions.dart    # Custom exceptions
+├── ui_render.dart         # Wallpaper/heatmap renderer
 └── pages/
+    ├── splash_screen.dart
     ├── onboarding_page.dart
+    ├── setup_page.dart
     ├── main_nav_page.dart
     ├── home_page.dart
     ├── customize_page.dart
     └── settings_page.dart
 ```
-
-## Production Readiness
-
-See [PRODUCTION_READINESS_REPORT.md](PRODUCTION_READINESS_REPORT.md) for full audit.
 
 ## License
 

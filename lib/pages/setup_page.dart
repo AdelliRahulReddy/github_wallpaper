@@ -85,20 +85,19 @@ class _SetupPageState extends State<SetupPage> {
 
           SafeArea(
             child: SingleChildScrollView(
-              padding:
-                  const EdgeInsets.symmetric(horizontal: AppTheme.spacing24),
+              padding: AppTheme.pSymH24,
               child: Form(
                 key: _formKey,
                 child: Column(
                   children: [
-                    const SizedBox(height: AppTheme.spacing60),
+                    AppTheme.h60,
 
                     // Clean Header
                     Center(
                       child: Column(
                         children: [
                           Container(
-                            padding: const EdgeInsets.all(AppTheme.spacing20),
+                            padding: AppTheme.pAll20,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
                               color: cs.surface.withValues(alpha: 0.85),
@@ -108,7 +107,7 @@ class _SetupPageState extends State<SetupPage> {
                               boxShadow: [
                                 BoxShadow(
                                   color: cs.shadow.withValues(alpha: 0.08),
-                                  blurRadius: AppTheme.spacing40,
+                                  blurRadius: 40,
                                   spreadRadius: 5,
                                 )
                               ],
@@ -117,7 +116,7 @@ class _SetupPageState extends State<SetupPage> {
                                 color: cs.primary, size: 48),
                           ).animate().scale(
                               duration: 600.ms, curve: Curves.easeOutBack),
-                          const SizedBox(height: 24),
+                          AppTheme.h24,
                           Text('Connect Account',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
@@ -128,7 +127,7 @@ class _SetupPageState extends State<SetupPage> {
                               .animate()
                               .fadeIn()
                               .slideY(begin: 0.2),
-                          const SizedBox(height: 8),
+                          AppTheme.h8,
                           Text('Import your GitHub statistics',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
@@ -142,26 +141,20 @@ class _SetupPageState extends State<SetupPage> {
                       ),
                     ),
 
-                    const SizedBox(height: AppTheme.spacing48),
+                    AppTheme.h48,
 
                     // Refined Light Glass Card
                     Container(
                       decoration: BoxDecoration(
                         color: cs.surface,
-                        borderRadius: BorderRadius.circular(AppTheme.radiusXXL),
+                        borderRadius: AppTheme.brXXL,
                         border: Border.all(
                           color: cs.outline.withValues(alpha: 0.5),
                           width: 1.5,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: cs.shadow.withValues(alpha: 0.08),
-                            blurRadius: 30,
-                            offset: const Offset(0, 10),
-                          )
-                        ],
+                        boxShadow: AppTheme.shadow(cs.shadow, opacity: 0.08, blur: 30),
                       ),
-                      padding: const EdgeInsets.all(AppTheme.spacing24),
+                      padding: AppTheme.pAll24,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -172,7 +165,7 @@ class _SetupPageState extends State<SetupPage> {
                             icon: Icons.alternate_email_rounded,
                             validator: isValidUsernameFormat,
                           ),
-                          const SizedBox(height: 32),
+                          AppTheme.h32,
                           _buildProField(
                             label: 'ACCESS TOKEN',
                             controller: _tokenController,
@@ -198,18 +191,16 @@ class _SetupPageState extends State<SetupPage> {
                         .fadeIn(delay: 400.ms)
                         .slideY(begin: 0.1, curve: Curves.easeOutQuad),
 
-                    const SizedBox(height: AppTheme.spacing40),
+                    AppTheme.h40,
 
                     // Dynamic Error
                     if (_errorMessage != null)
                       Container(
-                        margin:
-                            const EdgeInsets.only(bottom: AppTheme.spacing24),
-                        padding: const EdgeInsets.all(AppTheme.spacing16),
+                        margin: AppTheme.pOnlyB24,
+                        padding: AppTheme.pAll16,
                         decoration: BoxDecoration(
                           color: AppTheme.errorRed.withValues(alpha: 0.05),
-                          borderRadius:
-                              BorderRadius.circular(AppTheme.radiusLarge),
+                          borderRadius: AppTheme.brLarge,
                           border: Border.all(
                               color: AppTheme.errorRed.withValues(alpha: 0.1)),
                         ),
@@ -217,10 +208,10 @@ class _SetupPageState extends State<SetupPage> {
                           children: [
                             const Icon(Icons.error_outline_rounded,
                                 color: AppTheme.errorRed, size: 20),
-                            const SizedBox(width: AppTheme.spacing12),
+                            AppTheme.w12,
                             Expanded(
                               child: Text(_errorMessage!,
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                       color: AppTheme.errorRed,
                                       fontSize: AppTheme.fontSmall,
                                       fontWeight: FontWeight.w600)),
@@ -232,35 +223,22 @@ class _SetupPageState extends State<SetupPage> {
                     // Primary Action
                     SizedBox(
                       width: double.infinity,
-                      height: AppTheme.spacing60,
+                      height: AppTheme.spacing48 + AppTheme.spacing8, // 56
                       child: FilledButton(
                         onPressed: _isLoading ? null : _completeSetup,
-                        style: FilledButton.styleFrom(
-                          backgroundColor: cs.primary,
-                          foregroundColor: cs.onPrimary,
-                          shape: RoundedRectangleBorder(
-                              borderRadius:
-                                  BorderRadius.circular(AppTheme.radiusLarge)),
-                          elevation: 4,
-                          shadowColor: cs.primary.withValues(alpha: 0.3),
-                        ),
                         child: _isLoading
-                            ? SizedBox(
+                            ? const SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 3,
-                                  color: cs.onPrimary,
+                                  color: Colors.white,
                                 ))
-                            : const Text('Initialize Workspace',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: AppTheme.fontLarge,
-                                    letterSpacing: 0.5)),
+                            : const Text('Initialize Workspace'),
                       ),
                     ).animate().fadeIn(delay: 600.ms),
 
-                    const SizedBox(height: AppTheme.spacing32),
+                    AppTheme.h32,
 
                     // Footer security info
                     Row(
@@ -269,7 +247,7 @@ class _SetupPageState extends State<SetupPage> {
                         Icon(Icons.shield_outlined,
                             color: cs.outline.withValues(alpha: 0.6),
                             size: AppTheme.fontLarge),
-                        const SizedBox(width: AppTheme.spacing8),
+                        AppTheme.w8,
                         Text('Secure local-only authentication',
                             style: TextStyle(
                                 color: cs.onSurface.withValues(alpha: 0.45),
@@ -278,7 +256,7 @@ class _SetupPageState extends State<SetupPage> {
                       ],
                     ).animate().fadeIn(delay: 800.ms),
 
-                    const SizedBox(height: AppTheme.spacing40),
+                    AppTheme.h40,
                   ],
                 ),
               ),
@@ -308,7 +286,7 @@ class _SetupPageState extends State<SetupPage> {
                 fontWeight: FontWeight.w800,
                 fontSize: AppTheme.fontCaption,
                 letterSpacing: 1.5)),
-        const SizedBox(height: 12),
+        AppTheme.h12,
         TextFormField(
           controller: controller,
           obscureText: obscure,
@@ -319,30 +297,8 @@ class _SetupPageState extends State<SetupPage> {
               fontWeight: FontWeight.w600),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: cs.onSurface.withValues(alpha: 0.35)),
-            prefixIcon: Icon(icon,
-                color: cs.onSurface.withValues(alpha: 0.55), size: 20),
+            prefixIcon: Icon(icon, size: 20),
             suffixIcon: suffix,
-            filled: true,
-            fillColor: cs.surfaceContainerHighest.withValues(alpha: 0.6),
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: AppTheme.spacing16,
-                vertical: AppTheme.spacing20 - 2),
-            border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                borderSide: BorderSide.none),
-            enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                borderSide:
-                    BorderSide(color: cs.outline.withValues(alpha: 0.45))),
-            focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                borderSide: BorderSide(
-                    color: cs.primary.withValues(alpha: 0.4), width: 1.5)),
-            errorBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-                borderSide: BorderSide(
-                    color: AppTheme.errorRed.withValues(alpha: 0.2))),
           ),
         ),
       ],

@@ -44,6 +44,10 @@ class AppTheme {
   static const double spacing40 = 40.0;
   static const double spacing48 = 48.0;
   static const double spacing60 = 60.0;
+  static const double iconXS = 16.0;
+  static const double iconSM = 20.0;
+  static const double iconMD = 24.0;
+  static const double iconLG = 32.0;
 
   // ══════════════════════════════════════════════════════════════════════════
   // TYPOGRAPHY TOKENS
@@ -57,10 +61,96 @@ class AppTheme {
   static const double fontTitle = 18.0;
   static const double fontHeadline = 24.0;
   static const double fontDisplay = 32.0;
+  static const double heatmapHeight = 200.0;
+  static const double barHeight = 12.0;
 
   // Readability Multipliers
   static const double heightTight = 1.1; // Headings
   static const double heightRelaxed = 1.5; // Body text
+
+  // ══════════════════════════════════════════════════════════════════════════
+  // CONVENIENCE TOKENS (SizedBox, Padding, Radius)
+  // ══════════════════════════════════════════════════════════════════════════
+
+  // Spacing (Vertical)
+  static const h2 = SizedBox(height: 2.0);
+  static const h4 = SizedBox(height: 4.0);
+  static const h8 = SizedBox(height: spacing8);
+  static const h12 = SizedBox(height: spacing12);
+  static const h16 = SizedBox(height: spacing16);
+  static const h20 = SizedBox(height: spacing20);
+  static const h24 = SizedBox(height: spacing24);
+  static const h28 = SizedBox(height: 28.0);
+  static const h32 = SizedBox(height: spacing32);
+  static const h40 = SizedBox(height: spacing40);
+  static const h48 = SizedBox(height: spacing48);
+  static const h60 = SizedBox(height: spacing60);
+  static const h80 = SizedBox(height: 80.0);
+  static const h140 = SizedBox(height: 140.0);
+  static const h200 = SizedBox(height: 200.0);
+
+  // Spacing (Horizontal)
+  static const w4 = SizedBox(width: 4.0);
+  static const w8 = SizedBox(width: spacing8);
+  static const w12 = SizedBox(width: spacing12);
+  static const w16 = SizedBox(width: spacing16);
+  static const w20 = SizedBox(width: spacing20);
+  static const w24 = SizedBox(width: spacing24);
+  static const w32 = SizedBox(width: spacing32);
+  static const w28 = SizedBox(width: 28.0);
+
+  // Padding
+  static const pAll4 = EdgeInsets.all(4.0);
+  static const pAll8 = EdgeInsets.all(spacing8);
+  static const pAll12 = EdgeInsets.all(spacing12);
+  static const pAll16 = EdgeInsets.all(spacing16);
+  static const pAll20 = EdgeInsets.all(spacing20);
+  static const pAll24 = EdgeInsets.all(spacing24);
+  static const pAll32 = EdgeInsets.all(spacing32);
+  static const pAll40 = EdgeInsets.all(spacing40);
+
+  static const pSymH12 = EdgeInsets.symmetric(horizontal: spacing12);
+  static const pSymH16 = EdgeInsets.symmetric(horizontal: spacing16);
+  static const pSymH20 = EdgeInsets.symmetric(horizontal: spacing20);
+  static const pSymH24 = EdgeInsets.symmetric(horizontal: spacing24);
+  static const pSymH32 = EdgeInsets.symmetric(horizontal: spacing32);
+  static const pSymH40 = EdgeInsets.symmetric(horizontal: spacing40);
+
+  static const pSymV8 = EdgeInsets.symmetric(vertical: spacing8);
+  static const pSymV12 = EdgeInsets.symmetric(vertical: spacing12);
+  static const pSymV16 = EdgeInsets.symmetric(vertical: spacing16);
+  static const pSymV20 = EdgeInsets.symmetric(vertical: spacing20);
+  static const pSymV24 = EdgeInsets.symmetric(vertical: spacing24);
+  static const pSymH20V12 = EdgeInsets.symmetric(horizontal: spacing20, vertical: spacing12);
+
+  static const pSymH32V16 = EdgeInsets.symmetric(horizontal: spacing32, vertical: spacing16);
+  static const pSymH24V16 = EdgeInsets.symmetric(horizontal: spacing24, vertical: spacing16);
+  static const pSymH20V16 = EdgeInsets.symmetric(horizontal: spacing20, vertical: spacing16);
+
+  static const pOnlyB4 = EdgeInsets.only(bottom: 4.0);
+  static const pOnlyB8 = EdgeInsets.only(bottom: spacing8);
+  static const pOnlyB12 = EdgeInsets.only(bottom: spacing12);
+  static const pOnlyB16 = EdgeInsets.only(bottom: spacing16);
+  static const pOnlyB20 = EdgeInsets.only(bottom: spacing20);
+  static const pOnlyB24 = EdgeInsets.only(bottom: spacing24);
+  static const pOnlyB32 = EdgeInsets.only(bottom: spacing32);
+
+  static const pOnlyR4 = EdgeInsets.only(right: 4.0);
+  static const pOnlyR12 = EdgeInsets.only(right: spacing12);
+  static const pOnlyT8B12 = EdgeInsets.only(top: spacing8, bottom: spacing12);
+  static const pOnlyT16 = EdgeInsets.only(top: spacing16);
+  static const pZero = EdgeInsets.zero;
+  static const pLTRB20_16_20_32 = EdgeInsets.fromLTRB(spacing20, spacing16, spacing20, spacing32);
+
+  // Radius
+  static final brSmall = BorderRadius.circular(radiusSmall);
+  static final brMedium = BorderRadius.circular(radiusMedium);
+  static final brLarge = BorderRadius.circular(radiusLarge);
+  static final brXL = BorderRadius.circular(radiusXL);
+  static final brXXL = BorderRadius.circular(radiusXXL);
+  static final brVertLarge = const BorderRadius.vertical(top: Radius.circular(radiusLarge));
+  static final brVertMedium = const BorderRadius.vertical(top: Radius.circular(radiusMedium));
+  static final brXS = BorderRadius.circular(radiusSmall / 3);
 
   // ══════════════════════════════════════════════════════════════════════════
   // SINGLE SOURCE OF TRUTH (Theme Generation)
@@ -88,6 +178,9 @@ class AppTheme {
       surface: isDark ? darkSurface : lightSurface,
       onSurface: isDark ? darkText : lightText,
       surfaceContainerHighest: isDark ? darkBg : lightBg,
+      tertiary: accentViolet,
+      onTertiary: Colors.white,
+      surfaceTint: isDark ? primaryBrandAccent : primaryBlue,
       outline: isDark ? darkBorder : lightBorder,
       outlineVariant: isDark
           ? darkBorder.withValues(alpha: 0.5)
@@ -165,6 +258,73 @@ class AppTheme {
         color: colorScheme.outline,
         thickness: 1,
       ),
+
+      // Input Decoration
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
+        contentPadding: const EdgeInsets.symmetric(
+            horizontal: spacing16, vertical: spacing20 - 2),
+        border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(radiusLarge),
+            borderSide: BorderSide.none),
+        enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(radiusLarge),
+            borderSide: BorderSide(color: colorScheme.outline.withValues(alpha: 0.45))),
+        focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(radiusLarge),
+            borderSide: BorderSide(color: colorScheme.primary.withValues(alpha: 0.4), width: 1.5)),
+        errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(radiusLarge),
+            borderSide: BorderSide(color: errorRed.withValues(alpha: 0.2))),
+        hintStyle: TextStyle(color: colorScheme.onSurface.withValues(alpha: 0.35)),
+        labelStyle: TextStyle(
+            color: colorScheme.onSurface.withValues(alpha: 0.45),
+            fontWeight: FontWeight.w800,
+            fontSize: fontCaption,
+            letterSpacing: 1.5),
+      ),
+
+      // Buttons
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusLarge)),
+          elevation: 4,
+          shadowColor: colorScheme.primary.withValues(alpha: 0.3),
+          padding: const EdgeInsets.symmetric(horizontal: spacing24, vertical: spacing16),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: fontLarge),
+        ),
+      ),
+
+      elevatedButtonTheme: ElevatedButtonThemeData(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: colorScheme.primary,
+          foregroundColor: colorScheme.onPrimary,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusLarge)),
+          elevation: 2,
+          padding: const EdgeInsets.symmetric(horizontal: spacing24, vertical: spacing16),
+        ),
+      ),
+
+      // SnackBar
+      snackBarTheme: SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: isDark ? darkSurface : lightSurface,
+        contentTextStyle: TextStyle(color: colorScheme.onSurface),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(radiusMedium)),
+        elevation: 6,
+      ),
+
+      // Card
+      cardTheme: CardThemeData(
+        color: colorScheme.surface,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(radiusMedium),
+            side: BorderSide(color: colorScheme.outline.withValues(alpha: 0.55))),
+      ),
     );
   }
 
@@ -172,23 +332,25 @@ class AppTheme {
   // HELPER METHODS
   // ══════════════════════════════════════════════════════════════════════════
 
-  // Glass card decoration
-  static BoxDecoration glassCard({double blur = 0.1, Color? tint}) =>
-      BoxDecoration(
-        color: (tint ?? lightSurface).withValues(alpha: blur),
-        borderRadius: BorderRadius.circular(radiusLarge),
-        border: Border.all(color: lightSurface.withValues(alpha: 0.2)),
-      );
+  // Glass card decoration - Context aware
+  static BoxDecoration glassCard(BuildContext context, {double opacity = 0.1, Color? tint}) {
+    final colors = Theme.of(context).colorScheme;
+    return BoxDecoration(
+      color: (tint ?? colors.surface).withValues(alpha: opacity),
+      borderRadius: BorderRadius.circular(radiusLarge),
+      border: Border.all(color: colors.onSurface.withValues(alpha: 0.08)),
+    );
+  }
 
   // Shadow helper
   static List<BoxShadow> shadow(Color color,
-          {double blur = 24.0, double spread = 0.0, double opacity = 0.15}) =>
+          {double blur = 24.0, double spread = 0.0, double opacity = 0.12}) =>
       [
         BoxShadow(
             color: color.withValues(alpha: opacity),
             blurRadius: blur,
             spreadRadius: spread,
-            offset: const Offset(0, 8))
+            offset: const Offset(0, 6))
       ];
 }
 
@@ -256,273 +418,6 @@ extension ThemeContext on BuildContext {
 }
 
 // ══════════════════════════════════════════════════════════════════════════
-// REUSABLE COMPONENT WIDGETS
+// COMPONENT WIDGETS
+// Moved to ui_render.dart to avoid circular dependency
 // ══════════════════════════════════════════════════════════════════════════
-
-class AppCard extends StatelessWidget {
-  final Widget child;
-  final EdgeInsets? padding;
-  final VoidCallback? onTap;
-
-  const AppCard({super.key, required this.child, this.padding, this.onTap});
-
-  @override
-  Widget build(BuildContext c) {
-    final s = c.colors;
-    final isDark = c.isDark;
-
-    // Adapts transparency and borders for mode clarity
-    final card = Container(
-      padding: padding ?? const EdgeInsets.all(AppTheme.spacing20),
-      decoration: BoxDecoration(
-        color: s.surface,
-        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-        border: Border.all(
-          color: isDark
-              ? s.outline.withValues(
-                  alpha: 0.3) // Higher contrast border for dark mode
-              : s.outline.withValues(alpha: 0.5),
-        ),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-              blurRadius: 10,
-              offset: const Offset(0, 4))
-        ],
-      ),
-      child: child,
-    );
-    return onTap == null ? card : GestureDetector(onTap: onTap, child: card);
-  }
-}
-
-class AppSectionHeader extends StatelessWidget {
-  final String title;
-  final String? subtitle;
-  final Widget? trailing;
-
-  const AppSectionHeader(
-      {super.key, required this.title, this.subtitle, this.trailing});
-
-  @override
-  Widget build(BuildContext c) {
-    final s = c.colors;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: GoogleFonts.plusJakartaSans(
-                      color: s.onSurface,
-                      fontSize: AppTheme.fontTitle,
-                      fontWeight: FontWeight.w700,
-                      height: AppTheme.heightTight)),
-              if (subtitle != null) ...[
-                const SizedBox(height: AppTheme.spacing8),
-                Text(subtitle!,
-                    style: GoogleFonts.plusJakartaSans(
-                        color: s.onSurface.withValues(alpha: 0.7),
-                        fontSize: AppTheme.fontBody,
-                        fontWeight: FontWeight.w500,
-                        height: AppTheme.heightRelaxed)),
-              ],
-            ],
-          ),
-        ),
-        if (trailing != null) ...[
-          const SizedBox(width: AppTheme.spacing12),
-          trailing!
-        ],
-      ],
-    );
-  }
-}
-
-class MetricTile extends StatelessWidget {
-  final String label;
-  final String value;
-  final String? helper;
-  final IconData icon;
-  final Color? iconColor;
-  final VoidCallback? onTap;
-
-  const MetricTile(
-      {super.key,
-      required this.label,
-      required this.value,
-      this.helper,
-      required this.icon,
-      this.iconColor,
-      this.onTap});
-
-  @override
-  Widget build(BuildContext c) {
-    final s = c.colors;
-    final col = iconColor ?? s.primary;
-
-    return AppCard(
-      padding: const EdgeInsets.all(AppTheme.spacing12),
-      onTap: onTap,
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: col.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-              border: Border.all(color: col.withValues(alpha: 0.2)),
-            ),
-            child: Icon(icon, color: col, size: 20),
-          ),
-          const SizedBox(width: AppTheme.spacing12),
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-                final isCompact =
-                    constraints.maxHeight < 88 || textScale > 1.15;
-                final isVeryTight = constraints.maxHeight < 72;
-                final showHelper = helper != null && !isCompact;
-                final showLabel = !isVeryTight;
-
-                return Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(value,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                            color: s.onSurface,
-                            fontSize: AppTheme.fontHeadline,
-                            fontWeight: FontWeight.w800,
-                            height: AppTheme.heightTight)),
-                    if (showHelper) ...[
-                      const SizedBox(height: 2),
-                      Text(helper!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                              color: col,
-                              fontSize: AppTheme.fontCaption,
-                              fontWeight: FontWeight.w700)),
-                    ],
-                    if (showLabel) ...[
-                      const SizedBox(height: 2),
-                      Text(label,
-                          maxLines: isCompact ? 1 : 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                              color: s.onSurface.withValues(alpha: 0.7),
-                              fontSize: AppTheme.fontBody,
-                              fontWeight: FontWeight.w600)),
-                    ],
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class HeroMetricCard extends StatelessWidget {
-  final String title;
-  final String value;
-  final String? subtitle;
-  final IconData icon;
-  final Color? color;
-  final VoidCallback? onTap;
-
-  const HeroMetricCard({
-    super.key,
-    required this.title,
-    required this.value,
-    this.subtitle,
-    required this.icon,
-    this.color,
-    this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext c) {
-    final s = c.colors;
-    final col = color ?? s.primary;
-    final isDark = c.isDark;
-
-    return AppCard(
-      padding: EdgeInsets.zero,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.all(AppTheme.spacing24),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              col.withValues(alpha: isDark ? 0.15 : 0.05),
-              col.withValues(alpha: isDark ? 0.05 : 0.01),
-            ],
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title.toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(
-                      color: col.withValues(alpha: 0.8),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    value,
-                    style: GoogleFonts.plusJakartaSans(
-                      color: s.onSurface,
-                      fontSize: 36,
-                      fontWeight: FontWeight.w900,
-                      height: 1.0,
-                    ),
-                  ),
-                  if (subtitle != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      subtitle!,
-                      style: GoogleFonts.plusJakartaSans(
-                        color: s.onSurface.withValues(alpha: 0.6),
-                        fontSize: AppTheme.fontBody,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: col.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-                border: Border.all(color: col.withValues(alpha: 0.1)),
-              ),
-              child: Icon(icon, color: col, size: 32),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

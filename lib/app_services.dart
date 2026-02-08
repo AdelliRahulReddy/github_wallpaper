@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -11,7 +10,10 @@ import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 
 import 'app_exceptions.dart';
 import 'app_models.dart';
@@ -259,10 +261,11 @@ class GitHubService {
                 },
                 body: jsonEncode({
                   'query': q,
-                  'variables': {
+                    'variables': {
                     'login': u,
                     'from': now
-                        .subtract(const Duration(days: 370))
+                        .subtract(
+                            Duration(days: AppConstants.githubDataFetchDays))
                         .toIso8601String(),
                     'to': now.toIso8601String()
                   }
@@ -349,22 +352,6 @@ class GitHubService {
 }
 
 // WALLPAPER
-enum WallpaperTarget {
-  home,
-  lock,
-  both;
-
-  int toManagerConstant() {
-    switch (this) {
-      case WallpaperTarget.home:
-        return WallpaperManagerPlus.homeScreen;
-      case WallpaperTarget.lock:
-        return WallpaperManagerPlus.lockScreen;
-      case WallpaperTarget.both:
-        return WallpaperManagerPlus.bothScreens;
-    }
-  }
-}
 
 enum RefreshResult {
   success,
@@ -468,14 +455,14 @@ class WallpaperService {
   static Future<Uint8List> _gen(
       CachedContributionData d, WallpaperConfig c, WallpaperTarget t) async {
     final dm = StorageService.getDimensions();
-    final w = dm?['width'] ?? 1080.0,
-        h = dm?['height'] ?? 1920.0,
-        pr = dm?['pixelRatio'] ?? 1.0;
+    final w = dm?['width'] ?? AppConstants.defaultWallpaperWidth,
+        h = dm?['height'] ?? AppConstants.defaultWallpaperHeight,
+        pr = dm?['pixelRatio'] ?? AppConstants.defaultPixelRatio;
 
     final ec = DeviceCompatibilityChecker.applyPlacement(base: c, target: t);
 
     // Call directly on main isolate to avoid "UI actions on root isolate" error
-    return await _generateWallpaperTask({
+    return await generateWallpaperTask({
       'data': jsonEncode(d.toJson()),
       'config': jsonEncode(ec.toJson()),
       'width': w,
@@ -559,29 +546,6 @@ class WallpaperService {
   }
 }
 
-@pragma('vm:entry-point')
-Future<Uint8List> _generateWallpaperTask(Map<String, dynamic> args) async {
-  final d = CachedContributionData.fromJson(jsonDecode(args['data']));
-  final c = WallpaperConfig.fromJson(jsonDecode(args['config']));
-  final w = args['width'] as double,
-      h = args['height'] as double,
-      pr = args['pixelRatio'] as double;
-
-  final r = ui.PictureRecorder();
-  final canvas = ui.Canvas(r, ui.Rect.fromLTWH(0, 0, w * pr, h * pr));
-  canvas.scale(pr);
-
-  MonthHeatmapRenderer.render(
-      canvas: canvas, size: ui.Size(w, h), data: d, config: c);
-
-  final p = r.endRecording();
-  final img = await p.toImage((w * pr).round(), (h * pr).round());
-  final b = await img.toByteData(format: ui.ImageByteFormat.png);
-  img.dispose();
-  p.dispose();
-  return b!.buffer.asUint8List();
-}
-
 // SETUP & FCM
 class DeviceCompatibilityChecker {
   static WallpaperConfig applyPlacement(
@@ -590,12 +554,32 @@ class DeviceCompatibilityChecker {
         i = StorageService.getSafeInsets();
     if (m == null) return base;
     final h = m['height']!;
-    final buf = (h * 0.15).clamp(120.0, 300.0) + i.top;
+    final lockClockBuffer = (h * AppConstants.deviceClockBufferHeightFraction)
+        .clamp(AppConstants.deviceClockBufferMinPx,
+            AppConstants.deviceClockBufferMaxPx)
+        .toDouble();
+
+    final double extraTop;
+    final double extraBottom;
+    switch (target) {
+      case WallpaperTarget.lock:
+      case WallpaperTarget.both:
+        extraTop = i.top + lockClockBuffer;
+        extraBottom = i.bottom + lockClockBuffer;
+        break;
+      case WallpaperTarget.home:
+        // Home screen has fewer overlays than lock screen; keep placement tighter.
+        extraTop = i.top + (lockClockBuffer * 0.35);
+        extraBottom = i.bottom + (lockClockBuffer * 0.2);
+        break;
+    }
+
     return base.copyWith(
-        paddingTop: base.paddingTop + buf,
-        paddingBottom: base.paddingBottom + buf,
-        paddingLeft: base.paddingLeft + i.left + 32,
-        paddingRight: base.paddingRight + i.right + 32);
+        paddingTop: base.paddingTop + extraTop,
+        paddingBottom: base.paddingBottom + extraBottom,
+        paddingLeft: base.paddingLeft + i.left + AppConstants.horizontalBuffer,
+        paddingRight:
+            base.paddingRight + i.right + AppConstants.horizontalBuffer);
   }
 }
 
@@ -626,17 +610,16 @@ Future<void> _bgH(RemoteMessage m) async {
 class FcmService {
   static Future<void> init() async {
     FirebaseMessaging.onBackgroundMessage(_bgH);
-    if ((await FirebaseMessaging.instance.requestPermission())
-            .authorizationStatus ==
-        AuthorizationStatus.authorized) {
-      await FirebaseMessaging.instance.subscribeToTopic('daily-updates');
-      FirebaseMessaging.onMessage.listen((m) {
-        if (m.data['type']?.contains('refresh') == true &&
-            StorageService.getAutoUpdate()) {
-          WallpaperService.refreshWallpaper();
-        }
-      });
-    }
+    // Silent Sync: We only use data messages which don't require visual permission.
+    // Subscribe unconditionally to ensure background updates work.
+    await FirebaseMessaging.instance
+        .subscribeToTopic(AppConstants.fcmTopicDailyUpdates);
+    FirebaseMessaging.onMessage.listen((m) {
+      if (m.data['type']?.contains('refresh') == true &&
+          StorageService.getAutoUpdate()) {
+        WallpaperService.refreshWallpaper();
+      }
+    });
   }
 }
 
@@ -659,5 +642,73 @@ class AppConfig {
         }
       });
     } catch (_) {}
+  }
+}
+// BOOTSTRAP
+class BootstrapService {
+  static Future<bool> boot({
+    required Function(double) onProgress,
+    required Function(String) onError,
+  }) async {
+    final startTime = DateTime.now();
+    try {
+      // 1. Storage
+      await StorageService.init().timeout(const Duration(seconds: 10));
+      onProgress(0.3);
+
+      // 2. Firebase
+      await Firebase.initializeApp(
+        options: DefaultFirebaseOptions.currentPlatform,
+      ).timeout(const Duration(seconds: 15));
+      
+      await FirebaseCrashlytics.instance
+          .setCrashlyticsCollectionEnabled(!kDebugMode);
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      onProgress(0.6);
+
+      // 3. Firebase Services (App Check, FCM)
+      await _initFirebaseServices();
+      onProgress(0.8);
+
+      // 4. App Config
+      await AppConfig.initializeFromPlatformDispatcher()
+          .timeout(const Duration(seconds: 2), onTimeout: () {});
+
+      // 5. Minimum Splash Duration
+      final elapsed = DateTime.now().difference(startTime);
+      if (elapsed < const Duration(seconds: 4)) {
+        await Future.delayed(const Duration(seconds: 4) - elapsed);
+      }
+
+      onProgress(1.0);
+      return true;
+    } catch (e, stack) {
+      if (Firebase.apps.isNotEmpty) {
+        FirebaseCrashlytics.instance.recordError(e, stack, fatal: true);
+      }
+      onError(ErrorHandler.getUserFriendlyMessage(e));
+      return false;
+    }
+  }
+
+  static Future<void> _initFirebaseServices() async {
+    if (kIsWeb || (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS)) {
+      return;
+    }
+
+    try {
+      await FirebaseAppCheck.instance.activate(
+        providerAndroid: kDebugMode ? AndroidDebugProvider() : AndroidPlayIntegrityProvider(),
+        providerApple: kDebugMode ? AppleDebugProvider() : AppleAppAttestProvider(),
+      ).timeout(const Duration(seconds: 5));
+    } catch (e) {
+      AppLog.error('AppCheck Activation Failed: $e');
+    }
+
+    try {
+      await FcmService.init().timeout(const Duration(seconds: 5));
+    } catch (e) {
+      AppLog.error('FCM Init Failed: $e');
+    }
   }
 }

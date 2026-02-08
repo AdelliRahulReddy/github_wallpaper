@@ -8,6 +8,7 @@ import 'package:github_wallpaper/app_models.dart';
 import 'package:github_wallpaper/app_theme.dart';
 import 'package:github_wallpaper/app_utils.dart';
 import 'package:github_wallpaper/app_state.dart';
+import 'package:github_wallpaper/ui_render.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
@@ -56,7 +57,10 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final username = StorageService.getUsername() ?? 'Developer';
+    var username = StorageService.getUsername() ?? 'Developer';
+    if (username.isNotEmpty) {
+      username = username[0].toUpperCase() + username.substring(1);
+    }
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final toolbarHeight = textScale > 1.2 ? 180.0 : 160.0;
 
@@ -104,7 +108,7 @@ class _HomePageState extends State<HomePage> {
             toolbarHeight: toolbarHeight,
             titleSpacing: AppTheme.spacing20,
             title: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AppTheme.spacing16),
+              padding: AppTheme.pSymV16,
               child: Row(
                 children: [
                   Expanded(
@@ -124,12 +128,12 @@ class _HomePageState extends State<HomePage> {
                             letterSpacing: 1.5,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        AppTheme.h8,
                         Text(
                           username,
                           style: TextStyle(
                             color: scheme.onSurface,
-                            fontSize: 32,
+                            fontSize: AppTheme.fontDisplay,
                             fontWeight: FontWeight.w900,
                             height: 1.1,
                             letterSpacing: -0.8,
@@ -137,7 +141,7 @@ class _HomePageState extends State<HomePage> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 12),
+                        AppTheme.h12,
                         Text(
                           titleDate.toUpperCase(),
                           maxLines: 1,
@@ -153,7 +157,7 @@ class _HomePageState extends State<HomePage> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: AppTheme.spacing16),
+                  AppTheme.w16,
                   Container(
                     width: 64,
                     height: 64,
@@ -198,18 +202,13 @@ class _HomePageState extends State<HomePage> {
                 : null,
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(
-              AppTheme.spacing20,
-              AppTheme.spacing16,
-              AppTheme.spacing20,
-              AppTheme.spacing32,
-            ),
+            padding: AppTheme.pLTRB20_16_20_32,
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 [
                   if (widget.loadError != null && data != null) ...[
                     AppCard(
-                      padding: const EdgeInsets.all(AppTheme.spacing16),
+                      padding: AppTheme.pAll16,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -218,7 +217,7 @@ class _HomePageState extends State<HomePage> {
                             color: scheme.secondary,
                             size: 18,
                           ),
-                          const SizedBox(width: AppTheme.spacing12),
+                          AppTheme.w12,
                           Expanded(
                             child: Text(
                               widget.loadError!,
@@ -232,7 +231,7 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: AppTheme.spacing16),
+                    AppTheme.h16,
                   ],
                   if (data == null) ...[
                     AppCard(
@@ -240,11 +239,11 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           AppSectionHeader(
-                            title: 'No data yet',
+                            title: 'Get Started',
                             subtitle:
                                 'Pull to refresh to sync your GitHub activity.',
                           ),
-                          const SizedBox(height: AppTheme.spacing16),
+                          AppTheme.h16,
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
@@ -261,15 +260,15 @@ class _HomePageState extends State<HomePage> {
                       trend7d: trend7d,
                       trend30d: trend30d,
                     ),
-                    const SizedBox(height: AppTheme.spacing20),
+                    AppTheme.h20,
                     _buildTrendsSection(data),
-                    const SizedBox(height: AppTheme.spacing20),
+                    AppTheme.h20,
                     _buildHeatmapSection(data),
-                    const SizedBox(height: AppTheme.spacing20),
+                    AppTheme.h20,
                     _buildRepositoriesSection(data),
-                    const SizedBox(height: AppTheme.spacing20),
+                    AppTheme.h20,
                     _buildLanguagesSection(data),
-                    const SizedBox(height: AppTheme.spacing20),
+                    AppTheme.h20,
                     _buildActivityInsights(data),
                   ],
                 ],
@@ -287,6 +286,7 @@ class _HomePageState extends State<HomePage> {
     required TrendSummary trend30d,
   }) {
     final scheme = Theme.of(context).colorScheme;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final updated =
         'Updated ${PresentationFormatter.formatTimeAgoCompact(data.lastUpdated)}';
 
@@ -294,10 +294,7 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(
-            top: AppTheme.spacing8,
-            bottom: AppTheme.spacing12,
-          ),
+          padding: AppTheme.pOnlyT8B12,
           child: AppSectionHeader(
             title: 'Overview',
             subtitle: updated,
@@ -308,7 +305,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-        const SizedBox(height: AppTheme.spacing8),
+        AppTheme.h8,
         HeroMetricCard(
           title: 'Total Contributions',
           value: PresentationFormatter.formatCompactNumber(
@@ -317,7 +314,7 @@ class _HomePageState extends State<HomePage> {
           icon: Icons.auto_graph_rounded,
           color: scheme.primary,
         ),
-        const SizedBox(height: AppTheme.spacing16),
+        AppTheme.h16,
         LayoutBuilder(
           builder: (context, constraints) {
             final w = constraints.maxWidth;
@@ -326,7 +323,6 @@ class _HomePageState extends State<HomePage> {
                 : w >= 680
                     ? 3
                     : 2;
-            final textScale = MediaQuery.textScalerOf(context).scale(1.0);
             final baseAspect = crossAxisCount >= 4
                 ? 1.45
                 : crossAxisCount == 3
@@ -405,9 +401,9 @@ class _HomePageState extends State<HomePage> {
           subtitle:
               'Last 6 months • ${PresentationFormatter.formatCompactNumber(total)} commits',
         ),
-        const SizedBox(height: AppTheme.spacing12),
+        AppTheme.h12,
         AppCard(
-          padding: const EdgeInsets.all(AppTheme.spacing16),
+          padding: AppTheme.pAll16,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -438,7 +434,7 @@ class _HomePageState extends State<HomePage> {
                                       : '${data.quartiles.q3 + 1}+';
                       
                       return Padding(
-                        padding: const EdgeInsets.only(right: AppTheme.spacing12),
+                        padding: AppTheme.pOnlyR12,
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -447,13 +443,13 @@ class _HomePageState extends State<HomePage> {
                               height: 12,
                               decoration: BoxDecoration(
                                 color: _heatmapColor(i),
-                                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                                borderRadius: AppTheme.brSmall,
                                 border: Border.all(
                                   color: scheme.outline.withValues(alpha: 0.35),
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 4),
+                            AppTheme.w4,
                             Text(
                               countLabel,
                               style: TextStyle(
@@ -477,9 +473,9 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ],
               ),
-              const SizedBox(height: AppTheme.spacing12),
+              AppTheme.h12,
               SizedBox(
-                height: 200,
+                height: AppTheme.heatmapHeight,
                 child: days.isEmpty
                     ? Center(
                         child: Text(
@@ -516,9 +512,9 @@ class _HomePageState extends State<HomePage> {
           subtitle:
               'Last $_trendDays days • ${PresentationFormatter.formatCompactNumber(total)} commits',
         ),
-        const SizedBox(height: AppTheme.spacing12),
+        AppTheme.h12,
         AppCard(
-          padding: const EdgeInsets.all(AppTheme.spacing16),
+          padding: AppTheme.pAll16,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -545,15 +541,12 @@ class _HomePageState extends State<HomePage> {
                           showModalBottomSheet<void>(
                             context: context,
                             backgroundColor: scheme.surface,
-                            shape: const RoundedRectangleBorder(
-                              borderRadius: BorderRadius.vertical(
-                                top: Radius.circular(AppTheme.radiusLarge),
-                              ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: AppTheme.brVertLarge,
                             ),
                             builder: (context) => SafeArea(
                               child: Padding(
-                                padding:
-                                    const EdgeInsets.all(AppTheme.spacing20),
+                                padding: AppTheme.pAll20,
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,7 +559,7 @@ class _HomePageState extends State<HomePage> {
                                         fontWeight: FontWeight.w800,
                                       ),
                                     ),
-                                    const SizedBox(height: AppTheme.spacing12),
+                                    AppTheme.h12,
                                     Text(
                                       '${day.contributionCount} commits',
                                       style: TextStyle(
@@ -576,7 +569,7 @@ class _HomePageState extends State<HomePage> {
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
-                                    const SizedBox(height: AppTheme.spacing20),
+                                    AppTheme.h20,
                                     Align(
                                       alignment: Alignment.centerRight,
                                       child: TextButton(
@@ -593,7 +586,7 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
               ),
-              const SizedBox(height: AppTheme.spacing12),
+              AppTheme.h12,
               Text(
                 'Tap the chart to inspect a day.',
                 style: TextStyle(
@@ -620,12 +613,12 @@ class _HomePageState extends State<HomePage> {
           title: 'Active repositories',
           subtitle: '${data.activeRepositoriesCount} repositories with commits',
         ),
-        const SizedBox(height: AppTheme.spacing12),
+        AppTheme.h12,
         AppCard(
-          padding: EdgeInsets.zero,
+          padding: AppTheme.pZero,
           child: repos.isEmpty
               ? Padding(
-                  padding: const EdgeInsets.all(AppTheme.spacing20),
+                  padding: AppTheme.pAll20,
                   child: Text(
                     'No repository activity found for this period.',
                     style: TextStyle(
@@ -705,7 +698,7 @@ class _HomePageState extends State<HomePage> {
           title: 'Top languages',
           subtitle: 'Estimated from your active repositories',
         ),
-        const SizedBox(height: AppTheme.spacing12),
+        AppTheme.h12,
         AppCard(
           child: langs.isEmpty
               ? Text(
@@ -725,7 +718,7 @@ class _HomePageState extends State<HomePage> {
                         percent: l.percent,
                       ),
                       if (l != langs.last)
-                        const SizedBox(height: AppTheme.spacing12),
+                        AppTheme.h12,
                     ],
                   ],
                 ),
@@ -766,7 +759,7 @@ class _HomePageState extends State<HomePage> {
           title: 'Activity insights',
           subtitle: 'Patterns across your recent contribution history',
         ),
-        const SizedBox(height: AppTheme.spacing12),
+        AppTheme.h12,
         AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -779,11 +772,11 @@ class _HomePageState extends State<HomePage> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: AppTheme.spacing12),
+              AppTheme.h12,
               ClipRRect(
-                borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                borderRadius: AppTheme.brMedium,
                 child: SizedBox(
-                  height: 12,
+                  height: AppTheme.barHeight,
                   child: Row(
                     children: [
                       Expanded(
@@ -802,7 +795,7 @@ class _HomePageState extends State<HomePage> {
                   ),
                 ),
               ),
-              const SizedBox(height: AppTheme.spacing12),
+              AppTheme.h12,
               LayoutBuilder(
                 builder: (context, constraints) {
                   final isCompact = constraints.maxWidth < 420 ||
@@ -830,7 +823,7 @@ class _HomePageState extends State<HomePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         weekdayStat,
-                        const SizedBox(height: AppTheme.spacing12),
+                        AppTheme.h12,
                         weekendStat,
                       ],
                     );
@@ -839,13 +832,13 @@ class _HomePageState extends State<HomePage> {
                   return Row(
                     children: [
                       Expanded(child: weekdayStat),
-                      const SizedBox(width: AppTheme.spacing16),
+                      AppTheme.w16,
                       Expanded(child: weekendStat),
                     ],
                   );
                 },
               ),
-              const SizedBox(height: AppTheme.spacing20),
+              AppTheme.h20,
               Text(
                 'Impact levels',
                 style: TextStyle(
@@ -854,7 +847,7 @@ class _HomePageState extends State<HomePage> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: AppTheme.spacing12),
+              AppTheme.h12,
               LayoutBuilder(
                 builder: (context, constraints) {
                   final isCompact = constraints.maxWidth < 560 ||
@@ -872,7 +865,7 @@ class _HomePageState extends State<HomePage> {
                                 color: _heatmapColor(1),
                               ),
                             ),
-                            const SizedBox(width: AppTheme.spacing8),
+                            AppTheme.w8,
                             Expanded(
                               child: _ImpactChip(
                                 label: 'Med',
@@ -882,7 +875,7 @@ class _HomePageState extends State<HomePage> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: AppTheme.spacing8),
+                        AppTheme.h8,
                         Row(
                           children: [
                             Expanded(
@@ -892,7 +885,7 @@ class _HomePageState extends State<HomePage> {
                                 color: _heatmapColor(3),
                               ),
                             ),
-                            const SizedBox(width: AppTheme.spacing8),
+                            AppTheme.w8,
                             Expanded(
                               child: _ImpactChip(
                                 label: 'Max',
@@ -915,7 +908,7 @@ class _HomePageState extends State<HomePage> {
                           color: _heatmapColor(1),
                         ),
                       ),
-                      const SizedBox(width: AppTheme.spacing8),
+                      AppTheme.w8,
                       Expanded(
                         child: _ImpactChip(
                           label: 'Med',
@@ -923,7 +916,7 @@ class _HomePageState extends State<HomePage> {
                           color: _heatmapColor(2),
                         ),
                       ),
-                      const SizedBox(width: AppTheme.spacing8),
+                      AppTheme.w8,
                       Expanded(
                         child: _ImpactChip(
                           label: 'High',
@@ -931,7 +924,7 @@ class _HomePageState extends State<HomePage> {
                           color: _heatmapColor(3),
                         ),
                       ),
-                      const SizedBox(width: AppTheme.spacing8),
+                      AppTheme.w8,
                       Expanded(
                         child: _ImpactChip(
                           label: 'Max',
@@ -961,11 +954,11 @@ class _HomePageState extends State<HomePage> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Icon(Icons.error_outline, size: 48, color: scheme.error),
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
           Text(widget.loadError ?? 'Unknown error',
               style:
                   TextStyle(color: scheme.onSurface.withValues(alpha: 0.72))),
-          const SizedBox(height: AppTheme.spacing16),
+          AppTheme.h16,
           FilledButton(onPressed: widget.onRefresh, child: const Text('Retry')),
         ],
       ),
@@ -1017,7 +1010,7 @@ class _MiniStat extends StatelessWidget {
           height: 8,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: AppTheme.spacing8),
+        AppTheme.w8,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1076,10 +1069,7 @@ class _ImpactChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: AppTheme.spacing12,
-        vertical: AppTheme.spacing12,
-      ),
+      padding: AppTheme.pAll12,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         border: Border.all(color: scheme.outline.withValues(alpha: 0.65)),
@@ -1092,13 +1082,13 @@ class _ImpactChip extends StatelessWidget {
             height: 10,
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+              borderRadius: AppTheme.brSmall,
               border: Border.all(
                 color: scheme.outline.withValues(alpha: 0.35),
               ),
             ),
           ),
-          const SizedBox(width: AppTheme.spacing8),
+          AppTheme.w8,
           Expanded(
             child: Text(
               label,
@@ -1111,7 +1101,7 @@ class _ImpactChip extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          AppTheme.w4,
           Text(
             '$count',
             maxLines: 1,
@@ -1156,7 +1146,7 @@ class _LanguageRow extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: AppTheme.spacing8),
+            AppTheme.w8,
             Expanded(
               child: Text(
                 name,
@@ -1175,9 +1165,9 @@ class _LanguageRow extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: AppTheme.spacing8),
+        AppTheme.h8,
         ClipRRect(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          borderRadius: AppTheme.brSmall,
           child: LinearProgressIndicator(
             value: percent.clamp(0.0, 1.0),
             minHeight: 10,
@@ -1357,7 +1347,7 @@ class _ScrollableHeatmapGrid extends StatelessWidget {
       scrollDirection: Axis.horizontal,
       reverse: true, // Show newest on the right
       itemCount: weeks.length,
-      separatorBuilder: (_, __) => const SizedBox(width: AppTheme.spacing8),
+      separatorBuilder: (_, __) => AppTheme.w8,
       itemBuilder: (context, index) {
         // Reverse indexing logic for reverse list view
         // index 0 is the NEWEST week (last in our list)
@@ -1375,7 +1365,7 @@ class _ScrollableHeatmapGrid extends StatelessWidget {
           }),
         );
       },
-      padding: EdgeInsets.zero,
+      padding: AppTheme.pZero,
     );
   }
 }
@@ -1410,20 +1400,18 @@ class _HeatmapCell extends StatelessWidget {
       child: Material(
         color: scheme.surface.withValues(alpha: 0),
         child: InkWell(
-          borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+          borderRadius: AppTheme.brSmall,
           onTap: () {
             showModalBottomSheet<void>(
               context: context,
               backgroundColor: scheme.surface,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(
-                  top: Radius.circular(AppTheme.radiusLarge),
-                ),
+              shape: RoundedRectangleBorder(
+                borderRadius: AppTheme.brVertLarge,
               ),
               builder: (context) => SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.all(AppTheme.spacing20),
-                  child: Column(
+              child: Padding(
+                padding: AppTheme.pAll20,
+                child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1434,7 +1422,7 @@ class _HeatmapCell extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      const SizedBox(height: AppTheme.spacing12),
+                      AppTheme.h12,
                       Text(
                         '${day!.contributionCount} commits',
                         style: TextStyle(
@@ -1443,7 +1431,7 @@ class _HeatmapCell extends StatelessWidget {
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      const SizedBox(height: AppTheme.spacing20),
+                      AppTheme.h20,
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
@@ -1466,7 +1454,7 @@ class _HeatmapCell extends StatelessWidget {
               height: 18,
               decoration: BoxDecoration(
                 color: color,
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
+                borderRadius: AppTheme.brSmall,
                 border:
                     Border.all(color: scheme.outline.withValues(alpha: 0.35)),
               ),

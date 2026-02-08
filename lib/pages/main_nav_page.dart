@@ -89,7 +89,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _loadError = e.toString().replaceAll('Exception:', '').trim();
+          _loadError = ErrorHandler.getUserFriendlyMessage(e);
           _isLoading = false;
         });
       }
@@ -121,7 +121,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
       final token = await StorageService.getToken();
 
       if (username == null || token == null) {
-        throw Exception('Credentials missing. Please login again.');
+        throw Exception(AppStrings.credentialsMissing);
       }
 
       final newData = await GitHubService.getContributions(
@@ -131,7 +131,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
       );
 
       await StorageService.setCachedData(newData);
-      await StorageService.setLastUpdate(DateTime.now());
+      await StorageService.setLastUpdate(DateTime.now().toUtc());
 
       if (mounted) {
         setState(() {
@@ -140,14 +140,14 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         });
 
         if (!silent) {
-          ErrorHandler.showSuccess(context, 'Data synced successfully');
+          ErrorHandler.showSuccess(context, AppStrings.dataSynced);
         }
       }
     } catch (e) {
       if (mounted) {
         if (!silent) {
           setState(() {
-            _loadError = e.toString().replaceAll('Exception:', '').trim();
+            _loadError = ErrorHandler.getUserFriendlyMessage(e);
             _isLoading = false;
           });
         } else {
@@ -186,8 +186,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         if (Platform.isAndroid) {
           ErrorHandler.showSuccess(context, AppStrings.wallpaperApplied);
         } else {
-          ErrorHandler.showSuccess(
-              context, 'Wallpaper image generated successfully');
+          ErrorHandler.showSuccess(context, AppStrings.wallpaperGenerated);
         }
       }
       return didApply;
@@ -229,21 +228,21 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined, size: 24),
+            icon: Icon(Icons.dashboard_outlined, size: AppTheme.iconMD),
             selectedIcon:
-                Icon(Icons.dashboard_rounded, color: cs.primary, size: 24),
+                Icon(Icons.dashboard_rounded, color: cs.primary, size: AppTheme.iconMD),
             label: 'Dashboard',
           ),
           NavigationDestination(
-            icon: Icon(Icons.palette_outlined, size: 24),
+            icon: Icon(Icons.palette_outlined, size: AppTheme.iconMD),
             selectedIcon:
-                Icon(Icons.palette_rounded, color: cs.primary, size: 24),
+                Icon(Icons.palette_rounded, color: cs.primary, size: AppTheme.iconMD),
             label: 'Customize',
           ),
           NavigationDestination(
-            icon: Icon(Icons.settings_outlined, size: 24),
+            icon: Icon(Icons.settings_outlined, size: AppTheme.iconMD),
             selectedIcon:
-                Icon(Icons.settings_rounded, color: cs.primary, size: 24),
+                Icon(Icons.settings_rounded, color: cs.primary, size: AppTheme.iconMD),
             label: 'Settings',
           ),
         ],

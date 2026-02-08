@@ -2,24 +2,29 @@
 import 'package:flutter/foundation.dart';
 import 'app_utils.dart';
 import 'app_state.dart';
+import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
 
-int _toInt(dynamic v) => (v is num && v >= 0) ? v.toInt() : 0;
-String? _str(dynamic v) =>
-    (v is String && v.trim().isNotEmpty) ? v.trim() : null;
-String _name(dynamic v, String f) => _str(v) ?? f;
-double _dbl(dynamic v, double d, double min, double max) =>
-    ((v is num ? v.toDouble() : d).clamp(min, max)).toDouble();
-DateTime? _parseDate(String? s) {
-  if (s == null) return null;
-  final m = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$').firstMatch(s);
-  return m != null
-      ? DateTime.utc(int.parse(m.group(1)!), int.parse(m.group(2)!),
-          int.parse(m.group(3)!))
-      : DateTime.tryParse(s)?.toUtc();
+enum WallpaperTarget {
+  home,
+  lock,
+  both;
+
+  int toManagerConstant() {
+    switch (this) {
+      case WallpaperTarget.home:
+        return WallpaperManagerPlus.homeScreen;
+      case WallpaperTarget.lock:
+        return WallpaperManagerPlus.lockScreen;
+      case WallpaperTarget.both:
+        return WallpaperManagerPlus.bothScreens;
+    }
+  }
 }
 
-String _dateStr(DateTime d) =>
-    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+// Helper to get formatted date string for keys
+String _dateStr(DateTime d) => AppDateUtils.formatDate(d);
+String? _str(dynamic v) => (v is String && v.trim().isNotEmpty) ? v.trim() : null;
+double _dbl(dynamic v, double d, double min, double max) => ((v is num ? v.toDouble() : d).clamp(min, max)).toDouble();
 
 @immutable
 class ContributionDay {
@@ -32,12 +37,12 @@ class ContributionDay {
       this.contributionLevel});
 
   factory ContributionDay.fromJson(Map<String, dynamic> j) => ContributionDay(
-      date: _parseDate(j['date']) ?? DateTime.now(),
-      contributionCount: _toInt(j['contributionCount']),
-      contributionLevel: _str(j['contributionLevel']));
+      date: AppDateUtils.parseDate(j['date']) ?? DateTime.now(),
+      contributionCount: (j['contributionCount'] as num?)?.toInt() ?? 0,
+      contributionLevel: (j['contributionLevel'] as String?));
 
   Map<String, dynamic> toJson() => {
-        'date': _dateStr(date),
+        'date': AppDateUtils.formatDate(date),
         'contributionCount': contributionCount,
         'contributionLevel': contributionLevel
       };
@@ -107,9 +112,9 @@ class RepoLanguageSlice {
   const RepoLanguageSlice({required this.name, this.color, required this.size});
   factory RepoLanguageSlice.fromJson(Map<String, dynamic> j) =>
       RepoLanguageSlice(
-          name: _name(j['name'], 'Unknown'),
+          name: j['name'] ?? 'Unknown',
           color: j['color'],
-          size: _toInt(j['size']));
+          size: (j['size'] as num?)?.toInt() ?? 0);
   Map<String, dynamic> toJson() => {'name': name, 'color': color, 'size': size};
 }
 
@@ -132,11 +137,11 @@ class RepoContribution {
       required this.languages});
 
   factory RepoContribution.fromJson(Map<String, dynamic> j) => RepoContribution(
-      nameWithOwner: _name(j['nameWithOwner'], 'unknown/unknown'),
+      nameWithOwner: j['nameWithOwner'] ?? 'unknown/unknown',
       url: j['url'],
       isPrivate: j['isPrivate'] ?? false,
-      commitCount: _toInt(j['commitCount']),
-      primaryLanguageName: _str(j['primaryLanguageName']),
+      commitCount: (j['commitCount'] as num?)?.toInt() ?? 0,
+      primaryLanguageName: j['primaryLanguageName'],
       primaryLanguageColor: j['primaryLanguageColor'],
       languages: (j['languages'] as List? ?? [])
           .map((e) => RepoLanguageSlice.fromJson(e))
@@ -165,7 +170,7 @@ class LanguageUsage {
       required this.score,
       required this.percent});
   factory LanguageUsage.fromJson(Map<String, dynamic> j) => LanguageUsage(
-      name: _name(j['name'], 'Unknown'),
+      name: j['name'] ?? 'Unknown',
       color: j['color'],
       score: (j['score'] as num?)?.toDouble() ?? 0,
       percent: (j['percent'] as num?)?.toDouble() ?? 0);
@@ -283,9 +288,9 @@ class CachedContributionData {
 
   factory CachedContributionData.fromJson(Map<String, dynamic> j) =>
       CachedContributionData(
-        username: _str(j['username']) ?? '',
-        avatarUrl: _str(j['avatarUrl']),
-        totalContributions: _toInt(j['totalContributions']),
+        username: j['username'] ?? '',
+        avatarUrl: j['avatarUrl'],
+        totalContributions: (j['totalContributions'] as num?)?.toInt() ?? 0,
         days: (j['days'] as List)
             .map((d) => ContributionDay.fromJson(d))
             .toList(),
@@ -364,27 +369,26 @@ class WallpaperConfig {
 
   factory WallpaperConfig.defaults() => const WallpaperConfig();
 
-  factory WallpaperConfig.fromJson(Map<String, dynamic> j) => WallpaperConfig(
-        isDarkMode: j['isDarkMode'] == true,
-        verticalPosition: _dbl(j['verticalPosition'], 0.5, 0, 1),
-        horizontalPosition: _dbl(j['horizontalPosition'], 0.5, 0, 1),
-        scale: _dbl(j['scale'], 0.7, 0.5, 8.0),
-        autoFitWidth: j['autoFitWidth'] != false,
-        opacity: _dbl(j['opacity'], 1.0, 0, 1),
-        customQuote: _str(j['customQuote'])?.substring(
-                0,
-                (_str(j['customQuote'])!.length < 200
-                    ? _str(j['customQuote'])!.length
-                    : 200)) ??
-            '',
-        quoteFontSize: _dbl(j['quoteFontSize'], 14, 10, 40),
-        quoteOpacity: _dbl(j['quoteOpacity'], 1, 0, 1),
-        cornerRadius: _dbl(j['cornerRadius'], 2, 0, 20),
-        paddingTop: _dbl(j['paddingTop'], 0, 0, 500),
-        paddingBottom: _dbl(j['paddingBottom'], 0, 0, 500),
-        paddingLeft: _dbl(j['paddingLeft'], 0, 0, 500),
-        paddingRight: _dbl(j['paddingRight'], 0, 0, 500),
-      );
+  factory WallpaperConfig.fromJson(Map<String, dynamic> j) {
+    final q = _str(j['customQuote']) ?? '';
+    return WallpaperConfig(
+      isDarkMode: j['isDarkMode'] == true,
+      verticalPosition: _dbl(j['verticalPosition'], 0.5, 0, 1),
+      horizontalPosition: _dbl(j['horizontalPosition'], 0.5, 0, 1),
+      scale: _dbl(j['scale'], 0.7, AppConstants.minWallpaperScale,
+          AppConstants.maxWallpaperScale),
+      autoFitWidth: j['autoFitWidth'] != false,
+      opacity: _dbl(j['opacity'], 1.0, 0, 1),
+      customQuote: q.length > 200 ? q.substring(0, 200) : q,
+      quoteFontSize: _dbl(j['quoteFontSize'], 14, 10, 40),
+      quoteOpacity: _dbl(j['quoteOpacity'], 1, 0, 1),
+      cornerRadius: _dbl(j['cornerRadius'], 2, 0, 20),
+      paddingTop: _dbl(j['paddingTop'], 0, 0, 500),
+      paddingBottom: _dbl(j['paddingBottom'], 0, 0, 500),
+      paddingLeft: _dbl(j['paddingLeft'], 0, 0, 500),
+      paddingRight: _dbl(j['paddingRight'], 0, 0, 500),
+    );
+  }
 
   Map<String, dynamic> toJson() => {
         'isDarkMode': isDarkMode,
