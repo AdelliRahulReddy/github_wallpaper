@@ -11,8 +11,6 @@ import 'pages/onboarding_page.dart';
 import 'pages/main_nav_page.dart';
 import 'pages/splash_screen.dart';
 
-
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -24,6 +22,8 @@ void main() async {
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
+
+  WidgetsBinding.instance.addObserver(AppLifecycleObserver());
 
   runApp(const MyApp());
 }
@@ -85,18 +85,20 @@ class _AppInitializerState extends State<AppInitializer> {
 
     if (success && mounted) {
       final loggedIn = StorageService.isOnboardingComplete();
-      final pendingRefresh = loggedIn && StorageService.hasPendingWallpaperRefresh();
-      
+      final pendingRefresh =
+          loggedIn && StorageService.hasPendingWallpaperRefresh();
+
       setState(() {
         _isLoggedIn = loggedIn;
         _isInitialized = true;
       });
 
+      // FIXED: Simplified async fire-and-forget
       if (pendingRefresh) {
-        unawaited(() async {
+        Future.microtask(() async {
           await StorageService.consumePendingWallpaperRefresh();
           await WallpaperService.refreshWallpaper();
-        }());
+        });
       }
     }
   }
@@ -124,5 +126,14 @@ class _AppInitializerState extends State<AppInitializer> {
     }
 
     return _isLoggedIn ? const MainNavPage() : const OnboardingPage();
+  }
+}
+
+class AppLifecycleObserver extends WidgetsBindingObserver {
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.detached) {
+      GitHubService.dispose();
+    }
   }
 }

@@ -23,8 +23,10 @@ enum WallpaperTarget {
 
 // Helper to get formatted date string for keys
 String _dateStr(DateTime d) => AppDateUtils.formatDate(d);
-String? _str(dynamic v) => (v is String && v.trim().isNotEmpty) ? v.trim() : null;
-double _dbl(dynamic v, double d, double min, double max) => ((v is num ? v.toDouble() : d).clamp(min, max)).toDouble();
+String? _str(dynamic v) =>
+    (v is String && v.trim().isNotEmpty) ? v.trim() : null;
+double _dbl(dynamic v, double d, double min, double max) =>
+    ((v is num ? v.toDouble() : d).clamp(min, max)).toDouble();
 
 @immutable
 class ContributionDay {
@@ -317,8 +319,7 @@ class CachedContributionData {
   int getContributionsForDate(DateTime d) =>
       _cache[_dateStr(d)]?.contributionCount ?? 0;
   bool isStale([Duration? t, DateTime? n]) =>
-      (n ?? DateTime.now())
-          .toUtc()
+      (n ?? DateTime.now().toUtc())
           .difference(lastUpdated)
           .compareTo(t ?? const Duration(hours: 6)) >
       0;

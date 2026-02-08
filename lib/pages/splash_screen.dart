@@ -249,14 +249,14 @@ class SplashScreen extends StatelessWidget {
   }
 
   String _status(double p) => p < 0.25
-      ? 'Initializing...'
+      ? AppStrings.statusInitializing
       : p < 0.5
-          ? 'Loading resources...'
+          ? AppStrings.statusLoadingResources
           : p < 0.75
-              ? 'Setting up workspace...'
+              ? AppStrings.statusSettingUp
               : p < 0.95
-                  ? 'Almost ready...'
-                  : 'Launching...';
+                  ? AppStrings.statusAlmostReady
+                  : AppStrings.statusLaunching;
 }
 
 class _ContributionGraph extends StatelessWidget {

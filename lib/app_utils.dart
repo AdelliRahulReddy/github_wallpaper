@@ -144,6 +144,11 @@ class AppStrings {
   static const save = 'Save';
   static const logout = 'Logout';
   static const clearCache = 'Clear Cache';
+  static const statusInitializing = 'Initializing...';
+  static const statusLoadingResources = 'Loading resources...';
+  static const statusSettingUp = 'Setting up workspace...';
+  static const statusAlmostReady = 'Almost ready...';
+  static const statusLaunching = 'Launching...';
   static const settingUpWorkspace = 'Setting up your workspace...';
   static const generatingWallpaper = 'Generating wallpaper...';
   static const applyingWallpaper = 'Applying wallpaper...';

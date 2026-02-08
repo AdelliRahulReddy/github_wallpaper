@@ -24,13 +24,19 @@ export 'app_exceptions.dart';
 
 // STORAGE
 class StorageService {
+  static final _initLock = Lock();
   static SharedPreferences? _p;
   static const _kRef = 'pending_wp_refresh';
   static const _ss = FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true));
 
-  static Future<void> init() async =>
-      _p ??= await SharedPreferences.getInstance();
+  static Future<SharedPreferences> init() async {
+    if (_p != null) return _p!;
+    return await _initLock.synchronized(() async {
+      return _p ??= await SharedPreferences.getInstance();
+    });
+  }
+
   static SharedPreferences? get _s => _p;
 
   // Token
@@ -45,6 +51,7 @@ class StorageService {
       return await _ss.read(key: AppConstants.keyToken);
     } catch (e) {
       if (e.toString().contains('CORRUPTED')) {
+        AppLog.error('Token storage corrupted, clearing token.', null);
         await _ss.delete(key: AppConstants.keyToken);
       }
       return null;
@@ -58,14 +65,14 @@ class StorageService {
   // User
   static Future<void> setUsername(String u) async {
     if (u.trim().isEmpty) throw ArgumentError();
-    await (await _init()).setString(AppConstants.keyUsername, u.trim());
+    await (await init()).setString(AppConstants.keyUsername, u.trim());
   }
 
   static String? getUsername() => _s?.getString(AppConstants.keyUsername);
 
   // Cache
   static Future<void> setCachedData(CachedContributionData d) async =>
-      (await _init())
+      (await init())
           .setString(AppConstants.keyCachedData, jsonEncode(d.toJson()));
   static CachedContributionData? getCachedData() {
     try {
@@ -77,14 +84,14 @@ class StorageService {
   }
 
   static Future<void> clearCache() async {
-    (await _init())
+    (await init())
       ..remove(AppConstants.keyCachedData)
       ..remove(AppConstants.keyLastUpdate);
   }
 
   // Config
   static Future<void> saveWallpaperConfig(WallpaperConfig c) async =>
-      (await _init())
+      (await init())
           .setString(AppConstants.keyWallpaperConfig, jsonEncode(c.toJson()));
   static WallpaperConfig getWallpaperConfig() {
     try {
@@ -99,10 +106,10 @@ class StorageService {
 
   // Settings
   static Future<void> setAutoUpdate(bool e) async =>
-      (await _init()).setBool(AppConstants.keyAutoUpdate, e);
+      (await init()).setBool(AppConstants.keyAutoUpdate, e);
   static bool getAutoUpdate() =>
       _s?.getBool(AppConstants.keyAutoUpdate) ?? true;
-  static Future<void> setLastUpdate(DateTime d) async => (await _init())
+  static Future<void> setLastUpdate(DateTime d) async => (await init())
       .setString(AppConstants.keyLastUpdate, d.toIso8601String());
   static DateTime? getLastUpdate() {
     final s = _s?.getString(AppConstants.keyLastUpdate);
@@ -110,26 +117,26 @@ class StorageService {
   }
 
   static Future<void> setOnboardingComplete(bool v) async =>
-      (await _init()).setBool(AppConstants.keyOnboarding, v);
+      (await init()).setBool(AppConstants.keyOnboarding, v);
   static bool isOnboardingComplete() =>
       _s?.getBool(AppConstants.keyOnboarding) ?? false;
   static Future<void> setPendingWallpaperRefresh(bool v) async {
-    final p = await _init();
+    final p = await init();
     v ? p.setBool(_kRef, true) : p.remove(_kRef);
   }
 
   static bool hasPendingWallpaperRefresh() => _s?.getBool(_kRef) ?? false;
   static Future<void> consumePendingWallpaperRefresh() async =>
-      (await _init()).remove(_kRef);
+      (await init()).remove(_kRef);
 
   static Future<void> setHasSeenDashboard(bool v) async =>
-      (await _init()).setBool(AppConstants.keyHasSeenDashboard, v);
+      (await init()).setBool(AppConstants.keyHasSeenDashboard, v);
   static bool hasSeenDashboard() =>
       _s?.getBool(AppConstants.keyHasSeenDashboard) ?? false;
 
   // Dimensions
   static Future<void> saveDeviceModel(String m) async =>
-      (await _init()).setString(AppConstants.keyDeviceModel, m.trim());
+      (await init()).setString(AppConstants.keyDeviceModel, m.trim());
   static String? getDeviceModel() =>
       _s?.getString(AppConstants.keyDeviceModel)?.trim();
   static Future<void> saveDeviceMetrics(
@@ -137,7 +144,7 @@ class StorageService {
       required double height,
       required double pixelRatio,
       required EdgeInsets safeInsets}) async {
-    (await _init())
+    (await init())
       ..setDouble(AppConstants.keyDimensionWidth, width)
       ..setDouble(AppConstants.keyDimensionHeight, height)
       ..setDouble(AppConstants.keyDimensionPixelRatio, pixelRatio)
@@ -156,6 +163,8 @@ class StorageService {
         p?.getDouble(AppConstants.keySafeInsetBottom) ?? 0);
   }
 
+  /// Returns a map with 'width', 'height', and 'pixelRatio'.
+  /// Returns null if storage is not initialized or metrics are not saved.
   static Map<String, double>? getDimensions() {
     final p = _s;
     final w = p?.getDouble(AppConstants.keyDimensionWidth);
@@ -167,7 +176,7 @@ class StorageService {
 
   // Wallpaper
   static Future<void> saveWallpaperResult(String h, String p) async {
-    (await _init())
+    (await init())
       ..setString(AppConstants.keyWallpaperHash, h)
       ..setString(AppConstants.keyWallpaperPath, p);
   }
@@ -179,7 +188,7 @@ class StorageService {
 
   static Future<void> logout() async {
     await deleteToken();
-    (await _init())
+    (await init())
       ..remove(AppConstants.keyUsername)
       ..remove(AppConstants.keyCachedData)
       ..remove(AppConstants.keyWallpaperConfig)
@@ -187,11 +196,14 @@ class StorageService {
       ..remove(AppConstants.keyOnboarding)
       ..remove(AppConstants.keyWallpaperHash)
       ..remove(AppConstants.keyWallpaperPath)
+      ..remove(AppConstants.keyHasSeenDashboard)
+      ..remove(AppConstants.keyAutoUpdate)
       ..remove(_kRef);
   }
 
-  static Future<SharedPreferences> _init() async =>
-      _p ??= await SharedPreferences.getInstance();
+
+
+
 }
 
 // GITHUB
@@ -435,18 +447,17 @@ class WallpaperService {
     }
 
     if (target == WallpaperTarget.both) {
-      try {
-        await WallpaperManagerPlus()
-            .setWallpaper(wallpaperFile, WallpaperManagerPlus.bothScreens);
-        return;
-      } catch (_) {
-        await WallpaperManagerPlus()
-            .setWallpaper(wallpaperFile, WallpaperManagerPlus.homeScreen);
-        await WallpaperManagerPlus()
-            .setWallpaper(wallpaperFile, WallpaperManagerPlus.lockScreen);
-        return;
+        try {
+          await WallpaperManagerPlus()
+              .setWallpaper(wallpaperFile, WallpaperManagerPlus.homeScreen);
+          await WallpaperManagerPlus()
+              .setWallpaper(wallpaperFile, WallpaperManagerPlus.lockScreen);
+          return;
+        } catch (e) {
+          throw WallpaperException(
+              'Failed to set wallpaper directly and via fallback: $e');
+        }
       }
-    }
 
     await WallpaperManagerPlus()
         .setWallpaper(wallpaperFile, target.toManagerConstant());
@@ -472,11 +483,23 @@ class WallpaperService {
   }
 
   static Future<String> _save(Uint8List b) async {
-    final d = await getTemporaryDirectory();
-    return (await File(
-                '${d.path}/wp_${DateTime.now().millisecondsSinceEpoch}.png')
-            .writeAsBytes(b))
-        .path;
+    try {
+      final oldPath = StorageService.getLastWallpaperPath();
+      if (oldPath != null) {
+        try {
+          final f = File(oldPath);
+          if (await f.exists()) await f.delete();
+        } catch (_) {}
+      }
+
+      final d = await getTemporaryDirectory();
+      return (await File(
+                  '${d.path}/wp_${DateTime.now().millisecondsSinceEpoch}.png')
+              .writeAsBytes(b))
+          .path;
+    } catch (e) {
+      throw WallpaperException('Failed to save wallpaper file: $e');
+    }
   }
 
   static Future<RefreshResult> refreshWallpaper(
@@ -585,25 +608,40 @@ class DeviceCompatibilityChecker {
 
 @pragma('vm:entry-point')
 Future<void> _bgH(RemoteMessage m) async {
-  if (m.data['type']?.contains('refresh') == true) {
-    WidgetsFlutterBinding.ensureInitialized();
-    try {
-      final msg = RootIsolateToken.instance;
-      if (msg != null) {
-        BackgroundIsolateBinaryMessenger.ensureInitialized(msg);
-      }
-    } catch (_) {}
+  try {
+    if (m.data['type']?.contains('refresh') == true) {
+      WidgetsFlutterBinding.ensureInitialized();
+      try {
+        final msg = RootIsolateToken.instance;
+        if (msg != null) {
+          BackgroundIsolateBinaryMessenger.ensureInitialized(msg);
+        }
+      } catch (_) {}
 
-    await Firebase.initializeApp(
-        options: DefaultFirebaseOptions.currentPlatform);
-    await StorageService.init();
-    if (StorageService.getAutoUpdate()) {
-      await StorageService.setPendingWallpaperRefresh(true);
-      if ((await WallpaperService.refreshWallpaper(isBackground: true))
-          .isSuccess) {
-        await StorageService.consumePendingWallpaperRefresh();
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
+      
+      try {
+        if (FirebaseCrashlytics.instance.isCrashlyticsCollectionEnabled) {
+          // Crashlytics might be ready
+        }
+      } catch (_) {}
+
+      await StorageService.init();
+      if (StorageService.getAutoUpdate()) {
+        await StorageService.setPendingWallpaperRefresh(true);
+        if ((await WallpaperService.refreshWallpaper(isBackground: true))
+            .isSuccess) {
+          await StorageService.consumePendingWallpaperRefresh();
+        }
       }
     }
+  } catch (e, s) {
+    try {
+      await Firebase.initializeApp(
+          options: DefaultFirebaseOptions.currentPlatform);
+      await FirebaseCrashlytics.instance.recordError(e, s);
+    } catch (_) {}
   }
 }
 

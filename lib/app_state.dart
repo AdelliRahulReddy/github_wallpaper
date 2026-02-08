@@ -1,12 +1,13 @@
 
 
 class PresentationFormatter {
+  // Uses local time intentionally - greeting should match user's wall clock
   static String getGreeting() { final h = DateTime.now().hour; return h<12?'Good Morning':h<17?'Good Afternoon':'Good Evening'; }
   static String formatCompactNumber(int n) => n>=1000000?'${(n/1000000).toStringAsFixed(1)}m':n>=1000?'${(n/1000).toStringAsFixed(1)}k':'$n';
   static String formatTimeSince(DateTime d) => timeAgo(d, long:true);
   static String formatTimeAgoCompact(DateTime d) => timeAgo(d, long:false);
   static String timeAgo(DateTime d, {bool long=false}) {
-    final diff = DateTime.now().difference(d);
+    final diff = DateTime.now().toUtc().difference(d.toUtc());
     if(diff.inMinutes<1) return long?'Just now':'just now';
     if(diff.inMinutes<60) return long?'${diff.inMinutes} min ago':'${diff.inMinutes}m ago';
     if(diff.inHours<24) return long?'${diff.inHours} hr ago':'${diff.inHours}h ago';
@@ -26,12 +27,19 @@ class ContributionAnalyzer {
     for(var d in days) { final dt=dateOf(d), k=DateTime.utc(dt.year,dt.month,dt.day); totals[k]=(totals[k]??0)+countOf(d); }
     if(totals.isEmpty) return {'currentStreak':0, 'longestStreak':0, 'todayContributions':0, 'activeDaysCount':0, 'peakDayContributions':0, 'totalContributions':0, 'mostActiveWeekday':'Monday'};
     
-    final s = _streaks(totals, DateTime.utc((nowUtc??DateTime.now().toUtc()).year, (nowUtc??DateTime.now().toUtc()).month, (nowUtc??DateTime.now().toUtc()).day));
+    // Fix: "Today's contributions" should reflect user's local calendar date
+    final localToday = DateTime.now();
+    final todayUtc = DateTime.utc(localToday.year, localToday.month, localToday.day);
+    
+    // Use nowUtc if provided (for testing), otherwise usage determined logic above
+    final targetToday = nowUtc != null ? DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day) : todayUtc;
+
+    final s = _streaks(totals, targetToday);
     final wd = List.filled(7, 0); totals.forEach((k,v) => wd[k.weekday-1]+=v);
     var maxW=0; for(var i=1; i<7; i++) { if(wd[i]>wd[maxW]) maxW=i; }
 
     return {
-      'currentStreak': s['c'], 'longestStreak': s['l'], 'todayContributions': totals[DateTime.utc((nowUtc??DateTime.now().toUtc()).year, (nowUtc??DateTime.now().toUtc()).month, (nowUtc??DateTime.now().toUtc()).day)]??0,
+      'currentStreak': s['c'], 'longestStreak': s['l'], 'todayContributions': totals[targetToday]??0,
       'activeDaysCount': totals.values.where((c)=>c>0).length, 'peakDayContributions': totals.values.fold(0, (m,c)=>c>m?c:m), 'totalContributions': totals.values.fold(0, (s,c)=>s+c),
       'mostActiveWeekday': ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][maxW]
     };
@@ -56,12 +64,13 @@ class ContributionAnalyzer {
       if(c>0) { t++; if(t>l) l=t; } else { t=0; }
     }
 
+    // Grace period: If no commits today, check yesterday to maintain streak continuity (GitHub-standard behavior)
     var cS=0, cursor = (totals[today]??0)>0 ? today : ((totals[today.subtract(const Duration(days:1))]??0)>0 ? today.subtract(const Duration(days:1)) : null);
     if(cursor!=null) {
-      for(; !cursor!.isBefore(dates.first); cursor=cursor.subtract(const Duration(days:1))) {
+      for(; !cursor!.isBefore(dates.first); cursor=cursor!.subtract(const Duration(days:1))) {
         final c = totals[cursor];
-        if(c==null) { if(treat0) break; continue; }
-        if(c<=0) break; cS++;
+        if(c == null || c <= 0) break; 
+        cS++;
       }
     }
     return {'c':cS, 'l':l};
@@ -69,5 +78,5 @@ class ContributionAnalyzer {
 }
 
 class CacheValidator {
-  static bool isStale(DateTime last, [Duration? th, DateTime? n]) => (n??DateTime.now()).toUtc().difference(last.toUtc()) > (th ?? const Duration(hours: 1));
+  static bool isStale(DateTime last, [Duration? th, DateTime? n]) => (n??DateTime.now().toUtc()).difference(last.toUtc()) > (th ?? const Duration(hours: 1));
 }

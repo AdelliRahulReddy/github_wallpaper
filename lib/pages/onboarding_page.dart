@@ -81,7 +81,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
             // Pages
             PageView(
               controller: _pc,
-              onPageChanged: (i) => setState(() => _page = i),
+              onPageChanged: (i) {
+                if (mounted) setState(() => _page = i);
+              },
               children: [
                 _Slide(
                   title: 'Your Code,\nVisualized',
