@@ -380,7 +380,9 @@ class WallpaperConfig {
           AppConstants.maxWallpaperScale),
       autoFitWidth: j['autoFitWidth'] != false,
       opacity: _dbl(j['opacity'], 1.0, 0, 1),
-      customQuote: q.length > 200 ? q.substring(0, 200) : q,
+      customQuote: q.length > AppConstants.quoteMaxLength
+          ? q.substring(0, AppConstants.quoteMaxLength)
+          : q,
       quoteFontSize: _dbl(j['quoteFontSize'], 14, 10, 40),
       quoteOpacity: _dbl(j['quoteOpacity'], 1, 0, 1),
       cornerRadius: _dbl(j['cornerRadius'], 2, 0, 20),

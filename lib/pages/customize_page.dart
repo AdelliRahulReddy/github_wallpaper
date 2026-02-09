@@ -89,7 +89,8 @@ class _CustomizePageState extends State<CustomizePage> {
             AppConstants.heatmapBoxSpacing;
 
     // Increased max scale from 3.0 to 8.0 to support Month view (Lock screen) correctly
-    final newScale = (targetWidth / baseGraphWidth).clamp(0.5, 8.0);
+    final newScale = (targetWidth / baseGraphWidth)
+        .clamp(AppConstants.minWallpaperScale, AppConstants.maxWallpaperScale);
 
     _updateConfig(_config.copyWith(
       scale: newScale,
@@ -395,8 +396,6 @@ class _CustomizePageState extends State<CustomizePage> {
                       children: [
                         RepaintBoundary(
                           child: CustomPaint(
-                            key: ValueKey(
-                                '${_config.hashCode}_${_previewTarget.name}'),
                             painter: WallpaperPreviewPainter(
                               data: widget.data!,
                               wallpaperWidth: wallpaperWidth,

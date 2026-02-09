@@ -27,12 +27,8 @@ class ContributionAnalyzer {
     for(var d in days) { final dt=dateOf(d), k=DateTime.utc(dt.year,dt.month,dt.day); totals[k]=(totals[k]??0)+countOf(d); }
     if(totals.isEmpty) return {'currentStreak':0, 'longestStreak':0, 'todayContributions':0, 'activeDaysCount':0, 'peakDayContributions':0, 'totalContributions':0, 'mostActiveWeekday':'Monday'};
     
-    // Fix: "Today's contributions" should reflect user's local calendar date
-    final localToday = DateTime.now();
-    final todayUtc = DateTime.utc(localToday.year, localToday.month, localToday.day);
-    
-    // Use nowUtc if provided (for testing), otherwise usage determined logic above
-    final targetToday = nowUtc != null ? DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day) : todayUtc;
+    final n = (nowUtc ?? DateTime.now().toUtc()).toUtc();
+    final targetToday = DateTime.utc(n.year, n.month, n.day);
 
     final s = _streaks(totals, targetToday);
     final wd = List.filled(7, 0); totals.forEach((k,v) => wd[k.weekday-1]+=v);
@@ -57,18 +53,23 @@ class ContributionAnalyzer {
     final dates = totals.keys.toList()..sort();
     final treat0 = (totals.length / (dates.last.difference(dates.first).inDays+1)) < 0.9;
     
-    var l=0, t=0;
+    var l=0, t=0, safety=0;
     for(var d=dates.first; !d.isAfter(dates.last); d=d.add(const Duration(days:1))) {
+      if (++safety > 5000) break; // Safety guard for corrupted dates (Problem 3)
       final c = totals[d];
       if(c==null) { if(treat0) t=0; continue; }
       if(c>0) { t++; if(t>l) l=t; } else { t=0; }
     }
 
     // Grace period: If no commits today, check yesterday to maintain streak continuity (GitHub-standard behavior)
-    var cS=0, cursor = (totals[today]??0)>0 ? today : ((totals[today.subtract(const Duration(days:1))]??0)>0 ? today.subtract(const Duration(days:1)) : null);
+    var cS=0;
+    final cursor = (totals[today]??0)>0 ? today : ((totals[today.subtract(const Duration(days:1))]??0)>0 ? today.subtract(const Duration(days:1)) : null);
     if(cursor!=null) {
-      for(; !cursor!.isBefore(dates.first); cursor=cursor!.subtract(const Duration(days:1))) {
-        final c = totals[cursor];
+      var current = cursor;
+      safety=0;
+      for(; !current.isBefore(dates.first); current=current.subtract(const Duration(days:1))) {
+        if (++safety > 5000) break; // Safety guard
+        final c = totals[current];
         if(c == null || c <= 0) break; 
         cS++;
       }

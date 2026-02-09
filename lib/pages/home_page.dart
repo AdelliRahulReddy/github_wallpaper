@@ -2,6 +2,7 @@
 // 🏠 HOME PAGE - Production Dashboard
 // ══════════════════════════════════════════════════════════════════════════
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_models.dart';
@@ -32,6 +33,51 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   static const int _daysInSixMonths = AppConstants.dashboardHeatmapDays;
   static const int _trendDays = 30;
+  TrendSummary _trend7d = const TrendSummary(current: 0, previous: 0);
+  TrendSummary _trend30d = const TrendSummary(current: 0, previous: 0);
+  late final bool _showFirstLoginGreeting;
+
+  @override
+  void initState() {
+    super.initState();
+    _setTrends(widget.data);
+    _showFirstLoginGreeting = StorageService.isFirstLoginGreetingPending();
+    if (_showFirstLoginGreeting) {
+      unawaited(() async {
+        try {
+          await StorageService.setFirstLoginGreetingPending(false);
+        } catch (_) {}
+      }());
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant HomePage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.data != widget.data) {
+      _setTrends(widget.data);
+    }
+  }
+
+  void _setTrends(CachedContributionData? data) {
+    if (data == null) {
+      _trend7d = const TrendSummary(current: 0, previous: 0);
+      _trend30d = const TrendSummary(current: 0, previous: 0);
+      return;
+    }
+    _trend7d = ContributionAnalyzer.computeTrend(
+      data.days,
+      window: 7,
+      dateOf: (day) => day.date,
+      countOf: (day) => day.contributionCount,
+    );
+    _trend30d = ContributionAnalyzer.computeTrend(
+      data.days,
+      window: 30,
+      dateOf: (day) => day.date,
+      countOf: (day) => day.contributionCount,
+    );
+  }
 
   Color _heatmapColor(int level) {
     final ext = Theme.of(context).extension<AppThemeExt>();
@@ -73,22 +119,8 @@ class _HomePageState extends State<HomePage> {
     }
 
     final data = widget.data;
-    final trend7d = data == null
-        ? const TrendSummary(current: 0, previous: 0)
-        : ContributionAnalyzer.computeTrend(
-            data.days,
-            window: 7,
-            dateOf: (day) => day.date,
-            countOf: (day) => day.contributionCount,
-          );
-    final trend30d = data == null
-        ? const TrendSummary(current: 0, previous: 0)
-        : ContributionAnalyzer.computeTrend(
-            data.days,
-            window: 30,
-            dateOf: (day) => day.date,
-            countOf: (day) => day.contributionCount,
-          );
+    final trend7d = _trend7d;
+    final trend30d = _trend30d;
 
     final titleDate = DateFormat('EEEE, d MMMM').format(DateTime.now());
 
@@ -117,7 +149,7 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          'WELCOME BACK 👋',
+                          _showFirstLoginGreeting ? 'WELCOME 👋' : 'WELCOME BACK 👋',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -959,7 +991,7 @@ class _HomePageState extends State<HomePage> {
               style:
                   TextStyle(color: scheme.onSurface.withValues(alpha: 0.72))),
           AppTheme.h16,
-          FilledButton(onPressed: widget.onRefresh, child: const Text('Retry')),
+          FilledButton(onPressed: widget.onRefresh, child: Text(AppStrings.retry)),
         ],
       ),
     );

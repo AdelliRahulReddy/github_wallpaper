@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -29,6 +30,9 @@ class StorageService {
   static const _kRef = 'pending_wp_refresh';
   static const _ss = FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true));
+  
+  // MEMORY CACHE
+  static CachedContributionData? _memCache;
 
   static Future<SharedPreferences> init() async {
     if (_p != null) return _p!;
@@ -71,19 +75,25 @@ class StorageService {
   static String? getUsername() => _s?.getString(AppConstants.keyUsername);
 
   // Cache
-  static Future<void> setCachedData(CachedContributionData d) async =>
-      (await init())
-          .setString(AppConstants.keyCachedData, jsonEncode(d.toJson()));
+  static Future<void> setCachedData(CachedContributionData d) async {
+    _memCache = d;
+    await (await init())
+        .setString(AppConstants.keyCachedData, jsonEncode(d.toJson()));
+  }
   static CachedContributionData? getCachedData() {
+    if (_memCache != null) return _memCache!;
     try {
       final j = _s?.getString(AppConstants.keyCachedData);
-      return j == null ? null : CachedContributionData.fromJson(jsonDecode(j));
+      if (j == null) return null;
+      _memCache = CachedContributionData.fromJson(jsonDecode(j));
+      return _memCache;
     } catch (_) {
       return null;
     }
   }
 
   static Future<void> clearCache() async {
+    _memCache = null;
     (await init())
       ..remove(AppConstants.keyCachedData)
       ..remove(AppConstants.keyLastUpdate);
@@ -108,7 +118,7 @@ class StorageService {
   static Future<void> setAutoUpdate(bool e) async =>
       (await init()).setBool(AppConstants.keyAutoUpdate, e);
   static bool getAutoUpdate() =>
-      _s?.getBool(AppConstants.keyAutoUpdate) ?? true;
+      _s?.getBool(AppConstants.keyAutoUpdate) ?? false;
   static Future<void> setLastUpdate(DateTime d) async => (await init())
       .setString(AppConstants.keyLastUpdate, d.toIso8601String());
   static DateTime? getLastUpdate() {
@@ -120,6 +130,10 @@ class StorageService {
       (await init()).setBool(AppConstants.keyOnboarding, v);
   static bool isOnboardingComplete() =>
       _s?.getBool(AppConstants.keyOnboarding) ?? false;
+  static Future<void> setFirstLoginGreetingPending(bool v) async =>
+      (await init()).setBool(AppConstants.keyFirstLoginGreetingPending, v);
+  static bool isFirstLoginGreetingPending() =>
+      _s?.getBool(AppConstants.keyFirstLoginGreetingPending) ?? false;
   static Future<void> setPendingWallpaperRefresh(bool v) async {
     final p = await init();
     v ? p.setBool(_kRef, true) : p.remove(_kRef);
@@ -185,8 +199,13 @@ class StorageService {
       _s?.getString(AppConstants.keyWallpaperHash);
   static String? getLastWallpaperPath() =>
       _s?.getString(AppConstants.keyWallpaperPath);
+  static Future<void> setHasAppliedWallpaper(bool v) async =>
+      (await init()).setBool(AppConstants.keyHasAppliedWallpaper, v);
+  static bool hasAppliedWallpaper() =>
+      _s?.getBool(AppConstants.keyHasAppliedWallpaper) ?? false;
 
   static Future<void> logout() async {
+    _memCache = null;
     await deleteToken();
     (await init())
       ..remove(AppConstants.keyUsername)
@@ -197,13 +216,19 @@ class StorageService {
       ..remove(AppConstants.keyWallpaperHash)
       ..remove(AppConstants.keyWallpaperPath)
       ..remove(AppConstants.keyHasSeenDashboard)
+      ..remove(AppConstants.keyFirstLoginGreetingPending)
       ..remove(AppConstants.keyAutoUpdate)
+      ..remove(AppConstants.keyHasAppliedWallpaper)
       ..remove(_kRef);
   }
 
 
 
 
+}
+
+String computeStableSignatureHash(String signature) {
+  return sha256.convert(utf8.encode(signature)).toString();
 }
 
 // GITHUB
@@ -433,34 +458,37 @@ class WallpaperService {
 
   static Future<void> _setAndroidWallpaper(
       File wallpaperFile, WallpaperTarget target) async {
+    bool nativeSuccess = false;
     try {
       final result = await _wallpaperChannel.invokeMethod<bool>(
         'setWallpaperFromPath',
         {'path': wallpaperFile.path, 'target': target.name},
       );
-      if (result == true) return;
-      throw Exception('Native wallpaper setting returned false');
+      nativeSuccess = result == true;
     } on MissingPluginException {
-      // Fallback to plugin only when channel is unavailable.
+      // Fallback to plugin
     } on PlatformException catch (e) {
-      throw Exception('${e.code}: ${e.message}');
+      AppLog.error('Native wallpaper method failed: ${e.code}', null);
     }
 
-    if (target == WallpaperTarget.both) {
-        try {
-          await WallpaperManagerPlus()
-              .setWallpaper(wallpaperFile, WallpaperManagerPlus.homeScreen);
-          await WallpaperManagerPlus()
-              .setWallpaper(wallpaperFile, WallpaperManagerPlus.lockScreen);
-          return;
-        } catch (e) {
-          throw WallpaperException(
-              'Failed to set wallpaper directly and via fallback: $e');
-        }
+    if (nativeSuccess) return;
+
+    // Fallback to plugin
+    try {
+      if (target == WallpaperTarget.both) {
+        await WallpaperManagerPlus()
+            .setWallpaper(wallpaperFile, WallpaperManagerPlus.homeScreen);
+        await WallpaperManagerPlus()
+            .setWallpaper(wallpaperFile, WallpaperManagerPlus.lockScreen);
+        return;
       }
 
-    await WallpaperManagerPlus()
-        .setWallpaper(wallpaperFile, target.toManagerConstant());
+      await WallpaperManagerPlus()
+          .setWallpaper(wallpaperFile, target.toManagerConstant());
+    } catch (e) {
+      throw WallpaperException(
+          'Failed to set wallpaper directly and via fallback: $e');
+    }
   }
 
   static Future<Uint8List> _gen(
@@ -511,14 +539,16 @@ class WallpaperService {
             options: DefaultFirebaseOptions.currentPlatform);
         await StorageService.init();
       }
+      final username = StorageService.getUsername();
+      final token = await StorageService.getToken();
       final dec = RefreshPolicy.shouldRefresh(
           isBackground: isBackground,
           isAndroid: Platform.isAndroid,
           autoUpdateEnabled: StorageService.getAutoUpdate(),
           hasPendingRefresh: StorageService.hasPendingWallpaperRefresh(),
           lastUpdate: StorageService.getLastUpdate(),
-          username: StorageService.getUsername(),
-          token: await StorageService.getToken());
+          username: username,
+          token: token);
       if (!dec.shouldProceed) {
         final result = _resultForSkipReason(dec.skipReason);
         if (result == RefreshResult.noChanges) {
@@ -527,9 +557,12 @@ class WallpaperService {
         return result;
       }
       try {
+        if (username == null || token == null) {
+          return RefreshResult.authError;
+        }
         final d = await GitHubService.getContributions(
-            username: StorageService.getUsername()!,
-            token: (await StorageService.getToken())!,
+            username: username,
+            token: token,
             forceRefresh: true);
         final result = await generateAndSetWallpaper(
                 data: d, config: StorageService.getWallpaperConfig())
@@ -563,9 +596,9 @@ class WallpaperService {
         .map((day) => '${day.dateKey}:${day.contributionCount}')
         .join(',');
     final configSignature = jsonEncode(c.toJson());
-    return '${d.username.toLowerCase()}|${t.name}|$configSignature|$daySignature'
-        .hashCode
-        .toString();
+    final signature =
+        '${d.username.toLowerCase()}|${t.name}|$configSignature|$daySignature';
+    return computeStableSignatureHash(signature);
   }
 }
 
@@ -609,7 +642,7 @@ class DeviceCompatibilityChecker {
 @pragma('vm:entry-point')
 Future<void> _bgH(RemoteMessage m) async {
   try {
-    if (m.data['type']?.contains('refresh') == true) {
+    if (m.data['type'] == 'refresh') {
       WidgetsFlutterBinding.ensureInitialized();
       try {
         final msg = RootIsolateToken.instance;
@@ -628,12 +661,8 @@ Future<void> _bgH(RemoteMessage m) async {
       } catch (_) {}
 
       await StorageService.init();
-      if (StorageService.getAutoUpdate()) {
+      if (StorageService.getAutoUpdate() && StorageService.hasAppliedWallpaper()) {
         await StorageService.setPendingWallpaperRefresh(true);
-        if ((await WallpaperService.refreshWallpaper(isBackground: true))
-            .isSuccess) {
-          await StorageService.consumePendingWallpaperRefresh();
-        }
       }
     }
   } catch (e, s) {
@@ -646,18 +675,49 @@ Future<void> _bgH(RemoteMessage m) async {
 }
 
 class FcmService {
+  static bool _initialized = false;
+  static StreamSubscription<RemoteMessage>? _onMessageSub;
+
   static Future<void> init() async {
+    if (_initialized) return;
+    _initialized = true;
     FirebaseMessaging.onBackgroundMessage(_bgH);
-    // Silent Sync: We only use data messages which don't require visual permission.
-    // Subscribe unconditionally to ensure background updates work.
-    await FirebaseMessaging.instance
-        .subscribeToTopic(AppConstants.fcmTopicDailyUpdates);
-    FirebaseMessaging.onMessage.listen((m) {
-      if (m.data['type']?.contains('refresh') == true &&
-          StorageService.getAutoUpdate()) {
+    await syncTopicSubscription();
+    _onMessageSub?.cancel();
+    _onMessageSub = FirebaseMessaging.onMessage.listen((m) {
+      if (m.data['type'] == 'refresh' &&
+          StorageService.getAutoUpdate() &&
+          StorageService.hasAppliedWallpaper()) {
         WallpaperService.refreshWallpaper();
       }
     });
+  }
+
+  static Future<void> dispose() async {
+    try {
+      await _onMessageSub?.cancel();
+    } catch (_) {}
+    _onMessageSub = null;
+    _initialized = false;
+  }
+
+  static Future<void> syncTopicSubscription() async {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
+      return;
+    }
+    try {
+      if (StorageService.getAutoUpdate()) {
+        await FirebaseMessaging.instance
+            .subscribeToTopic(AppConstants.fcmTopicDailyUpdates);
+      } else {
+        await FirebaseMessaging.instance
+            .unsubscribeFromTopic(AppConstants.fcmTopicDailyUpdates);
+      }
+    } catch (e) {
+      AppLog.error('FCM topic sync failed: $e');
+    }
   }
 }
 
@@ -701,7 +761,6 @@ class BootstrapService {
       
       await FirebaseCrashlytics.instance
           .setCrashlyticsCollectionEnabled(!kDebugMode);
-      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
       onProgress(0.6);
 
       // 3. Firebase Services (App Check, FCM)

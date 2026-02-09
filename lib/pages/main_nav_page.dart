@@ -56,7 +56,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     if (lastUpdate != null) {
       final diff = DateTime.now().difference(lastUpdate);
       if (diff.inMinutes > AppConstants.resumeSyncThresholdMinutes) {
-        _syncData(silent: true);
+        _syncData(silent: true, force: true);
       }
     }
   }
@@ -102,7 +102,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     if (lastUpdate != null) {
       final diff = DateTime.now().difference(lastUpdate);
       if (diff.inHours >= AppConstants.backgroundSyncThresholdHours) {
-        _syncData(silent: true);
+        _syncData(silent: true, force: true);
       }
     }
   }
@@ -129,9 +129,6 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         token: token,
         forceRefresh: force,
       );
-
-      await StorageService.setCachedData(newData);
-      await StorageService.setLastUpdate(DateTime.now().toUtc());
 
       if (mounted) {
         setState(() {
@@ -181,6 +178,9 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         target: targetEnum,
         forceApply: true,
       );
+      if (Platform.isAndroid) {
+        await StorageService.setHasAppliedWallpaper(true);
+      }
 
       if (mounted) {
         if (Platform.isAndroid) {
@@ -209,7 +209,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
           data: _data,
           isLoading: _isLoading,
           loadError: _loadError,
-          onRefresh: () => _syncData(silent: false)),
+          onRefresh: () => _syncData(silent: false, force: true)),
       CustomizePage(
           data: _data,
           onSetWallpaper: _handleSetWallpaper,

@@ -3,31 +3,30 @@
  * Triggers a silent push notification to all subscribed devices.
  */
 
-const functions = require("firebase-functions");
+const logger = require("firebase-functions/logger");
+const {setGlobalOptions} = require("firebase-functions/v2");
+const {onSchedule} = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-const UPDATE_TOPIC = "daily-updates";
-const SCHEDULE = "every 15 minutes";
+setGlobalOptions({cpu: "gcf_gen1"});
 
-// Schedule: Every 15 minutes (periodic)
-// Timezone: UTC
-exports.triggerDailyUpdate = functions.pubsub
-    .schedule(SCHEDULE)
-    .timeZone("UTC")
-    .onRun(async (context) => {
-        functions.logger.info("Periodic update trigger started");
+const UPDATE_TOPIC = process.env.UPDATE_TOPIC || "daily-updates";
+const SCHEDULE = process.env.UPDATE_SCHEDULE || "every 60 minutes";
+exports.triggerDailyUpdateV2 = onSchedule(
+    {schedule: SCHEDULE, timeZone: "UTC"},
+    async () => {
+        logger.info("Periodic update trigger started (v2)");
 
-        // Build message payload (type must match app handler: "refresh" or "daily_refresh")
         const message = {
             data: {
                 type: "refresh",
                 timestamp: new Date().toISOString(),
             },
             android: {
-                priority: "high",
-                ttl: 3600 * 1000, // 1 hour
+                priority: "normal",
+                ttl: 15 * 60 * 1000,
             },
             topic: UPDATE_TOPIC,
         };
@@ -38,29 +37,30 @@ exports.triggerDailyUpdate = functions.pubsub
 
         while (attempts < maxAttempts) {
             try {
-                // Send to the app update topic
                 const response = await admin.messaging().send(message);
-                functions.logger.info("Periodic update push sent", {
+                logger.info("Periodic update push sent (v2)", {
                     attempt: attempts + 1,
                     response,
                 });
-                return null;
+                return;
             } catch (error) {
                 attempts++;
                 lastError = error;
-                functions.logger.warn("Periodic update push attempt failed", {
+                logger.warn("Periodic update push attempt failed (v2)", {
                     attempt: attempts,
                     error: String(error),
                 });
                 if (attempts < maxAttempts) {
-                    // Wait 500ms before retrying
-                    await new Promise((resolve) => setTimeout(resolve, 500));
+                    const baseDelayMs = 500;
+                    const backoffMs = baseDelayMs * Math.pow(2, attempts - 1);
+                    const jitterMs = Math.floor(Math.random() * 250);
+                    await new Promise((resolve) => setTimeout(resolve, backoffMs + jitterMs));
                 }
             }
         }
 
-        functions.logger.error("Periodic update push failed after retries", {
+        logger.error("Periodic update push failed after retries (v2)", {
             error: String(lastError),
         });
-        return null;
-    });
+    },
+);

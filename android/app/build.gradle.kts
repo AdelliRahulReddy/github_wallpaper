@@ -19,6 +19,12 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+val isReleaseBuild = gradle.startParameter.taskNames.any { it.contains("release", ignoreCase = true) }
+val allowDebugSignedRelease =
+    (project.findProperty("allowDebugSignedRelease") as String?)
+        ?.toBooleanStrictOrNull() == true ||
+        (System.getenv("ALLOW_DEBUG_SIGNED_RELEASE")?.lowercase() == "true")
+
 android {
     namespace = "com.rahulreddy.githubwallpaper"
     compileSdk = 36 
@@ -66,11 +72,16 @@ android {
             
             if (keystorePropertiesFile.exists()) {
                 signingConfig = signingConfigs.getByName("release")
-            } else {
-                throw GradleException(
-                    "Missing key.properties for release signing. " +
-                    "Create android/key.properties before building release."
-                )
+            } else if (isReleaseBuild) {
+                if (allowDebugSignedRelease) {
+                    signingConfig = signingConfigs.getByName("debug")
+                } else {
+                    throw GradleException(
+                        "Missing key.properties for release signing. " +
+                            "Create android/key.properties before building release " +
+                            "or build a debug-signed release with -PallowDebugSignedRelease=true."
+                    )
+                }
             }
         }
     }

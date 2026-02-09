@@ -4,6 +4,7 @@ import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_theme.dart';
 import 'package:github_wallpaper/pages/main_nav_page.dart';
 import 'package:github_wallpaper/app_utils.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class SetupPage extends StatefulWidget {
   const SetupPage({super.key});
@@ -13,6 +14,8 @@ class SetupPage extends StatefulWidget {
 }
 
 class _SetupPageState extends State<SetupPage> {
+  static final Uri _tokenCreationUri = Uri.parse(
+      'https://github.com/settings/tokens/new?scopes=read:user&description=GitWall');
   final _usernameController = TextEditingController();
   final _tokenController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -20,6 +23,29 @@ class _SetupPageState extends State<SetupPage> {
   bool _isLoading = false;
   bool _tokenVisible = false;
   String? _errorMessage;
+
+  Future<void> _openTokenCreationPage() async {
+    try {
+      final ok = await launchUrl(
+        _tokenCreationUri,
+        mode: LaunchMode.externalApplication,
+      );
+      if (!ok && mounted) {
+        ErrorHandler.handle(
+          context,
+          Exception('launchUrl returned false'),
+          userMessage: 'Unable to open GitHub token page. Please open it in a browser.',
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ErrorHandler.handle(
+        context,
+        e,
+        userMessage: 'Unable to open GitHub token page. Please open it in a browser.',
+      );
+    }
+  }
 
   @override
   void dispose() {
@@ -46,6 +72,7 @@ class _SetupPageState extends State<SetupPage> {
       await StorageService.setUsername(username);
       await StorageService.setToken(token);
       await StorageService.setOnboardingComplete(true);
+      await StorageService.setFirstLoginGreetingPending(true);
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -64,6 +91,8 @@ class _SetupPageState extends State<SetupPage> {
   @override
   Widget build(BuildContext context) {
     final cs = context.colors;
+    final textTheme = Theme.of(context).textTheme;
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
 
     return Scaffold(
       backgroundColor: cs.surfaceContainerHighest,
@@ -90,7 +119,11 @@ class _SetupPageState extends State<SetupPage> {
                 key: _formKey,
                 child: Column(
                   children: [
-                    AppTheme.h60,
+                    SizedBox(
+                      height: textScale > 1.2
+                          ? AppTheme.spacing40
+                          : AppTheme.spacing60,
+                    ),
 
                     // Clean Header
                     Center(
@@ -117,24 +150,33 @@ class _SetupPageState extends State<SetupPage> {
                           ).animate().scale(
                               duration: 600.ms, curve: Curves.easeOutBack),
                           AppTheme.h24,
-                          Text('Connect Account',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontSize: AppTheme.fontHeadline,
-                                      fontWeight: FontWeight.w800,
-                                      color: cs.onSurface,
-                                      letterSpacing: -0.5))
+                          Text(
+                            AppStrings.connectAccount,
+                            textAlign: TextAlign.center,
+                            style: (textTheme.headlineSmall ??
+                                    const TextStyle(fontSize: AppTheme.fontHeadline))
+                                .copyWith(
+                              fontWeight: FontWeight.w900,
+                              color: cs.onSurface,
+                              height: 1.1,
+                              letterSpacing: -0.6,
+                            ),
+                          )
                               .animate()
                               .fadeIn()
                               .slideY(begin: 0.2),
                           AppTheme.h8,
-                          Text('Import your GitHub statistics',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                      fontSize: AppTheme.fontBase,
-                                      color:
-                                          cs.onSurface.withValues(alpha: 0.6),
-                                      fontWeight: FontWeight.w500))
+                          Text(
+                            'Import your GitHub statistics',
+                            textAlign: TextAlign.center,
+                            style: (textTheme.bodyMedium ??
+                                    const TextStyle(fontSize: AppTheme.fontBase))
+                                .copyWith(
+                              color: cs.onSurface.withValues(alpha: 0.75),
+                              fontWeight: FontWeight.w600,
+                              height: 1.3,
+                            ),
+                          )
                               .animate()
                               .fadeIn(delay: 200.ms),
                         ],
@@ -182,6 +224,64 @@ class _SetupPageState extends State<SetupPage> {
                                   size: 20),
                               onPressed: () => setState(
                                   () => _tokenVisible = !_tokenVisible),
+                            ),
+                          ),
+                          AppTheme.h20,
+                          Container(
+                            width: double.infinity,
+                            padding: AppTheme.pAll16,
+                            decoration: BoxDecoration(
+                              color: cs.surfaceContainerHighest
+                                  .withValues(alpha: 0.65),
+                              borderRadius: AppTheme.brLarge,
+                              border: Border.all(
+                                color: cs.outline.withValues(alpha: 0.35),
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'How to get a GitHub token',
+                                  style: (textTheme.titleSmall ??
+                                          const TextStyle(fontSize: AppTheme.fontSmall))
+                                      .copyWith(
+                                    color: cs.onSurface,
+                                    fontWeight: FontWeight.w800,
+                                    letterSpacing: -0.2,
+                                    height: 1.2,
+                                  ),
+                                ),
+                                AppTheme.h8,
+                                Text(
+                                  '1) GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)\n'
+                                  '2) Generate new token (classic)\n'
+                                  '3) Scope: read:user (required); add repo only if you want private repo stats\n'
+                                  '4) Generate, copy it once, and paste it here',
+                                  style: (textTheme.bodySmall ??
+                                          const TextStyle(fontSize: AppTheme.fontCaption))
+                                      .copyWith(
+                                    color: cs.onSurface.withValues(alpha: 0.78),
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.45,
+                                  ),
+                                ),
+                                AppTheme.h12,
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton(
+                                    onPressed:
+                                        _isLoading ? null : _openTokenCreationPage,
+                                    child: Text(
+                                      '${AppStrings.needToken}${AppStrings.createHere}',
+                                      style: TextStyle(
+                                        color: cs.primary,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -248,11 +348,15 @@ class _SetupPageState extends State<SetupPage> {
                             color: cs.outline.withValues(alpha: 0.6),
                             size: AppTheme.fontLarge),
                         AppTheme.w8,
-                        Text('Secure local-only authentication',
-                            style: TextStyle(
-                                color: cs.onSurface.withValues(alpha: 0.45),
-                                fontSize: AppTheme.fontCaption,
-                                fontWeight: FontWeight.w500)),
+                        Text(
+                          'Secure local-only authentication',
+                          style: (textTheme.bodySmall ??
+                                  const TextStyle(fontSize: AppTheme.fontCaption))
+                              .copyWith(
+                            color: cs.onSurface.withValues(alpha: 0.65),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                       ],
                     ).animate().fadeIn(delay: 800.ms),
 
@@ -277,15 +381,21 @@ class _SetupPageState extends State<SetupPage> {
     String? Function(String?)? validator,
   }) {
     final cs = context.colors;
+    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: TextStyle(
-                color: cs.onSurface.withValues(alpha: 0.45),
-                fontWeight: FontWeight.w800,
-                fontSize: AppTheme.fontCaption,
-                letterSpacing: 1.5)),
+        Text(
+          label,
+          style: (textTheme.labelMedium ??
+                  const TextStyle(fontSize: AppTheme.fontSmall))
+              .copyWith(
+            color: cs.onSurface.withValues(alpha: 0.7),
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.2,
+            height: 1.2,
+          ),
+        ),
         AppTheme.h12,
         TextFormField(
           controller: controller,
@@ -293,10 +403,16 @@ class _SetupPageState extends State<SetupPage> {
           validator: validator,
           style: TextStyle(
               color: cs.onSurface,
-              fontSize: AppTheme.fontMedium,
-              fontWeight: FontWeight.w600),
+              fontSize: AppTheme.fontLarge,
+              fontWeight: FontWeight.w700,
+              height: 1.25),
           decoration: InputDecoration(
             hintText: hint,
+            hintStyle: TextStyle(
+              color: cs.onSurface.withValues(alpha: 0.55),
+              fontSize: AppTheme.fontMedium,
+              fontWeight: FontWeight.w600,
+            ),
             prefixIcon: Icon(icon, size: 20),
             suffixIcon: suffix,
           ),

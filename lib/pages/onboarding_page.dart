@@ -529,12 +529,17 @@ class _SupportDemo extends StatelessWidget {
         children: [
           Icon(icon, size: 20, color: s.primary),
           AppTheme.w12,
-          Text(
-            text,
-            style: TextStyle(
-              fontSize: AppTheme.fontMedium,
-              fontWeight: FontWeight.w600,
-              color: s.onSurface,
+          Expanded(
+            child: Text(
+              text,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              softWrap: false,
+              style: TextStyle(
+                fontSize: AppTheme.fontMedium,
+                fontWeight: FontWeight.w600,
+                color: s.onSurface,
+              ),
             ),
           ),
         ],

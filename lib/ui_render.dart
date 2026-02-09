@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'app_exceptions.dart';
 import 'app_models.dart';
 import 'app_utils.dart';
 import 'app_theme.dart';
@@ -10,16 +11,8 @@ import 'app_theme.dart';
 class MonthHeatmapRenderer {
   static final _lT = AppThemeExt(isLight: true),
       _dT = AppThemeExt(isLight: false);
-  static const _longWeekdayLabels = [
-    'Sun',
-    'Mon',
-    'Tue',
-    'Wed',
-    'Thu',
-    'Fri',
-    'Sat'
-  ];
   static const _shortWeekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+  static final Map<int, List<_Cell>> _cellsCache = {};
 
   static void render(
       {required Canvas canvas,
@@ -33,8 +26,11 @@ class MonthHeatmapRenderer {
     final ref = (referenceDate ?? DateTime.now().toUtc()).toUtc();
     final daysNum = DateTime(ref.year, ref.month + 1, 0).day;
     final firstWeekdayOffset = DateTime.utc(ref.year, ref.month, 1).weekday % 7;
-    final cells = List.generate(
-        daysNum, (i) => _Cell(DateTime.utc(ref.year, ref.month, i + 1), i));
+    final monthKey = (ref.year * 100) + ref.month;
+    final cells = _cellsCache.putIfAbsent(
+        monthKey,
+        () => List.generate(
+            daysNum, (i) => _Cell(DateTime.utc(ref.year, ref.month, i + 1), i)));
 
     // Bg
     canvas.drawRect(
@@ -59,23 +55,73 @@ class MonthHeatmapRenderer {
     final baseGridH = (rows * baseCellSize) - baseSpacing;
 
     final qTxt = config.customQuote;
-    final estimatedQuoteGap = qTxt.isEmpty
-        ? 0.0
-        : (baseSpacing * 4).clamp(baseSpacing, baseBox * 1.5);
-    final estimatedQuoteHeight =
-        qTxt.isEmpty ? 0.0 : (config.quoteFontSize * 1.35);
-    final baseTotalH = baseHeaderFont +
-        (baseSpacing * 3) +
-        baseLabelFont +
-        (baseSpacing * 2) +
-        baseGridH +
-        estimatedQuoteGap +
-        estimatedQuoteHeight;
+    
+    // Measure Quote First (Fix for Problem 5)
+    final qGap = qTxt.isEmpty ? 0.0 : (baseSpacing * 4).clamp(baseSpacing, baseBox * 1.5);
+    final qCol = (config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText)
+            .withValues(alpha: config.quoteOpacity);
+    
+    // We need an initial grid width to measure against, but we don't know scale yet.
+    // So we iterate: 
+    // 1. Calculate available width/height
+    // 2. Calculate scale based on grid only
+    // 3. Measure text with that width
+    // 4. Recalculate total height and scale if needed
+    
+    final baseTotalHNoQuote = baseHeaderFont + (baseSpacing * 3) + baseLabelFont + (baseSpacing * 2) + baseGridH;
     final widthScale = ((avW * 0.95) / baseGridW).clamp(0.1, 10.0).toDouble();
-    final heightScale = ((avH * 0.95) / baseTotalH).clamp(0.1, 10.0).toDouble();
-    final scale = config.autoFitWidth
-        ? (widthScale < heightScale ? widthScale : heightScale)
-        : config.scale;
+    
+    // Initial scale guess (ignoring quote height for a moment)
+    var scale = widthScale;
+    
+    // Measure text at this scale
+    TextPainter? qP;
+    double qH = 0.0;
+    
+    if (qTxt.isNotEmpty) {
+      final tentativeGridW = (7 * (baseBox * scale + baseSpacing * scale)) - (baseSpacing * scale);
+       qP = TextPainter(
+            text: TextSpan(
+                text: qTxt,
+                style: TextStyle(
+                    color: qCol,
+                    fontSize: config.quoteFontSize * scale,
+                    fontStyle: FontStyle.italic)),
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.ltr,
+            maxLines: 3)
+          ..layout(maxWidth: tentativeGridW);
+      qH = qP.height;
+    }
+
+    // Now calculate true height requirement
+    final totalHRequired = (baseTotalHNoQuote * scale) + (qTxt.isEmpty ? 0 : (qGap + qH));
+    final heightScale = ((avH * 0.95) / (totalHRequired / scale)).clamp(0.1, 10.0).toDouble();
+    
+    if (config.autoFitWidth) {
+       // If height is the bottleneck, reduce scale
+       if (heightScale < widthScale) {
+          scale = heightScale;
+          // Remeasure text with new scale if changed significantly
+          if (qTxt.isNotEmpty) {
+             final finalGridW = (7 * (baseBox * scale + baseSpacing * scale)) - (baseSpacing * scale);
+              qP = TextPainter(
+                  text: TextSpan(
+                      text: qTxt,
+                      style: TextStyle(
+                          color: qCol,
+                          fontSize: config.quoteFontSize * scale,
+                          fontStyle: FontStyle.italic)),
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.ltr,
+                  maxLines: 3)
+                ..layout(maxWidth: finalGridW);
+             qH = qP.height;
+          }
+       }
+    } else {
+       scale = config.scale;
+    }
 
     final boxSz = baseBox * scale,
         spc = baseSpacing * scale,
@@ -88,32 +134,14 @@ class MonthHeatmapRenderer {
         size.width - padR - gridW < padL ? padL : size.width - padR - gridW);
     final headGap = (spc * 3).clamp(spc, boxSz), lbGap = spc * 2;
     final useLongLabels = boxSz >= 22.0;
-    final dayLabels = useLongLabels ? _longWeekdayLabels : _shortWeekdayLabels;
+    final dayLabels = useLongLabels ? AppConstants.weekdays : _shortWeekdayLabels;
     final lbFontSize = (useLongLabels ? boxSz * 0.28 : boxSz * 0.45)
         .clamp(6.0, 11.0)
         .toDouble();
     final lbH = lbFontSize * 1.2;
     final headerFontSize = (16 * scale).clamp(8.0, 44.0).toDouble();
 
-    // Quote
-    final qCol =
-        (config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText)
-            .withValues(alpha: config.quoteOpacity);
-    final qP = qTxt.isEmpty
-        ? null
-        : (TextPainter(
-            text: TextSpan(
-                text: qTxt,
-                style: TextStyle(
-                    color: qCol,
-                    fontSize: config.quoteFontSize * scale,
-                    fontStyle: FontStyle.italic)),
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.ltr,
-            maxLines: 3)
-          ..layout(maxWidth: gridW));
-    final qH = qP?.height ?? 0.0,
-        qGap = qTxt.isEmpty ? 0.0 : (spc * 4).clamp(spc, boxSz * 1.5);
+    // QuotePainter already created above
 
     final legH = showLegend ? (boxSz * 1.5) : 0.0;
     final totH = headerFontSize + headGap + lbH + lbGap + gridH + qGap + qH + legH;
@@ -168,6 +196,8 @@ class MonthHeatmapRenderer {
     final cntSty = TextStyle(
         color: txtCol, fontSize: boxSz * 0.45, fontWeight: FontWeight.bold);
 
+    final textCache = <int, TextPainter>{};
+
     for (final c in cells) {
       final idx = c.idx + firstWeekdayOffset;
       final cnt = data.getContributionsForDate(c.date);
@@ -190,21 +220,29 @@ class MonthHeatmapRenderer {
       }
 
       if (boxSz >= 12.0 && cnt > 0) {
-        final tp = TextPainter(
-            text: TextSpan(
-                text: '$cnt',
-                style: cntSty.copyWith(
-                    shadows: [Shadow(color: Colors.black26, blurRadius: 2)])),
-            textAlign: TextAlign.center,
-            textDirection: TextDirection.ltr,
-            maxLines: 1)
-          ..layout(maxWidth: boxSz);
+        var tp = textCache[cnt];
+        if (tp == null) {
+          tp = TextPainter(
+              text: TextSpan(
+                  text: '$cnt',
+                  style: cntSty.copyWith(
+                      shadows: [Shadow(color: Colors.black26, blurRadius: 2)])),
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.ltr,
+              maxLines: 1)
+            ..layout(maxWidth: boxSz);
+          textCache[cnt] = tp;
+        }
         tp.paint(
             canvas,
             Offset(xStart + ((idx % 7) * cellSz) + (boxSz - tp.width) / 2,
                 yGrid + ((idx ~/ 7) * cellSz) + (boxSz - tp.height) / 2));
-        tp.dispose();
       }
+    }
+    
+    // Dispose cached painters
+    for (final tp in textCache.values) {
+      tp.dispose();
     }
 
     double nextY = yGrid + gridH + qGap + qH;
@@ -591,8 +629,14 @@ Future<Uint8List> generateWallpaperTask(Map<String, dynamic> args) async {
 
   final p = r.endRecording();
   final img = await p.toImage((w * pr).round(), (h * pr).round());
-  final b = await img.toByteData(format: ui.ImageByteFormat.png);
-  img.dispose();
-  p.dispose();
-  return b!.buffer.asUint8List();
+  try {
+    final b = await img.toByteData(format: ui.ImageByteFormat.png);
+    if (b == null) {
+      throw WallpaperException('Failed to encode wallpaper image.');
+    }
+    return b.buffer.asUint8List();
+  } finally {
+    img.dispose();
+    p.dispose();
+  }
 }

@@ -25,9 +25,27 @@ Display your GitHub contributions as an auto-updating wallpaper on your phone.
 3. Configure Firebase (see `firebase_options.dart`)
 4. Run `flutter run`
 
+### Release Signing (Android)
+
+- Never commit `android/key.properties` or keystore files to the repository.
+- Use `android/key.properties.example` as a template and keep your real values local/secret-managed.
+- If `android/key.properties` was ever committed, rotate your upload key credentials immediately.
+
 ### GitHub Token
 
-Create a token at [github.com/settings/tokens](https://github.com/settings/tokens/new?scopes=read:user&description=GitHub%20Wallpaper%20App).
+You’ll need a GitHub Personal Access Token (PAT) so the app can read your contribution data.
+
+**Option A (Recommended): Classic PAT**
+
+1. Go to GitHub **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**.
+2. Click **Generate new token (classic)**.
+3. Set a **note** (example: `GitWall`) and choose an **expiration**.
+4. Select scopes:
+   - Required: `read:user`
+   - Optional (only if you want private repo contribution breakdowns): `repo`
+5. Click **Generate token**, copy it (GitHub only shows it once), then paste it into the app’s Setup screen.
+
+Quick link (pre-fills `read:user`): https://github.com/settings/tokens/new?scopes=read:user&description=GitWall
 
 ## Project Structure
 

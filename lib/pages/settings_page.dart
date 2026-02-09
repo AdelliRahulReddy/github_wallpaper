@@ -316,6 +316,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 value: _autoUpdate,
                 onChanged: (value) async {
                   await StorageService.setAutoUpdate(value);
+                  await FcmService.syncTopicSubscription();
                   if (mounted) {
                     setState(() => _autoUpdate = value);
                   }
@@ -411,7 +412,7 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.code,
             iconColor: scheme.secondary,
             title: 'Developer',
-            subtitle: 'Adelli Rahulreddy',
+            subtitle: AppStrings.developerName,
             onTap: null, // Read-only
           ),
 

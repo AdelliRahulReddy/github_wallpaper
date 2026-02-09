@@ -39,6 +39,7 @@ dependencies:
   url_launcher: ^6.3.1                 # Open external links
   package_info_plus: ^8.1.2            # App version info
   synchronized: ^3.1.0+1               # ✨ NEW - Thread-safe lock operations
+  crypto: ^3.0.6                      # Stable hashing (e.g., SHA-256)
 
   # ══════════════════════════════════════════════════════════════════════════
   # UI/UX ENHANCEMENTS
@@ -59,6 +60,9 @@ dependencies:
 
 dev_dependencies:
   flutter_test:
+    sdk: flutter
+
+  integration_test:
     sdk: flutter
 
   flutter_lints: ^5.0.0

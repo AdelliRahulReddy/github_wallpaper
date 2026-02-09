@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'dart:async'; // Added for Timer
 import 'app_exceptions.dart';
@@ -15,41 +16,80 @@ class ErrorHandler {
     if (e is NetworkException ||
         e is SocketException ||
         e.toString().contains('socket')) {
-      return 'No internet connection.';
+      return AppStrings.errorNetwork;
     }
     if (e is TokenExpiredException || e.toString().contains('401')) {
-      return 'Invalid or expired GitHub token.';
+      return AppStrings.errorInvalidToken;
     }
     if (e is AccessDeniedException || e.toString().contains('403')) {
-      return 'Access denied.';
+      return 'Access denied';
     }
-    if (e is UserNotFoundException) return 'User not found.';
-    if (e is RateLimitException) return 'Rate limit exceeded.';
+    if (e is UserNotFoundException) return AppStrings.errorUserNotFound;
+    if (e is RateLimitException) return AppStrings.errorRateLimit;
 
     final msg = e.toString().replaceAll('Exception:', '').trim();
     return msg.isNotEmpty ? '${AppStrings.errorGeneric} ($msg)' : AppStrings.errorGeneric;
   }
 
+  static void _showSnackBarSafely({
+    required BuildContext? context,
+    required SnackBar snackBar,
+    bool clearExisting = true,
+  }) {
+    if (SchedulerBinding.instance.schedulerPhase ==
+        SchedulerPhase.persistentCallbacks) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _showSnackBarSafely(
+          context: context,
+          snackBar: snackBar,
+          clearExisting: clearExisting,
+        );
+      });
+      return;
+    }
+
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      final ScaffoldMessengerState? messenger = (context != null && context.mounted)
+          ? (ScaffoldMessenger.maybeOf(context) ?? messengerKey.currentState)
+          : messengerKey.currentState;
+
+      if (messenger == null || !messenger.mounted) return;
+
+      if (clearExisting) messenger.clearSnackBars();
+      messenger.showSnackBar(snackBar);
+    });
+  }
+
   static void handle(BuildContext? c, dynamic e,
       {String? userMessage, bool showSnackBar = true, VoidCallback? onRetry}) {
     if (showSnackBar) {
-      messengerKey.currentState?.clearSnackBars();
-      messengerKey.currentState?.showSnackBar(SnackBar(
+      _showSnackBarSafely(
+        context: c,
+        snackBar: SnackBar(
           content: Text(userMessage ?? getUserFriendlyMessage(e)),
           backgroundColor: AppTheme.errorRed,
           behavior: SnackBarBehavior.floating,
           action: onRetry != null
               ? SnackBarAction(
-                  label: 'Retry', textColor: Colors.white, onPressed: onRetry)
+                  label: AppStrings.retry,
+                  textColor: Colors.white,
+                  onPressed: onRetry,
+                )
               : null,
-          duration: const Duration(seconds: 4)));
+          duration: const Duration(seconds: 4),
+        ),
+      );
     }
   }
 
   static void showSuccess(BuildContext? c, String m) {
-    messengerKey.currentState?.clearSnackBars();
-    messengerKey.currentState?.showSnackBar(
-        SnackBar(content: Text(m), backgroundColor: AppTheme.successGreen));
+    _showSnackBarSafely(
+      context: c,
+      snackBar: SnackBar(
+        content: Text(m),
+        backgroundColor: AppTheme.successGreen,
+      ),
+    );
   }
 
   static void showLoading(BuildContext c, {String? message}) {
@@ -99,14 +139,15 @@ class ValidationUtils {
 
   static String? username(String? v) {
     if (v == null || v.trim().isEmpty) return 'Required';
-    if (v.length > 39) return 'Too long';
+    if (v.length > AppConstants.usernameMaxLength) return 'Too long';
     if (v.contains('--') || !_usernameRegex.hasMatch(v)) return 'Invalid format';
     return null;
   }
 
   static String? token(String? v) => (v == null || !_tokenRegex.hasMatch(v.trim())) ? 'Invalid token' : null;
   
-  static String? quote(String? v) => (v != null && v.length > 200) ? 'Too long' : null;
+  static String? quote(String? v) =>
+      (v != null && v.length > AppConstants.quoteMaxLength) ? 'Too long' : null;
 
   static String cleanPhone(String original) => original.replaceAll(_phoneCleanRegex, '');
 }
@@ -167,7 +208,7 @@ class AppStrings {
   static const errorStorageInit = 'Failed to initialize local storage.\nPlease restart the app.';
   static const errorAppInit = 'Initialization Error';
   static const errorContextInit = 'Context-dependent initialization failed';
-  static const supportEmail = 'support@rahulreddy.dev';
+  static const supportEmail = 'adellirahulreddy@gmail.com';
   static const supportPhone = '+91 7032784208';
   static const supportFeedback = 'SUPPORT & FEEDBACK';
   static const developer = 'DEVELOPED BY';
@@ -189,10 +230,12 @@ class AppConstants {
   static const Duration cacheExpiry = Duration(hours: 6), apiTimeout = Duration(seconds: 30);
   static const String keyToken = 'gh_token', keyUsername = 'username', keyCachedData = 'cached_data_v2', keyWallpaperConfig = 'wp_config_v2';
   static const String keyLastUpdate = 'last_update', keyAutoUpdate = 'auto_update', keyOnboarding='onboarding', keyWallpaperHash = 'wp_hash', keyWallpaperPath = 'wp_path', keyHasSeenDashboard = 'has_seen_dashboard';
+  static const String keyHasAppliedWallpaper = 'has_applied_wallpaper';
+  static const String keyFirstLoginGreetingPending = 'first_login_greeting_pending';
   static const String keyDimensionWidth='dim_w', keyDimensionHeight='dim_h', keyDimensionPixelRatio='dim_pr', keyDeviceModel='device_model';
   static const String keySafeInsetTop='safe_top', keySafeInsetBottom='safe_bottom', keySafeInsetLeft='safe_left', keySafeInsetRight='safe_right';
   static const String fcmTopicDailyUpdates = 'daily-updates';
-  static const List<String> weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  static const List<String> weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   static const String fallbackWeekday = 'None';
   static const String apiUrl = 'https://api.github.com/graphql';
   static const int intensity1 = 3, intensity2 = 6, intensity3 = 9, usernameMaxLength = 39, quoteMaxLength = 200, monthGridColumns = 7;
@@ -228,7 +271,12 @@ class RefreshPolicy {
       return const RefreshDecision.skip(RefreshSkipReason.throttled);
     }
     if (!hasConnectivity) return const RefreshDecision.skip(RefreshSkipReason.networkError);
-    if (username == null || token == null) return const RefreshDecision.skip(RefreshSkipReason.authError);
+    if (username == null ||
+        token == null ||
+        username.trim().isEmpty ||
+        token.trim().isEmpty) {
+      return const RefreshDecision.skip(RefreshSkipReason.authError);
+    }
     return const RefreshDecision.proceed();
   }
 }
@@ -236,8 +284,23 @@ class RefreshPolicy {
 // RENDER UTILS
 class RenderUtils {
   static final _rc = <String, ui.Radius>{};
+  static const _months = [
+    'JANUARY',
+    'FEBRUARY',
+    'MARCH',
+    'APRIL',
+    'MAY',
+    'JUNE',
+    'JULY',
+    'AUGUST',
+    'SEPTEMBER',
+    'OCTOBER',
+    'NOVEMBER',
+    'DECEMBER'
+  ];
   
-  static String headerTextForDate(DateTime d) => "${['JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE', 'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER'][d.month - 1]} ${d.year}";
+  static String headerTextForDate(DateTime d) =>
+      '${_months[d.month - 1]} ${d.year}';
 
   static TextPainter drawText(ui.Canvas canvas, String text, TextStyle style, Offset offset, double maxWidth, {TextAlign textAlign = TextAlign.left, TextDirection textDirection = TextDirection.ltr, int? maxLines, bool paint = true}) {
     final tp = TextPainter(text: TextSpan(text: text, style: style), textAlign: textAlign, textDirection: textDirection, maxLines: maxLines)..layout(maxWidth: maxWidth);
@@ -252,7 +315,10 @@ class RenderUtils {
 
   static Quartiles calculateQuartiles(List<int> counts) {
     final nz = counts.where((c) => c > 0).toList()..sort();
-    if (nz.isEmpty) return Quartiles(3, 6, 9);
+    if (nz.isEmpty) {
+      return Quartiles(
+          AppConstants.intensity1, AppConstants.intensity2, AppConstants.intensity3);
+    }
     int p(double x) => nz[(nz.length * x).ceil().clamp(0, nz.length - 1)];
     final q1 = p(0.25), q2 = p(0.5);
     final t1 = q1 > 0 ? q1 : 1, t2 = q2 > t1 ? q2 : t1 + 1, t3 = p(0.75) > t2 ? p(0.75) : t2 + 1;
@@ -261,7 +327,9 @@ class RenderUtils {
 
   static int getContributionLevel(int c, {Quartiles? quartiles}) {
     if (c == 0) return 0;
-    final b = quartiles ?? Quartiles(3, 6, 9);
+    final b = quartiles ??
+        Quartiles(
+            AppConstants.intensity1, AppConstants.intensity2, AppConstants.intensity3);
     if (c <= b.q1) return 1; if (c <= b.q2) return 2; if (c <= b.q3) return 3; return 4;
   }
   

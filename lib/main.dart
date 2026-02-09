@@ -1,7 +1,9 @@
 import 'dart:async';
+import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import 'app_services.dart';
@@ -11,25 +13,64 @@ import 'pages/onboarding_page.dart';
 import 'pages/main_nav_page.dart';
 import 'pages/splash_screen.dart';
 
-void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+void main() {
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  SystemChrome.setSystemUIOverlayStyle(
-    const SystemUiOverlayStyle(
-      statusBarColor: Colors.transparent,
-      statusBarIconBrightness: Brightness.dark,
-      systemNavigationBarColor: AppTheme.lightBg,
-      systemNavigationBarIconBrightness: Brightness.dark,
-    ),
-  );
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        systemNavigationBarColor: AppTheme.lightBg,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+    );
 
-  WidgetsBinding.instance.addObserver(AppLifecycleObserver());
+    FlutterError.onError = (details) {
+      FlutterError.presentError(details);
+      try {
+        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
+      } catch (_) {}
+      AppLog.error(details.exception, details.stack);
+    };
+    PlatformDispatcher.instance.onError = (error, stack) {
+      AppLog.error(error, stack);
+      try {
+        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+      } catch (_) {}
+      return true;
+    };
 
-  runApp(const MyApp());
+    runApp(const MyApp());
+  }, (error, stack) {
+    AppLog.error(error, stack);
+    try {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    } catch (_) {}
+  });
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends StatefulWidget {
   const MyApp({super.key});
+
+  @override
+  State<MyApp> createState() => _MyAppState();
+}
+
+class _MyAppState extends State<MyApp> {
+  final _lifecycleObserver = AppLifecycleObserver();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(_lifecycleObserver);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(_lifecycleObserver);
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -58,12 +99,19 @@ class _AppInitializerState extends State<AppInitializer> {
   String? _error;
   double _initProgress = 0.0;
   String _appVersion = AppStrings.appVersion;
+  int _initRunId = 0;
 
   @override
   void initState() {
     super.initState();
     _loadAppVersion();
     _startInitialization();
+  }
+
+  @override
+  void dispose() {
+    _initRunId++;
+    super.dispose();
   }
 
   Future<void> _loadAppVersion() async {
@@ -73,17 +121,38 @@ class _AppInitializerState extends State<AppInitializer> {
     } catch (_) {}
   }
 
+  Future<void> _runPendingRefresh(int runId) async {
+    try {
+      final canAutoApply = StorageService.getAutoUpdate() &&
+          StorageService.hasAppliedWallpaper();
+      if (!canAutoApply) {
+        await StorageService.consumePendingWallpaperRefresh();
+        return;
+      }
+      await WallpaperService.refreshWallpaper();
+    } catch (e, s) {
+      if (runId == _initRunId) {
+        AppLog.error(e, s);
+      }
+    }
+  }
+
   Future<void> _startInitialization() async {
+    final runId = ++_initRunId;
     final success = await BootstrapService.boot(
       onProgress: (p) {
-        if (mounted) setState(() => _initProgress = p);
+        if (!mounted || runId != _initRunId) return;
+        setState(() => _initProgress = p);
       },
       onError: (e) {
-        if (mounted) setState(() => _error = e);
+        if (!mounted || runId != _initRunId) return;
+        setState(() => _error = e);
       },
     );
 
-    if (success && mounted) {
+    if (!mounted || runId != _initRunId) return;
+
+    if (success) {
       final loggedIn = StorageService.isOnboardingComplete();
       final pendingRefresh =
           loggedIn && StorageService.hasPendingWallpaperRefresh();
@@ -93,12 +162,8 @@ class _AppInitializerState extends State<AppInitializer> {
         _isInitialized = true;
       });
 
-      // FIXED: Simplified async fire-and-forget
       if (pendingRefresh) {
-        Future.microtask(() async {
-          await StorageService.consumePendingWallpaperRefresh();
-          await WallpaperService.refreshWallpaper();
-        });
+        unawaited(_runPendingRefresh(runId));
       }
     }
   }
@@ -134,6 +199,7 @@ class AppLifecycleObserver extends WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.detached) {
       GitHubService.dispose();
+      FcmService.dispose();
     }
   }
 }
