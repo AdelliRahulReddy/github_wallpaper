@@ -4,18 +4,15 @@
  */
 
 const logger = require("firebase-functions/logger");
-const {setGlobalOptions} = require("firebase-functions/v2");
-const {onSchedule} = require("firebase-functions/v2/scheduler");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const admin = require("firebase-admin");
 
 admin.initializeApp();
 
-setGlobalOptions({cpu: "gcf_gen1"});
-
 const UPDATE_TOPIC = process.env.UPDATE_TOPIC || "daily-updates";
 const SCHEDULE = process.env.UPDATE_SCHEDULE || "every 60 minutes";
 exports.triggerDailyUpdateV2 = onSchedule(
-    {schedule: SCHEDULE, timeZone: "UTC"},
+    { schedule: SCHEDULE, timeZone: "UTC" },
     async () => {
         logger.info("Periodic update trigger started (v2)");
 

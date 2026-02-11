@@ -372,6 +372,8 @@ class WallpaperConfig {
 
   factory WallpaperConfig.fromJson(Map<String, dynamic> j) {
     final q = _str(j['customQuote']) ?? '';
+    // Sanitize quote to prevent control characters and injection
+    final sanitizedQuote = ValidationUtils.sanitizeQuote(q);
     return WallpaperConfig(
       isDarkMode: j['isDarkMode'] == true,
       verticalPosition: _dbl(j['verticalPosition'], 0.5, 0, 1),
@@ -380,9 +382,9 @@ class WallpaperConfig {
           AppConstants.maxWallpaperScale),
       autoFitWidth: j['autoFitWidth'] != false,
       opacity: _dbl(j['opacity'], 1.0, 0, 1),
-      customQuote: q.length > AppConstants.quoteMaxLength
-          ? q.substring(0, AppConstants.quoteMaxLength)
-          : q,
+      customQuote: sanitizedQuote.length > AppConstants.quoteMaxLength
+          ? sanitizedQuote.substring(0, AppConstants.quoteMaxLength)
+          : sanitizedQuote,
       quoteFontSize: _dbl(j['quoteFontSize'], 14, 10, 40),
       quoteOpacity: _dbl(j['quoteOpacity'], 1, 0, 1),
       cornerRadius: _dbl(j['cornerRadius'], 2, 0, 20),

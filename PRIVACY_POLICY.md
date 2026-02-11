@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Last updated: February 07, 2026**
+**Last updated: February 11, 2026**
 
 This Privacy Policy describes Our policies and procedures on the collection, use and disclosure of Your information when You use the Service and tells You about Your privacy rights and how the law protects You.
 
@@ -96,8 +96,36 @@ The Company may disclose Your Personal Data in the good faith belief that such a
 The security of Your Personal Data is important to Us, but remember that no method of transmission over the Internet, or method of electronic storage is 100% secure. While We strive to use commercially acceptable means to protect Your Personal Data, We cannot guarantee its absolute security.
 
 ## Data Handling - Specifics for GitWall
-*   **GitHub Tokens**: Your GitHub Personal Access Token is stored securely on your device using platform-specific encryption (Flutter Secure Storage). It is **only** used to fetch your contribution data from the GitHub API. It is **never** sent to any other third-party server or collected by us.
-*   **GitHub Username**: Your username is used to fetch your public contribution graph.
+
+### GitHub Authentication
+*   **GitHub Tokens**: Your GitHub Personal Access Token is stored securely on your device using platform-specific encryption (Flutter Secure Storage / Android Keystore). It is **only** used to fetch your contribution data from the GitHub API. It is **never** sent to any other third-party server or collected by us.
+*   **GitHub Username**: Your username is used to fetch your public contribution graph and is stored locally on your device.
+
+### Repository Metadata Caching
+*   **Private Repository Names**: If you grant the `repo` scope to your GitHub token, the app caches repository names locally for dashboard display.
+*   **Encryption**: Private repository metadata is encrypted at rest using secure storage (Android Keystore/iOS Keychain).
+*   **User Control**: You can choose to exclude private repositories from caching in Settings. When disabled, only public repository data is stored.
+*   **Retention**: Cached data is automatically cleared when you log out or delete the app.
+
+### Crash Reporting (Firebase Crashlytics)
+*   **Purpose**: We use Firebase Crashlytics to collect anonymous crash reports to improve app stability.
+*   **Consent**: You will be asked for explicit consent before crash reporting is enabled. You can withdraw consent at any time in Settings.
+*   **Data Collected When Consented**:
+    - App version and device model
+    - Crash stack traces (error messages)
+    - Anonymous usage statistics
+*   **Security**: All error messages are automatically sanitized to remove any GitHub tokens, usernames, or sensitive data before transmission.
+*   **No Consent = No Data**: If you do not consent, no crash data is sent to Firebase Crashlytics.
+
+### Push Notifications (Firebase Cloud Messaging)
+*   **Purpose**: Optional background wallpaper refresh notifications (silent, no user-visible alerts).
+*   **Control**: Fully controlled via the "Auto-update" setting. You can disable at any time.
+*   **Data**: Only contains a refresh timestamp, no personal data.
+
+### Data Storage Location
+*   **Local Only**: All personal data (token, username, cached contributions) is stored **only** on your device.
+*   **No Cloud Storage**: We do not upload, store, or have access to your GitHub token or contribution data on our servers.
+*   **Third-Party Services**: The only external service we use is Firebase (Google) for optional crash reporting (with consent) and push notifications (if auto-update enabled).
 
 ## Children's Privacy
 Our Service does not address anyone under the age of 13. We do not knowingly collect personally identifiable information from anyone under the age of 13. If You are a parent or guardian and You are aware that Your child has provided Us with Personal Data, please contact Us. If We become aware that We have collected Personal Data from anyone under the age of 13 without verification of parental consent, We take steps to remove that information from Our servers.

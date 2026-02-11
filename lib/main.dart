@@ -28,25 +28,56 @@ void main() {
 
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
-      try {
-        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
-      } catch (_) {}
       AppLog.error(details.exception, details.stack);
+      // Sanitize and report to Crashlytics with consent check
+      if (StorageService.getCrashlyticsConsent()) {
+        try {
+          final sanitizedMsg = details.exception.toString()
+            .replaceAll(RegExp(r'ghp_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+            .replaceAll(RegExp(r'gho_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+            .replaceAll(RegExp(r'ghs_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+            .replaceAll(RegExp(r'Bearer\s+\S+'), 'Bearer [REDACTED]');
+          FirebaseCrashlytics.instance.recordFlutterFatalError(
+            FlutterErrorDetails(
+              exception: Exception(sanitizedMsg),
+              stack: details.stack,
+              library: details.library,
+              context: details.context,
+            ),
+          );
+        } catch (_) {}
+      }
     };
     PlatformDispatcher.instance.onError = (error, stack) {
       AppLog.error(error, stack);
-      try {
-        FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-      } catch (_) {}
+      // Sanitize and report to Crashlytics with consent check
+      if (StorageService.getCrashlyticsConsent()) {
+        try {
+          final sanitizedMsg = error.toString()
+            .replaceAll(RegExp(r'ghp_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+            .replaceAll(RegExp(r'gho_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+            .replaceAll(RegExp(r'ghs_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+            .replaceAll(RegExp(r'Bearer\s+\S+'), 'Bearer [REDACTED]');
+          FirebaseCrashlytics.instance.recordError(Exception(sanitizedMsg), stack, fatal: true);
+        } catch (_) {}
+      }
       return true;
     };
 
     runApp(const MyApp());
   }, (error, stack) {
     AppLog.error(error, stack);
-    try {
-      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
-    } catch (_) {}
+    // Sanitize and report to Crashlytics with consent check
+    if (StorageService.getCrashlyticsConsent()) {
+      try {
+        final sanitizedMsg = error.toString()
+          .replaceAll(RegExp(r'ghp_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+          .replaceAll(RegExp(r'gho_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+          .replaceAll(RegExp(r'ghs_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+          .replaceAll(RegExp(r'Bearer\s+\S+'), 'Bearer [REDACTED]');
+        FirebaseCrashlytics.instance.recordError(Exception(sanitizedMsg), stack, fatal: true);
+      } catch (_) {}
+    }
   });
 }
 

@@ -71,6 +71,11 @@ class _SetupPageState extends State<SetupPage> {
 
       await StorageService.setUsername(username);
       await StorageService.setToken(token);
+      
+      // Show consent dialogs before completing onboarding
+      if (!mounted) return;
+      await _showConsentDialogs();
+      
       await StorageService.setOnboardingComplete(true);
       await StorageService.setFirstLoginGreetingPending(true);
 
@@ -86,6 +91,65 @@ class _SetupPageState extends State<SetupPage> {
         _isLoading = false;
       });
     }
+  }
+  
+  Future<void> _showConsentDialogs() async {
+    // Crashlytics Consent Dialog
+    final crashlyticsConsent = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Help Improve GitWall'),
+        content: const Text(
+          'Allow anonymous crash reporting to help us fix bugs faster?\n\n'
+          '• All data is anonymized\n'
+          '• Tokens are automatically redacted\n'
+          '• You can disable anytime in Settings',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('No Thanks'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Allow'),
+          ),
+        ],
+      ),
+    ) ?? true; // Default to true
+    
+    await StorageService.setCrashlyticsConsent(crashlyticsConsent);
+    
+    // Capture context before second async operation
+    if (!mounted) return;
+    
+    // Private Repos Consent Dialog
+    final privateReposConsent = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Private Repository Stats'),
+        content: const Text(
+          'Include private repositories in your dashboard?\n\n'
+          '• Repository names cached locally (encrypted)\n'
+          '• Stored in Android Keystore/iOS Keychain\n'
+          '• You can disable anytime in Settings',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Public Only'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Include Private'),
+          ),
+        ],
+      ),
+    ) ?? true; // Default to true
+    
+    await StorageService.setIncludePrivateRepos(privateReposConsent);
   }
 
   @override

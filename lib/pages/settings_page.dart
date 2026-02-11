@@ -22,6 +22,8 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   String? _username;
   bool _autoUpdate = true;
+  bool _crashlyticsConsent = true;
+  bool _includePrivateRepos = true;
   DateTime? _lastUpdate;
   String _appVersion = AppStrings.appVersion;
 
@@ -36,6 +38,8 @@ class _SettingsPageState extends State<SettingsPage> {
     setState(() {
       _username = StorageService.getUsername();
       _autoUpdate = StorageService.getAutoUpdate();
+      _crashlyticsConsent = StorageService.getCrashlyticsConsent();
+      _includePrivateRepos = StorageService.getIncludePrivateRepos();
       _lastUpdate = StorageService.getLastUpdate();
     });
   }
@@ -270,62 +274,128 @@ class _SettingsPageState extends State<SettingsPage> {
           AppTheme.h16,
 
           // Auto Update Toggle
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.12),
-                  borderRadius: AppTheme.brSmall,
-                  border:
-                      Border.all(color: scheme.primary.withValues(alpha: 0.20)),
-                ),
-                child: Icon(
-                  Icons.autorenew,
-                  color: scheme.primary,
-                  size: 20,
-                ),
-              ),
-              AppTheme.w16,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Auto Update',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontMedium,
-                        fontWeight: FontWeight.w800,
-                        color: scheme.onSurface,
-                      ),
-                    ),
-                    AppTheme.h2,
-                    Text(
-                      'Refresh wallpaper when push notification arrives',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontBody,
-                        color: scheme.onSurface.withValues(alpha: 0.72),
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _autoUpdate,
-                onChanged: (value) async {
-                  await StorageService.setAutoUpdate(value);
-                  await FcmService.syncTopicSubscription();
-                  if (mounted) {
-                    setState(() => _autoUpdate = value);
-                  }
-                },
-              ),
-            ],
+          _buildToggleRow(
+            icon: Icons.autorenew,
+            iconColor: scheme.primary,
+            title: 'Auto Update',
+            subtitle: 'Refresh wallpaper when push notification arrives',
+            value: _autoUpdate,
+            onChanged: (value) async {
+              await StorageService.setAutoUpdate(value);
+              await FcmService.syncTopicSubscription();
+              if (mounted) {
+                setState(() => _autoUpdate = value);
+              }
+            },
+          ),
+          
+          AppTheme.h16,
+          
+          // Crashlytics Consent Toggle
+          _buildToggleRow(
+            icon: Icons.bug_report_outlined,
+            iconColor: AppTheme.warningOrange,
+            title: 'Crash Reporting',
+            subtitle: 'Help improve app stability (anonymous, sanitized)',
+            value: _crashlyticsConsent,
+            onChanged: (value) async {
+              await StorageService.setCrashlyticsConsent(value);
+              if (mounted) {
+                setState(() => _crashlyticsConsent = value);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(value 
+                        ? 'Crash reporting enabled' 
+                        : 'Crash reporting disabled'),
+                  ),
+                );
+              }
+            },
+          ),
+          
+          AppTheme.h16,
+          
+          // Include Private Repos Toggle
+          _buildToggleRow(
+            icon: Icons.lock_outline,
+            iconColor: AppTheme.accentViolet,
+            title: 'Include Private Repositories',
+            subtitle: 'Cache private repo names (encrypted locally)',
+            value: _includePrivateRepos,
+            onChanged: (value) async {
+              await StorageService.setIncludePrivateRepos(value);
+              if (!value) {
+                // Clear encrypted cache when disabled
+                await StorageService.clearCache();
+              }
+              if (mounted) {
+                setState(() => _includePrivateRepos = value);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(value 
+                        ? 'Private repos will be cached (encrypted)' 
+                        : 'Private repo cache cleared'),
+                  ),
+                );
+              }
+            },
           ),
         ],
       ),
+    );
+  }
+  
+  Widget _buildToggleRow({
+    required IconData icon,
+    required Color iconColor,
+    required String title,
+    required String subtitle,
+    required bool value,
+    required Function(bool) onChanged,
+  }) {
+    final scheme = Theme.of(context).colorScheme;
+    return Row(
+      children: [
+        Container(
+          width: 40,
+          height: 40,
+          decoration: BoxDecoration(
+            color: iconColor.withValues(alpha: 0.12),
+            borderRadius: AppTheme.brSmall,
+            border: Border.all(color: iconColor.withValues(alpha: 0.20)),
+          ),
+          child: Icon(icon, color: iconColor, size: 20),
+        ),
+        AppTheme.w16,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: AppTheme.fontMedium,
+                  fontWeight: FontWeight.w800,
+                  color: scheme.onSurface,
+                ),
+              ),
+              AppTheme.h2,
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: AppTheme.fontBody,
+                  color: scheme.onSurface.withValues(alpha: 0.72),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+        Switch(
+          value: value,
+          onChanged: onChanged,
+        ),
+      ],
     );
   }
 

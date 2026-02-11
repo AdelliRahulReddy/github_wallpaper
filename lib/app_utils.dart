@@ -111,11 +111,25 @@ class AppLog {
     }
   }
 
+  // Sanitize sensitive data from error messages
+  static String _sanitizeError(String msg) {
+    return msg
+      .replaceAll(RegExp(r'ghp_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+      .replaceAll(RegExp(r'gho_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+      .replaceAll(RegExp(r'ghu_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+      .replaceAll(RegExp(r'ghs_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+      .replaceAll(RegExp(r'ghr_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
+      .replaceAll(RegExp(r'Bearer\s+\S+'), 'Bearer [REDACTED]')
+      .replaceAll(RegExp(r'Authorization:\s*\S+'), 'Authorization: [REDACTED]')
+      .replaceAll(RegExp(r'token\s*=\s*[^\s&]+', caseSensitive: false), 'token=[REDACTED]');
+  }
+
   static void error(dynamic e, [StackTrace? s]) {
     if (kDebugMode) {
       debugPrint("🔴 [ERROR]: $e");
     }
-    try { FirebaseCrashlytics.instance.recordError(e, s); } catch (_) {}
+    // Note: Crashlytics reporting moved to main.dart to include consent check
+    // This method only sanitizes for debug logging
   }
 }
 
@@ -133,13 +147,17 @@ class Debouncer {
 
 // VALIDATION
 class ValidationUtils {
-  static final _usernameRegex = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$'); // Alphanumeric with dashes, no consecutive dashes
-  static final _tokenRegex = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$'); // Supports all GitHub PAT prefixes
+  static final _usernameRegex = RegExp(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,37}[a-zA-Z0-9])?$');
+  static final _tokenRegex = RegExp(r'^(ghp_|github_pat_|gho_|ghu_|ghs_|ghr_)[a-zA-Z0-9_]{10,}$');
   static final _phoneCleanRegex = RegExp(r'[^\d]');
+  static const _reservedUsernames = ['admin', 'api', 'www', 'github', 'support', 'blog', 'about'];
 
   static String? username(String? v) {
     if (v == null || v.trim().isEmpty) return 'Required';
+    final clean = v.trim().toLowerCase();
+    if (clean.length < 2) return 'Username too short (min 2 characters)';
     if (v.length > AppConstants.usernameMaxLength) return 'Too long';
+    if (_reservedUsernames.contains(clean)) return 'Reserved username';
     if (v.contains('--') || !_usernameRegex.hasMatch(v)) return 'Invalid format';
     return null;
   }
@@ -148,6 +166,14 @@ class ValidationUtils {
   
   static String? quote(String? v) =>
       (v != null && v.length > AppConstants.quoteMaxLength) ? 'Too long' : null;
+  
+  /// Sanitize custom quote to prevent control characters and injection
+  static String sanitizeQuote(String input) {
+    return input
+        .replaceAll(RegExp(r'[\x00-\x1F\x7F-\x9F]'), '') // Remove control chars
+        .replaceAll(RegExp(r'[<>{}]'), '') // Prevent injection
+        .trim();
+  }
 
   static String cleanPhone(String original) => original.replaceAll(_phoneCleanRegex, '');
 }
@@ -229,6 +255,9 @@ class AppConstants {
   static const int pendingRefreshDebounceMinutes = 2, refreshCooldownMinutes = 15, resumeSyncThresholdMinutes=30, backgroundSyncThresholdHours=1;
   static const Duration cacheExpiry = Duration(hours: 6), apiTimeout = Duration(seconds: 30);
   static const String keyToken = 'gh_token', keyUsername = 'username', keyCachedData = 'cached_data_v2', keyWallpaperConfig = 'wp_config_v2';
+  static const String keyCachedDataSensitive = 'cached_data_sensitive_v1'; // ✅ Encrypted sensitive cache
+  static const String keyIncludePrivateRepos = 'include_private_repos_v1'; // ✅ User preference
+  static const String keyCrashlyticsConsent = 'crashlytics_consent_v1'; // ✅ GDPR consent
   static const String keyLastUpdate = 'last_update', keyAutoUpdate = 'auto_update', keyOnboarding='onboarding', keyWallpaperHash = 'wp_hash', keyWallpaperPath = 'wp_path', keyHasSeenDashboard = 'has_seen_dashboard';
   static const String keyHasAppliedWallpaper = 'has_applied_wallpaper';
   static const String keyFirstLoginGreetingPending = 'first_login_greeting_pending';

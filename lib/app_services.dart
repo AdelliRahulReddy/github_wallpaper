@@ -37,8 +37,53 @@ class StorageService {
   static Future<SharedPreferences> init() async {
     if (_p != null) return _p!;
     return await _initLock.synchronized(() async {
-      return _p ??= await SharedPreferences.getInstance();
+      if (_p != null) return _p!;
+      _p = await SharedPreferences.getInstance();
+      // Preload encrypted sensitive cache data for synchronous access
+      await _preloadSensitiveCache();
+      return _p!;
     });
+  }
+
+  static Map<String, dynamic>? _sensitiveCache;
+
+  static Future<void> _preloadSensitiveCache() async {
+    try {
+      // Migrate old plaintext cache if needed
+      final oldCache = _s?.getString(AppConstants.keyCachedData);
+      if (oldCache != null) {
+        final existingSecure = await _ss.read(key: AppConstants.keyCachedDataSensitive);
+        if (existingSecure == null) {
+          // Old cache exists but no encrypted version - migrate it
+          final json = jsonDecode(oldCache) as Map<String, dynamic>;
+          final sensitiveFields = <String, dynamic>{};
+          
+          if (json.containsKey('repositories')) {
+            sensitiveFields['repositories'] = json.remove('repositories');
+          }
+          if (json.containsKey('avatarUrl')) {
+            sensitiveFields['avatarUrl'] = json.remove('avatarUrl');
+          }
+          
+          if (sensitiveFields.isNotEmpty) {
+            await _ss.write(
+              key: AppConstants.keyCachedDataSensitive,
+              value: jsonEncode(sensitiveFields),
+            );
+            // Update SharedPreferences with only non-sensitive data
+            await _s?.setString(AppConstants.keyCachedData, jsonEncode(json));
+          }
+        }
+      }
+      
+      // Load encrypted data into memory for fast synchronous access
+      final sensitiveStr = await _ss.read(key: AppConstants.keyCachedDataSensitive);
+      if (sensitiveStr != null && sensitiveStr.isNotEmpty) {
+        _sensitiveCache = jsonDecode(sensitiveStr) as Map<String, dynamic>;
+      }
+    } catch (e) {
+      // Preload failed - cache will work without sensitive data
+    }
   }
 
   static SharedPreferences? get _s => _p;
@@ -74,18 +119,67 @@ class StorageService {
 
   static String? getUsername() => _s?.getString(AppConstants.keyUsername);
 
-  // Cache
+  // Cache with encrypted sensitive data
   static Future<void> setCachedData(CachedContributionData d) async {
     _memCache = d;
+    
+    // Separate sensitive from non-sensitive data
+    final json = d.toJson();
+    final sensitiveFields = <String, dynamic>{};
+    
+    // Extract sensitive fields to encrypt
+    if (json.containsKey('repositories')) {
+      // Filter by user preference
+      final includePrivate = getIncludePrivateRepos();
+      final repos = json['repositories'] as List?;
+      
+      if (includePrivate && repos != null) {
+        sensitiveFields['repositories'] = repos;
+      } else if (repos != null) {
+        // Only include public repos
+        sensitiveFields['repositories'] = repos
+            .where((r) => r is Map && r['isPrivate'] != true)
+            .toList();
+      }
+      json.remove('repositories');
+    }
+    
+    if (json.containsKey('avatarUrl')) {
+      sensitiveFields['avatarUrl'] = json.remove('avatarUrl');
+    }
+    
+    // Store non-sensitive data in SharedPreferences
     await (await init())
-        .setString(AppConstants.keyCachedData, jsonEncode(d.toJson()));
+        .setString(AppConstants.keyCachedData, jsonEncode(json));
+    
+    // Store sensitive data in FlutterSecureStorage
+    if (sensitiveFields.isNotEmpty) {
+      await _ss.write(
+        key: AppConstants.keyCachedDataSensitive,
+        value: jsonEncode(sensitiveFields),
+      );
+      // Update in-memory cache for fast synchronous access
+      _sensitiveCache = sensitiveFields;
+    } else {
+      _sensitiveCache = null;
+    }
   }
+
   static CachedContributionData? getCachedData() {
     if (_memCache != null) return _memCache!;
     try {
-      final j = _s?.getString(AppConstants.keyCachedData);
-      if (j == null) return null;
-      _memCache = CachedContributionData.fromJson(jsonDecode(j));
+      // Get non-sensitive data from SharedPreferences
+      final basicJson = _s?.getString(AppConstants.keyCachedData);
+      if (basicJson == null) return null;
+      
+      final json = jsonDecode(basicJson) as Map<String, dynamic>;
+      
+      // Merge preloaded sensitive data from memory
+      if (_sensitiveCache != null) {
+        json.addAll(_sensitiveCache!);
+      }
+      
+      _memCache = CachedContributionData.fromJson(json);
       return _memCache;
     } catch (_) {
       return null;
@@ -94,10 +188,26 @@ class StorageService {
 
   static Future<void> clearCache() async {
     _memCache = null;
-    (await init())
-      ..remove(AppConstants.keyCachedData)
-      ..remove(AppConstants.keyLastUpdate);
+    _sensitiveCache = null;
+    final prefs = await init();
+    prefs.remove(AppConstants.keyCachedData);
+    prefs.remove(AppConstants.keyLastUpdate);
+    await _ss.delete(key: AppConstants.keyCachedDataSensitive);
   }
+
+  // Private repo preference
+  static Future<void> setIncludePrivateRepos(bool include) async =>
+      (await init()).setBool(AppConstants.keyIncludePrivateRepos, include);
+      
+  static bool getIncludePrivateRepos() =>
+      _s?.getBool(AppConstants.keyIncludePrivateRepos) ?? true; // Default: true for backward compat
+  
+  // Crashlytics consent (GDPR compliance)
+  static Future<void> setCrashlyticsConsent(bool consent) async =>
+      (await init()).setBool(AppConstants.keyCrashlyticsConsent, consent);
+      
+  static bool getCrashlyticsConsent() =>
+      _s?.getBool(AppConstants.keyCrashlyticsConsent) ?? false; // Default: false (GDPR)
 
   // Config
   static Future<void> saveWallpaperConfig(WallpaperConfig c) async =>
@@ -666,11 +776,8 @@ Future<void> _bgH(RemoteMessage m) async {
       }
     }
   } catch (e, s) {
-    try {
-      await Firebase.initializeApp(
-          options: DefaultFirebaseOptions.currentPlatform);
-      await FirebaseCrashlytics.instance.recordError(e, s);
-    } catch (_) {}
+    // Error reporting handled in main.dart error handlers
+    AppLog.error(e, s);
   }
 }
 
@@ -748,7 +855,6 @@ class BootstrapService {
     required Function(double) onProgress,
     required Function(String) onError,
   }) async {
-    final startTime = DateTime.now();
     try {
       // 1. Storage
       await StorageService.init().timeout(const Duration(seconds: 10));
@@ -772,17 +878,11 @@ class BootstrapService {
           .timeout(const Duration(seconds: 2), onTimeout: () {});
 
       // 5. Minimum Splash Duration
-      final elapsed = DateTime.now().difference(startTime);
-      if (elapsed < const Duration(seconds: 4)) {
-        await Future.delayed(const Duration(seconds: 4) - elapsed);
-      }
-
       onProgress(1.0);
       return true;
     } catch (e, stack) {
-      if (Firebase.apps.isNotEmpty) {
-        FirebaseCrashlytics.instance.recordError(e, stack, fatal: true);
-      }
+      // Error reporting handled in main.dart error handlers
+      AppLog.error(e, stack);
       onError(ErrorHandler.getUserFriendlyMessage(e));
       return false;
     }
