@@ -21,7 +21,7 @@ Display your GitHub contributions as an auto-updating wallpaper on your phone.
 ### Setup
 
 1. Clone the repo
-2. Run `flutter pub get`
+2. Run `flutter pub get
 3. Configure Firebase (see `firebase_options.dart`)
 4. Run `flutter run`
 
