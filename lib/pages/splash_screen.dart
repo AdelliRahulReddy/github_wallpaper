@@ -95,7 +95,7 @@ class SplashScreen extends StatelessWidget {
                               height: 28,
                               child: CircularProgressIndicator(
                                   strokeWidth: 3,
-                                  valueColor: AlwaysStoppedAnimation(AppTheme.primaryBrandAccent))),
+                                  valueColor: AlwaysStoppedAnimation(AppTheme.successGreen))),
                           AppTheme.h20,
                           Text(_status(progress),
                               style: TextStyle(

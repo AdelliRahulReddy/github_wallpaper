@@ -1,7 +1,7 @@
 name: github_wallpaper
 description: "GitWall - Display your GitHub contributions as an auto-updating wallpaper"
 publish_to: 'none'
-version: 1.0.1+2
+version: 1.0.0+1
 
 environment:
   sdk: ^3.5.0
@@ -57,8 +57,6 @@ dependencies:
   firebase_app_check: ^0.4.1+4
   firebase_crashlytics: ^5.0.7
   device_info_plus: ^12.3.0
-  integration_test:
-    sdk: flutter
 
 dev_dependencies:
   flutter_test:

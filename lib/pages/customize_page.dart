@@ -279,13 +279,12 @@ class _CustomizePageState extends State<CustomizePage> {
               width: 80,
               height: 80,
               decoration: BoxDecoration(
-                color: scheme.onSurface.withValues(alpha: 0.1),
-                borderRadius: AppTheme.brXL,
+                color: scheme.primary.withValues(alpha: 0.1),
+                borderRadius: AppTheme.brMedium,
               ),
               child: Icon(
-                Icons.palette_outlined,
-                size: 40,
-                color: scheme.onSurface.withValues(alpha: 0.8),
+                Icons.auto_awesome_outlined,
+                color: scheme.primary,
               ),
             ),
             AppTheme.h24,

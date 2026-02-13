@@ -126,7 +126,7 @@ class AppLog {
 
   static void error(dynamic e, [StackTrace? s]) {
     if (kDebugMode) {
-      debugPrint("🔴 [ERROR]: $e");
+      debugPrint("🔴 [ERROR]: ${_sanitizeError(e.toString())}");
     }
     // Note: Crashlytics reporting moved to main.dart to include consent check
     // This method only sanitizes for debug logging

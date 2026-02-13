@@ -169,18 +169,20 @@ class AppTheme {
     // 1. Resolve Color Scheme
     final colorScheme = ColorScheme(
       brightness: brightness,
-      primary: isDark ? primaryBrandAccent : primaryBlue,
-      onPrimary: isDark ? darkBg : lightSurface,
-      secondary: successGreen,
-      onSecondary: isDark ? darkBg : lightSurface,
+      primary: successGreen,
+      onPrimary: Colors.white,
+      secondary: accentViolet,
+      onSecondary: Colors.white,
       error: errorRed,
-      onError: isDark ? darkBg : lightSurface,
+      onError: Colors.white,
       surface: isDark ? darkSurface : lightSurface,
-      onSurface: isDark ? darkText : lightText,
-      surfaceContainerHighest: isDark ? darkBg : lightBg,
+      onSurface: isDark ? Colors.white : lightText,
+      surfaceContainerHighest: isDark
+          ? const Color(0xFF21262D)
+          : const Color(0xFFF0F2F5),
       tertiary: accentViolet,
       onTertiary: Colors.white,
-      surfaceTint: isDark ? primaryBrandAccent : primaryBlue,
+      surfaceTint: successGreen,
       outline: isDark ? darkBorder : lightBorder,
       outlineVariant: isDark
           ? darkBorder.withValues(alpha: 0.5)

@@ -451,7 +451,7 @@ class _SettingsPageState extends State<SettingsPage> {
           // Privacy Policy
           _buildSettingButton(
             icon: Icons.privacy_tip_outlined,
-            iconColor: AppTheme.primaryBlue,
+            iconColor: AppTheme.successGreen,
             title: 'Privacy Policy',
             subtitle: 'Read our privacy policy',
             trailing: Icons.open_in_new,

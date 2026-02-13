@@ -61,9 +61,6 @@ class StorageService {
           if (json.containsKey('repositories')) {
             sensitiveFields['repositories'] = json.remove('repositories');
           }
-          if (json.containsKey('avatarUrl')) {
-            sensitiveFields['avatarUrl'] = json.remove('avatarUrl');
-          }
           
           if (sensitiveFields.isNotEmpty) {
             await _ss.write(
@@ -144,9 +141,6 @@ class StorageService {
       json.remove('repositories');
     }
     
-    if (json.containsKey('avatarUrl')) {
-      sensitiveFields['avatarUrl'] = json.remove('avatarUrl');
-    }
     
     // Store non-sensitive data in SharedPreferences
     await (await init())

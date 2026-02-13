@@ -170,7 +170,7 @@ class _SetupPageState extends State<SetupPage> {
             size: 400,
           ),
           _GlowBlob(
-            color: AppTheme.primaryBrandAccent.withValues(alpha: 0.04),
+            color: AppTheme.successGreen.withValues(alpha: 0.04),
             bottom: -50,
             left: -100,
             size: 350,

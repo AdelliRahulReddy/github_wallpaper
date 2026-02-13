@@ -139,6 +139,11 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         if (!silent) {
           ErrorHandler.showSuccess(context, AppStrings.dataSynced);
         }
+
+        // 🚀 CRITICAL: Trigger wallpaper update if already applied
+        if (StorageService.hasAppliedWallpaper()) {
+          WallpaperService.refreshWallpaper(isBackground: false);
+        }
       }
     } catch (e) {
       if (mounted) {
