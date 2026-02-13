@@ -189,6 +189,7 @@ class StorageService {
   static Future<void> clearCache() async {
     _memCache = null;
     _sensitiveCache = null;
+    MonthHeatmapRenderer.clearCaches(); // Clear rendering cache
     final prefs = await init();
     prefs.remove(AppConstants.keyCachedData);
     prefs.remove(AppConstants.keyLastUpdate);
@@ -233,6 +234,13 @@ class StorageService {
       .setString(AppConstants.keyLastUpdate, d.toIso8601String());
   static DateTime? getLastUpdate() {
     final s = _s?.getString(AppConstants.keyLastUpdate);
+    return s != null ? DateTime.tryParse(s) : null;
+  }
+
+  static Future<void> setLastBackgroundSync(DateTime d) async => (await init())
+      .setString(AppConstants.keyLastBackgroundSync, d.toIso8601String());
+  static DateTime? getLastBackgroundSync() {
+    final s = _s?.getString(AppConstants.keyLastBackgroundSync);
     return s != null ? DateTime.tryParse(s) : null;
   }
 
@@ -315,13 +323,11 @@ class StorageService {
       _s?.getBool(AppConstants.keyHasAppliedWallpaper) ?? false;
 
   static Future<void> logout() async {
-    _memCache = null;
+    await clearCache();
     await deleteToken();
     (await init())
       ..remove(AppConstants.keyUsername)
-      ..remove(AppConstants.keyCachedData)
       ..remove(AppConstants.keyWallpaperConfig)
-      ..remove(AppConstants.keyLastUpdate)
       ..remove(AppConstants.keyOnboarding)
       ..remove(AppConstants.keyWallpaperHash)
       ..remove(AppConstants.keyWallpaperPath)
@@ -329,6 +335,7 @@ class StorageService {
       ..remove(AppConstants.keyFirstLoginGreetingPending)
       ..remove(AppConstants.keyAutoUpdate)
       ..remove(AppConstants.keyHasAppliedWallpaper)
+      ..remove(AppConstants.keyLastBackgroundSync)
       ..remove(_kRef);
   }
 
@@ -435,41 +442,64 @@ class GitHubService {
 
   static CachedContributionData _parse(Map<String, dynamic> j, String u) {
     try {
-      final user = j['data']['user'];
+      final user = j['data']?['user'];
+      if (user == null) throw UserNotFoundException();
+      
       final avatarUrl = user['avatarUrl'] as String?;
-      final cal = user['contributionsCollection']['contributionCalendar'];
+      final coll = user['contributionsCollection'];
+      if (coll == null) throw GitHubException('Incomplete data: contributionsCollection missing');
+      
+      final cal = coll['contributionCalendar'];
+      if (cal == null) throw GitHubException('Incomplete data: contributionCalendar missing');
+      
       final days = <ContributionDay>[];
-      for (var w in cal['weeks']) {
-        for (var d in w['contributionDays']) {
-          days.add(ContributionDay.fromJson(d));
+      final weeks = cal['weeks'] as List?;
+      if (weeks != null) {
+        for (var w in weeks) {
+          final cDays = w['contributionDays'] as List?;
+          if (cDays == null) continue;
+          for (var d in cDays) {
+            days.add(ContributionDay.fromJson(d));
+          }
         }
       }
+
       final repos = <RepoContribution>[];
-      for (var r in j['data']['user']['contributionsCollection']
-          ['commitContributionsByRepository']) {
-        if (r['contributions']['totalCount'] > 0 && r['repository'] != null) {
-          final repo = r['repository'];
-          final langs = (repo['languages']['edges'] as List)
-              .map((l) => RepoLanguageSlice(
-                  name: l['node']['name'],
-                  color: l['node']['color'],
-                  size: l['size']))
-              .toList();
-          repos.add(RepoContribution(
-              nameWithOwner: repo['nameWithOwner'],
-              url: repo['url'],
-              isPrivate: repo['isPrivate'],
-              commitCount: r['contributions']['totalCount'],
-              primaryLanguageName: repo['primaryLanguage']?['name'],
-              primaryLanguageColor: repo['primaryLanguage']?['color'],
-              languages: langs));
+      final repoContribs = coll['commitContributionsByRepository'] as List?;
+      if (repoContribs != null) {
+        for (var r in repoContribs) {
+          if (r['contributions']?['totalCount'] != null && 
+              r['contributions']['totalCount'] > 0 && 
+              r['repository'] != null) {
+            final repo = r['repository'];
+            final langs = <RepoLanguageSlice>[];
+            final edges = repo['languages']?['edges'] as List?;
+            if (edges != null) {
+              for (var l in edges) {
+                if (l['node'] != null) {
+                  langs.add(RepoLanguageSlice(
+                    name: l['node']['name'] ?? 'Unknown',
+                    color: l['node']['color'],
+                    size: l['size'] ?? 0));
+                }
+              }
+            }
+            repos.add(RepoContribution(
+                nameWithOwner: repo['nameWithOwner'] ?? 'Unknown',
+                url: repo['url'] ?? '',
+                isPrivate: repo['isPrivate'] ?? false,
+                commitCount: r['contributions']['totalCount'],
+                primaryLanguageName: repo['primaryLanguage']?['name'],
+                primaryLanguageColor: repo['primaryLanguage']?['color'],
+                languages: langs));
+          }
         }
       }
       repos.sort((a, b) => b.commitCount.compareTo(a.commitCount));
       return CachedContributionData(
           username: u,
           avatarUrl: avatarUrl,
-          totalContributions: cal['totalContributions'],
+          totalContributions: cal['totalContributions'] ?? 0,
           days: days,
           lastUpdated: DateTime.now().toUtc(),
           repositories: repos);
@@ -622,15 +652,23 @@ class WallpaperService {
 
   static Future<String> _save(Uint8List b) async {
     try {
-      final oldPath = StorageService.getLastWallpaperPath();
-      if (oldPath != null) {
-        try {
-          final f = File(oldPath);
-          if (await f.exists()) await f.delete();
-        } catch (_) {}
+      final d = await getTemporaryDirectory();
+      
+      // Cleanup: Delete all old wallpaper files to prevent storage accumulation
+      try {
+        final dir = Directory(d.path);
+        if (await dir.exists()) {
+          final files = dir.listSync();
+          for (final f in files) {
+            if (f is File && f.path.contains('wp_') && f.path.endsWith('.png')) {
+              await f.delete();
+            }
+          }
+        }
+      } catch (e) {
+        AppLog.error('Failed to cleanup old wallpapers: $e');
       }
 
-      final d = await getTemporaryDirectory();
       return (await File(
                   '${d.path}/wp_${DateTime.now().millisecondsSinceEpoch}.png')
               .writeAsBytes(b))
@@ -680,6 +718,9 @@ class WallpaperService {
             : RefreshResult.noChanges;
         if (result.isSuccess) {
           await StorageService.consumePendingWallpaperRefresh();
+          if (isBackground) {
+            await StorageService.setLastBackgroundSync(DateTime.now());
+          }
         }
         return result;
       } on NetworkException {
@@ -772,7 +813,14 @@ Future<void> _bgH(RemoteMessage m) async {
 
       await StorageService.init();
       if (StorageService.getAutoUpdate() && StorageService.hasAppliedWallpaper()) {
-        await StorageService.setPendingWallpaperRefresh(true);
+        // Try immediate refresh in background
+        try {
+          await WallpaperService.refreshWallpaper(isBackground: true);
+        } catch (e) {
+          // If immediate refresh fails (e.g. background restriction), fallback to pending flag
+          await StorageService.setPendingWallpaperRefresh(true);
+          AppLog.error('Immediate background refresh failed, set pending flag: $e');
+        }
       }
     }
   } catch (e, s) {

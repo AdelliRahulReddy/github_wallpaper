@@ -258,6 +258,7 @@ class AppConstants {
   static const String keyCachedDataSensitive = 'cached_data_sensitive_v1'; // ✅ Encrypted sensitive cache
   static const String keyIncludePrivateRepos = 'include_private_repos_v1'; // ✅ User preference
   static const String keyCrashlyticsConsent = 'crashlytics_consent_v1'; // ✅ GDPR consent
+  static const String keyLastBackgroundSync = 'last_bg_sync';
   static const String keyLastUpdate = 'last_update', keyAutoUpdate = 'auto_update', keyOnboarding='onboarding', keyWallpaperHash = 'wp_hash', keyWallpaperPath = 'wp_path', keyHasSeenDashboard = 'has_seen_dashboard';
   static const String keyHasAppliedWallpaper = 'has_applied_wallpaper';
   static const String keyFirstLoginGreetingPending = 'first_login_greeting_pending';

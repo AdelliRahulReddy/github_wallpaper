@@ -64,9 +64,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final accents = [
-      scheme.primary,
-      AppTheme.accentViolet,
-      scheme.secondary,
+      AppTheme.successGreen, // Slide 1: Contributions (Green)
+      AppTheme.accentViolet, // Slide 2: Sync
+      scheme.primary,        // Slide 3: Support
     ];
     final accent = accents[_page];
 
@@ -357,16 +357,7 @@ class _ContributionDemo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final base = scheme.surfaceContainerHighest.withValues(
-      alpha: isDark ? 0.9 : 1,
-    );
-    final colors = [
-      base,
-      accent.withValues(alpha: 0.3),
-      accent.withValues(alpha: 0.5),
-      accent.withValues(alpha: 0.7),
-      accent
-    ];
+    final levels = AppThemeExt.of(context).heatmapLevels;
 
     return Container(
       padding: AppTheme.pAll32,
@@ -392,7 +383,7 @@ class _ContributionDemo extends StatelessWidget {
                     width: 16,
                     height: 16,
                     decoration: BoxDecoration(
-                        color: colors[level],
+                        color: levels[level],
                         borderRadius: AppTheme.brXS),
                   ),
                 );
@@ -453,6 +444,7 @@ class _SupportDemo extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
+      width: double.infinity,
       padding: AppTheme.pAll24,
       decoration: BoxDecoration(
         color: s.surface.withValues(alpha: isDark ? 0.45 : 0.95),
@@ -463,28 +455,34 @@ class _SupportDemo extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Developer Profile Header
           Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 64,
+                height: 64,
                 decoration: BoxDecoration(
-                  color: s.primary.withValues(alpha: 0.12),
+                  gradient: LinearGradient(
+                    colors: [s.primary, AppTheme.accentViolet],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   shape: BoxShape.circle,
-                  border: Border.all(color: s.primary.withValues(alpha: 0.2)),
+                  boxShadow: AppTheme.shadow(s.primary, opacity: 0.2),
                 ),
-                child: Center(
+                child: const Center(
                   child: Text(
                     "RR",
                     style: TextStyle(
-                      color: s.primary,
-                      fontSize: AppTheme.fontHeadline,
+                      color: Colors.white,
+                      fontSize: 22,
                       fontWeight: FontWeight.w900,
+                      letterSpacing: -1,
                     ),
                   ),
                 ),
               ),
-              AppTheme.w16,
+              AppTheme.w20,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -492,15 +490,17 @@ class _SupportDemo extends StatelessWidget {
                     Text(
                       AppStrings.developerName,
                       style: TextStyle(
-                        fontSize: AppTheme.fontLarge,
-                        fontWeight: FontWeight.w800,
+                        fontSize: AppTheme.fontLarge + 2,
+                        fontWeight: FontWeight.w900,
                         color: s.onSurface,
+                        letterSpacing: -0.5,
                       ),
                     ),
                     Text(
                       AppStrings.developerTagline,
                       style: TextStyle(
                         fontSize: AppTheme.fontSmall,
+                        fontWeight: FontWeight.w600,
                         color: s.onSurface.withValues(alpha: 0.6),
                       ),
                     ),
@@ -510,38 +510,81 @@ class _SupportDemo extends StatelessWidget {
             ],
           ),
           AppTheme.h24,
-          _supportItem(Icons.alternate_email_rounded, AppStrings.supportEmail, s),
+          
+          // Contact Items
+          _supportItem(
+            Icons.alternate_email_rounded, 
+            AppStrings.supportEmail, 
+            "Send an email",
+            s
+          ),
           AppTheme.h12,
-          _supportItem(Icons.phone_android_rounded, AppStrings.supportPhone, s),
+          _supportItem(
+            Icons.star_rounded, 
+            "Rate on Play Store", 
+            "Support the project",
+            s
+          ),
+          
+          AppTheme.h24,
+          Text(
+            "High-quality development, crafted with ❤️",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: AppTheme.fontSmall,
+              fontStyle: FontStyle.italic,
+              color: s.onSurface.withValues(alpha: 0.4),
+            ),
+          ),
         ],
       ),
     );
   }
 
-  Widget _supportItem(IconData icon, String text, ColorScheme s) {
+  Widget _supportItem(IconData icon, String title, String subtitle, ColorScheme s) {
     return Container(
-      padding: AppTheme.pSymH20V12,
+      padding: AppTheme.pAll16,
       decoration: BoxDecoration(
         color: s.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: AppTheme.brMedium,
+        borderRadius: AppTheme.brLarge,
+        border: Border.all(color: s.outline.withValues(alpha: 0.1)),
       ),
       child: Row(
         children: [
-          Icon(icon, size: 20, color: s.primary),
-          AppTheme.w12,
+          Container(
+            padding: AppTheme.pAll8,
+            decoration: BoxDecoration(
+              color: s.primary.withValues(alpha: 0.1),
+              borderRadius: AppTheme.brMedium,
+            ),
+            child: Icon(icon, size: 20, color: s.primary),
+          ),
+          AppTheme.w16,
           Expanded(
-            child: Text(
-              text,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
-              style: TextStyle(
-                fontSize: AppTheme.fontMedium,
-                fontWeight: FontWeight.w600,
-                color: s.onSurface,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: AppTheme.fontMedium,
+                    fontWeight: FontWeight.w700,
+                    color: s.onSurface,
+                  ),
+                ),
+                Text(
+                  subtitle,
+                  style: TextStyle(
+                    fontSize: AppTheme.fontCaption,
+                    color: s.onSurface.withValues(alpha: 0.5),
+                  ),
+                ),
+              ],
             ),
           ),
+          Icon(Icons.chevron_right_rounded, size: 20, color: s.onSurface.withValues(alpha: 0.2)),
         ],
       ),
     );

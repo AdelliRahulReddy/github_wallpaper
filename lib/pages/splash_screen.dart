@@ -20,7 +20,7 @@ class SplashScreen extends StatelessWidget {
     // 100% System Theme Adaptation
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = AppTheme.primaryBrandAccent;
+    final accent = AppTheme.successGreen;
 
     final Gradient gradient = LinearGradient(
       begin: Alignment.topCenter,
@@ -266,17 +266,7 @@ class _ContributionGraph extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = Theme.of(context)
-        .colorScheme
-        .surfaceContainerHighest
-        .withValues(alpha: isDark ? 0.9 : 1);
-    final colors = [
-      base,
-      accent.withValues(alpha: 0.3),
-      accent.withValues(alpha: 0.5),
-      accent.withValues(alpha: 0.7),
-      accent
-    ];
+    final levels = AppThemeExt.of(context).heatmapLevels;
     final pattern = [
       [0, 1, 2, 1, 0, 1, 2, 3, 2],
       [1, 2, 3, 4, 3, 2, 3, 4, 3],
@@ -303,7 +293,7 @@ class _ContributionGraph extends StatelessWidget {
                   width: 13,
                   height: 13,
                   decoration: BoxDecoration(
-                      color: colors[pattern[r][c]],
+                      color: levels[pattern[r][c]],
                       borderRadius: AppTheme.brXS),
                 ),
               ),

@@ -27,7 +27,8 @@ class ContributionAnalyzer {
     for(var d in days) { final dt=dateOf(d), k=DateTime.utc(dt.year,dt.month,dt.day); totals[k]=(totals[k]??0)+countOf(d); }
     if(totals.isEmpty) return {'currentStreak':0, 'longestStreak':0, 'todayContributions':0, 'activeDaysCount':0, 'peakDayContributions':0, 'totalContributions':0, 'mostActiveWeekday':'Monday'};
     
-    final n = (nowUtc ?? DateTime.now().toUtc()).toUtc();
+    // Use local time for "Today" determination to align with user's wall clock
+    final n = (nowUtc?.toLocal() ?? DateTime.now());
     final targetToday = DateTime.utc(n.year, n.month, n.day);
 
     final s = _streaks(totals, targetToday);

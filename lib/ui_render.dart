@@ -14,6 +14,8 @@ class MonthHeatmapRenderer {
   static const _shortWeekdayLabels = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
   static final Map<int, List<_Cell>> _cellsCache = {};
 
+  static void clearCaches() => _cellsCache.clear();
+
   static void render(
       {required Canvas canvas,
       required Size size,
