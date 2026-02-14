@@ -2,8 +2,6 @@
 
 Display your GitHub contributions as a stunning, auto-updating wallpaper on your phone. Turn your hard work into art.
 
-![GitWall Banner](https://raw.githubusercontent.com/AdelliRahulReddy/github_wallpaper/main/assets/images/banner.png) <!-- Note: Replace with actual banner if available -->
-
 ## ✨ Features
 
 - **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
