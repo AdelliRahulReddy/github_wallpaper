@@ -316,6 +316,16 @@ class StorageService {
   static bool hasAppliedWallpaper() =>
       _s?.getBool(AppConstants.keyHasAppliedWallpaper) ?? false;
 
+  static Future<void> setLastWallpaperTarget(WallpaperTarget t) async {
+    (await init()).setString(AppConstants.keyLastWallpaperTarget, t.name);
+  }
+
+  static WallpaperTarget getLastWallpaperTarget() {
+    final name = _s?.getString(AppConstants.keyLastWallpaperTarget);
+    return WallpaperTarget.values.firstWhere((e) => e.name == name,
+        orElse: () => WallpaperTarget.both);
+  }
+
   static Future<void> logout() async {
     await clearCache();
     await deleteToken();
@@ -584,6 +594,7 @@ class WallpaperService {
       if (Platform.isAndroid) {
         await _setAndroidWallpaper(File(wallpaperPath), target);
       }
+      await StorageService.setLastWallpaperTarget(target);
       await StorageService.saveWallpaperResult(hash, wallpaperPath);
       onProgress?.call(1.0);
       return true;
@@ -706,8 +717,11 @@ class WallpaperService {
             username: username,
             token: token,
             forceRefresh: true);
+        final target = StorageService.getLastWallpaperTarget();
         final result = await generateAndSetWallpaper(
-                data: d, config: StorageService.getWallpaperConfig())
+                data: d,
+                config: StorageService.getWallpaperConfig(),
+                target: target)
             ? RefreshResult.success
             : RefreshResult.noChanges;
         if (result.isSuccess) {
@@ -737,12 +751,13 @@ class WallpaperService {
 
   static String _hash(
       CachedContributionData d, WallpaperConfig c, WallpaperTarget t) {
+    final todayKey = AppDateUtils.formatDate(DateTime.now().toUtc());
     final daySignature = d.days
         .map((day) => '${day.dateKey}:${day.contributionCount}')
         .join(',');
     final configSignature = jsonEncode(c.toJson());
     final signature =
-        '${d.username.toLowerCase()}|${t.name}|$configSignature|$daySignature';
+        '${d.username.toLowerCase()}|${t.name}|$todayKey|$configSignature|$daySignature';
     return computeStableSignatureHash(signature);
   }
 }

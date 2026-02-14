@@ -1,74 +1,80 @@
-# GitWall
+# 🎨 GitWall
 
-Display your GitHub contributions as an auto-updating wallpaper on your phone.
+Display your GitHub contributions as a stunning, auto-updating wallpaper on your phone. Turn your hard work into art.
 
-## Features
+![GitWall Banner](https://raw.githubusercontent.com/AdelliRahulReddy/github_wallpaper/main/assets/images/banner.png) <!-- Note: Replace with actual banner if available -->
 
-- **Beautiful heatmap wallpapers** – Turn your GitHub contribution graph into aesthetic wallpapers for Home and Lock screen
-- **Auto-updates** – Wallpaper refreshes automatically via Firebase Cloud Messaging
-- **Customizable** – Dark/Light themes, scale, opacity, position, custom quotes
-- **Secure** – GitHub tokens stored with Flutter Secure Storage
-- **Dashboard** – Streaks, stats, weekend analysis, contribution breakdown
+## ✨ Features
 
-## Getting Started
+- **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
+- **🔄 Silent Sync** – Wallpapers refresh automatically in the background via Firebase Cloud Messaging without interrupting your workflow.
+- **🎨 Deep Customization** – Adjust dark/light themes, scale, opacity, positioning, and add custom motivational quotes.
+- **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
+- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data stays yours.
+- **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent look.
+
+## 🚀 Getting Started
 
 ### Prerequisites
 
-- Flutter SDK ^3.5.0
-- Android device/emulator (wallpaper feature is Android-only)
-- GitHub Personal Access Token with `read:user` scope
+- **Flutter SDK**: `^3.5.0`
+- **Device**: Android (Live wallpaper features)
+- **GitHub Token**: Personal Access Token with `read:user` scope
 
-### Setup
+### Quick Setup
 
-1. Clone the repo
-2. Run `flutter pub get
-3. Configure Firebase (see `firebase_options.dart`)
-4. Run `flutter run`
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/AdelliRahulReddy/github_wallpaper.git
+   cd github_wallpaper
+   ```
 
-### Release Signing (Android)
+2. **Install dependencies:**
+   ```bash
+   flutter pub get
+   ```
 
-- Never commit `android/key.properties` or keystore files to the repository.
-- Use `android/key.properties.example` as a template and keep your real values local/secret-managed.
-- If `android/key.properties` was ever committed, rotate your upload key credentials immediately.
+3. **Firebase Configuration:**
+   - Link your project using `flutterfire configure`.
+   - Ensure `firebase_options.dart` is correctly generated.
 
-### GitHub Token
+4. **Run the app:**
+   ```bash
+   flutter run
+   ```
 
-You’ll need a GitHub Personal Access Token (PAT) so the app can read your contribution data.
+## 🔐 GitHub Token Setup
 
-**Option A (Recommended): Classic PAT**
+To fetch your contribution data, GitWall requires a GitHub Personal Access Token (PAT).
 
-1. Go to GitHub **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**.
+1. Navigate to **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**.
 2. Click **Generate new token (classic)**.
-3. Set a **note** (example: `GitWall`) and choose an **expiration**.
-4. Select scopes:
-   - Required: `read:user`
-   - Optional (only if you want private repo contribution breakdowns): `repo`
-5. Click **Generate token**, copy it (GitHub only shows it once), then paste it into the app’s Setup screen.
+3. Select the `read:user` scope.
+4. Copy the generated token and paste it into the app during setup.
 
-Quick link (pre-fills `read:user`): https://github.com/settings/tokens/new?scopes=read:user&description=GitWall
+> [!TIP]
+> [Generate a token automatically](https://github.com/settings/tokens/new?scopes=read:user&description=GitWall) with the required scope pre-selected.
 
-## Project Structure
+## 🛠️ Tech Stack
 
-```
+- **Framework**: [Flutter](https://flutter.dev) (Dart)
+- **Backend/Push**: [Firebase](https://firebase.google.com) (FCM, Firestore, Functions)
+- **API**: [GitHub GraphQL API](https://docs.github.com/en/graphql)
+- **Storage**: Flutter Secure Storage, SharedPreferences
+
+## 📁 Project Structure
+
+```text
 lib/
-├── main.dart              # App entry, initialization
-├── app_utils.dart         # Constants, strings, validation, helpers
-├── app_services.dart      # GitHub, wallpaper, storage, FCM services
-├── app_models.dart        # Data models and serialization
-├── app_state.dart         # Analytics and trend/state helpers
-├── app_theme.dart         # Theme + reusable UI widgets
-├── app_exceptions.dart    # Custom exceptions
-├── ui_render.dart         # Wallpaper/heatmap renderer
-└── pages/
-    ├── splash_screen.dart
-    ├── onboarding_page.dart
-    ├── setup_page.dart
-    ├── main_nav_page.dart
-    ├── home_page.dart
-    ├── customize_page.dart
-    └── settings_page.dart
+├── main.dart              # App entry & initialization
+├── app_utils.dart         # Design tokens, strings, & constants
+├── app_services.dart      # GitHub, FCM, & Wallpaper logic
+├── ui_render.dart         # Custom heatmap & wallpaper rendering
+├── app_models.dart        # Type-safe data models
+├── app_state.dart         # Analytics & trend calculators
+└── pages/                 # UI layers & navigation flow
 ```
 
-## License
+## 📜 License
 
-MIT
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
