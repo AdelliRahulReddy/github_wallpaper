@@ -326,6 +326,21 @@ class StorageService {
         orElse: () => WallpaperTarget.both);
   }
 
+  // Track last successful update (for deduplication)
+  static Future<void> setLastSuccessfulUpdate(DateTime dt) async {
+    (await init()).setString(AppConstants.keyLastSuccessfulUpdate, dt.toIso8601String());
+  }
+
+  static DateTime? getLastSuccessfulUpdate() {
+    final str = _s?.getString(AppConstants.keyLastSuccessfulUpdate);
+    if (str == null) return null;
+    try {
+      return DateTime.parse(str);
+    } catch (_) {
+      return null;
+    }
+  }
+
   static Future<void> logout() async {
     await clearCache();
     await deleteToken();
@@ -596,6 +611,7 @@ class WallpaperService {
       }
       await StorageService.setLastWallpaperTarget(target);
       await StorageService.saveWallpaperResult(hash, wallpaperPath);
+      await StorageService.setLastSuccessfulUpdate(DateTime.now()); // Track when update succeeded
       onProgress?.call(1.0);
       return true;
     });

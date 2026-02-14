@@ -22,8 +22,8 @@ exports.triggerDailyUpdateV2 = onSchedule(
                 timestamp: new Date().toISOString(),
             },
             android: {
-                priority: "normal",
-                ttl: 15 * 60 * 1000,
+                priority: "high",
+                ttl: 3600 * 1000,
             },
             topic: UPDATE_TOPIC,
         };

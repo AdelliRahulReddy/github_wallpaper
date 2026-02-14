@@ -253,13 +253,17 @@ class AppConstants {
   static const int heatmapWeeks = 53, heatmapDaysPerWeek = 7, heatmapTotalDays = 371, dashboardHeatmapDays = 180;
   static const int githubDataFetchDays = 370, minCachedContributionDays = 90;
   static const int pendingRefreshDebounceMinutes = 2, refreshCooldownMinutes = 15, resumeSyncThresholdMinutes=30, backgroundSyncThresholdHours=1;
+  
+  // Auto-update interval (in minutes) - MUST match Cloud Function schedule in functions/index.js
+  static const int autoUpdateIntervalMinutes = 60; // Change this to 120 if you set "every 120 minutes" in Cloud Function
+  
   static const Duration cacheExpiry = Duration(hours: 6), apiTimeout = Duration(seconds: 30);
   static const String keyToken = 'gh_token', keyUsername = 'username', keyCachedData = 'cached_data_v2', keyWallpaperConfig = 'wp_config_v2';
   static const String keyCachedDataSensitive = 'cached_data_sensitive_v1'; // ✅ Encrypted sensitive cache
   static const String keyIncludePrivateRepos = 'include_private_repos_v1'; // ✅ User preference
   static const String keyCrashlyticsConsent = 'crashlytics_consent_v1'; // ✅ GDPR consent
   static const String keyLastBackgroundSync = 'last_bg_sync';
-  static const String keyLastUpdate = 'last_update', keyAutoUpdate = 'auto_update', keyOnboarding='onboarding', keyWallpaperHash = 'wp_hash', keyWallpaperPath = 'wp_path', keyLastWallpaperTarget = 'wp_target', keyHasSeenDashboard = 'has_seen_dashboard';
+  static const String keyLastUpdate = 'last_update', keyLastSuccessfulUpdate = 'last_successful_update', keyAutoUpdate = 'auto_update', keyOnboarding='onboarding', keyWallpaperHash = 'wp_hash', keyWallpaperPath = 'wp_path', keyLastWallpaperTarget = 'wp_target', keyHasSeenDashboard = 'has_seen_dashboard';
   static const String keyHasAppliedWallpaper = 'has_applied_wallpaper';
   static const String keyFirstLoginGreetingPending = 'first_login_greeting_pending';
   static const String keyDimensionWidth='dim_w', keyDimensionHeight='dim_h', keyDimensionPixelRatio='dim_pr', keyDeviceModel='device_model';

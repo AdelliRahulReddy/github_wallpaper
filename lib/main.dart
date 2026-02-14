@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'app_services.dart';
 import 'app_theme.dart';
 import 'app_utils.dart';
+import 'background_scheduler.dart';
 import 'pages/onboarding_page.dart';
 import 'pages/main_nav_page.dart';
 import 'pages/splash_screen.dart';
@@ -192,6 +193,14 @@ class _AppInitializerState extends State<AppInitializer> {
         _isLoggedIn = loggedIn;
         _isInitialized = true;
       });
+
+      // Initialize WorkManager for guaranteed background updates
+      await BackgroundScheduler.initialize();
+      
+      // Schedule periodic updates if auto-update is enabled
+      if (StorageService.getAutoUpdate()) {
+        await BackgroundScheduler.scheduleUpdates();
+      }
 
       if (pendingRefresh) {
         unawaited(_runPendingRefresh(runId));

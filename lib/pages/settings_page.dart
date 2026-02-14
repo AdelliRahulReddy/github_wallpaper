@@ -7,6 +7,7 @@ import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_theme.dart';
 import 'package:github_wallpaper/app_utils.dart';
 import 'package:github_wallpaper/app_state.dart';
+import 'package:github_wallpaper/background_scheduler.dart';
 import 'package:github_wallpaper/pages/onboarding_page.dart';
 import 'package:github_wallpaper/ui_render.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -278,13 +279,28 @@ class _SettingsPageState extends State<SettingsPage> {
             icon: Icons.autorenew,
             iconColor: scheme.primary,
             title: 'Auto Update',
-            subtitle: 'Refresh wallpaper when push notification arrives',
+            subtitle: 'Auto-refresh every ${AppConstants.autoUpdateIntervalMinutes} min (survives app closure & reboot)',
             value: _autoUpdate,
             onChanged: (value) async {
               await StorageService.setAutoUpdate(value);
               await FcmService.syncTopicSubscription();
+              
+              // Schedule or cancel WorkManager background tasks
+              if (value) {
+                await BackgroundScheduler.scheduleUpdates();
+              } else {
+                await BackgroundScheduler.cancelUpdates();
+              }
+              
               if (mounted) {
                 setState(() => _autoUpdate = value);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(value
+                        ? '✅ Auto-update enabled (updates every 1-2 hours)'
+                        : 'Auto-update disabled'),
+                  ),
+                );
               }
             },
           ),

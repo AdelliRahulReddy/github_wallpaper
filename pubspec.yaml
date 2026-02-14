@@ -40,6 +40,7 @@ dependencies:
   package_info_plus: ^8.1.2            # App version info
   synchronized: ^3.1.0+1               # ✨ NEW - Thread-safe lock operations
   crypto: ^3.0.6                      # Stable hashing (e.g., SHA-256)
+  workmanager: ^0.9.0                 # 🔔 Background task scheduling (upgraded for Flutter compatibility)
 
   # ══════════════════════════════════════════════════════════════════════════
   # UI/UX ENHANCEMENTS
