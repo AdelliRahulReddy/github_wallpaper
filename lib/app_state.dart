@@ -7,7 +7,8 @@ class PresentationFormatter {
   static String formatTimeSince(DateTime d) => timeAgo(d, long:true);
   static String formatTimeAgoCompact(DateTime d) => timeAgo(d, long:false);
   static String timeAgo(DateTime d, {bool long=false}) {
-    final diff = DateTime.now().toUtc().difference(d.toUtc());
+    final now = DateTime.now().toUtc();
+    final diff = now.difference(d.toUtc());
     if(diff.inMinutes<1) return long?'Just now':'just now';
     if(diff.inMinutes<60) return long?'${diff.inMinutes} min ago':'${diff.inMinutes}m ago';
     if(diff.inHours<24) return long?'${diff.inHours} hr ago':'${diff.inHours}h ago';

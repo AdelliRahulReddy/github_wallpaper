@@ -55,8 +55,9 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     if (!StorageService.getAutoUpdate()) return;
     final lastUpdate = StorageService.getLastUpdate();
     if (lastUpdate != null) {
-      final diff = DateTime.now().difference(lastUpdate);
+      final diff = DateTime.now().toUtc().difference(lastUpdate.toUtc());
       if (diff.inMinutes > AppConstants.resumeSyncThresholdMinutes) {
+        AppLog.info('Auto-sync triggered on resume: ${diff.inMinutes}m since last update');
         _syncData(silent: true, force: true);
       }
     }
@@ -101,8 +102,9 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     if (!StorageService.getAutoUpdate()) return;
     final lastUpdate = StorageService.getLastUpdate();
     if (lastUpdate != null) {
-      final diff = DateTime.now().difference(lastUpdate);
+      final diff = DateTime.now().toUtc().difference(lastUpdate.toUtc());
       if (diff.inHours >= AppConstants.backgroundSyncThresholdHours) {
+        AppLog.info('Background sync triggered on load: ${diff.inHours}h since last update');
         _syncData(silent: true, force: true);
       }
     }

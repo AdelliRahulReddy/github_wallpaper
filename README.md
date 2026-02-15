@@ -2,21 +2,24 @@
 
 Display your GitHub contributions as a stunning, auto-updating wallpaper on your phone. Turn your hard work into art.
 
+---
+
 ## ✨ Features
 
 - **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
-- **🔄 Silent Sync** – Wallpapers refresh automatically in the background via Firebase Cloud Messaging without interrupting your workflow.
-- **🎨 Deep Customization** – Adjust scale, opacity, positioning, and add custom motivational quotes.
+- **🔄 Silent Sync (v1.1)** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
+- **🎨 Deep Customization** – Adjust scale, opacity, positioning, corner radius, and add custom motivational quotes.
 - **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
-- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data stays yours.
-- **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent look.
+- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch stats.
+- **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent modern look.
+- **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
 
 ## 🚀 Getting Started
 
 ### Prerequisites
 
 - **Flutter SDK**: `^3.5.0`
-- **Device**: Android (Live wallpaper features)
+- **Device**: Android (Support for Home & Lock screen wallpapers)
 - **GitHub Token**: Personal Access Token with `read:user` scope
 
 ### Quick Setup
@@ -55,22 +58,27 @@ To fetch your contribution data, GitWall requires a GitHub Personal Access Token
 
 ## 🛠️ Tech Stack
 
-- **Framework**: [Flutter](https://flutter.dev) (Dart)
-- **Backend/Push**: [Firebase](https://firebase.google.com) (FCM, Firestore, Functions)
-- **API**: [GitHub GraphQL API](https://docs.github.com/en/graphql)
-- **Storage**: Flutter Secure Storage, SharedPreferences
+- **Framework**: [Flutter](https://flutter.dev) (Dart) - *UI Layer*
+- **Native Bridge**: Kotlin (Android WallpaperManager API)
+- **Background Jobs**: [WorkManager](https://pub.dev/packages/workmanager)
+- **Push Messaging**: [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging)
+- **API**: [GitHub GraphQL API v4](https://docs.github.com/en/graphql)
+- **Persistence**: 
+  - `flutter_secure_storage` (Encrypted tokens)
+  - `shared_preferences` (App state & metadata)
+- **Theming**: Custom Theme Engine (Single Source of Truth)
 
 ## 📁 Project Structure
 
 ```text
 lib/
-├── main.dart              # App entry & initialization
-├── app_utils.dart         # Design tokens, strings, & constants
-├── app_services.dart      # GitHub, FCM, & Wallpaper logic
-├── ui_render.dart         # Custom heatmap & wallpaper rendering
-├── app_models.dart        # Type-safe data models
-├── app_state.dart         # Analytics & trend calculators
-└── pages/                 # UI layers & navigation flow
+├── main.dart              # App entry & service initialization
+├── app_utils.dart         # Design tokens, AppStrings, & Constants
+├── app_services.dart      # GitHub API, storage, & wallpaper logic
+├── ui_render.dart         # Custom painters & wallpaper generators
+├── app_models.dart        # Type-safe immutable data models
+├── app_state.dart         # Logic for streaks & trend calculations
+└── pages/                 # UI pages (Dashboard, Customize, Settings)
 ```
 
 ## 📜 License
