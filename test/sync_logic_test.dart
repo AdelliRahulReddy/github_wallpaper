@@ -67,10 +67,10 @@ void main() {
        expect(PresentationFormatter.formatTimeSince(now), 'Just now');
        
        final minAgo = now.subtract(const Duration(minutes: 5));
-       expect(PresentationFormatter.formatTimeSince(minAgo), '5 min ago');
+       expect(PresentationFormatter.formatTimeSince(minAgo), '5 min ago (UTC)');
        
        final hourAgo = now.subtract(const Duration(hours: 2));
-       expect(PresentationFormatter.formatTimeSince(hourAgo), '2 hr ago');
+       expect(PresentationFormatter.formatTimeSince(hourAgo), '2 hr ago (UTC)');
     });
   });
 }

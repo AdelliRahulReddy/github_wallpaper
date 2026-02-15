@@ -10,9 +10,9 @@ class PresentationFormatter {
     final now = DateTime.now().toUtc();
     final diff = now.difference(d.toUtc());
     if(diff.inMinutes<1) return long?'Just now':'just now';
-    if(diff.inMinutes<60) return long?'${diff.inMinutes} min ago':'${diff.inMinutes}m ago';
-    if(diff.inHours<24) return long?'${diff.inHours} hr ago':'${diff.inHours}h ago';
-    return long?'${diff.inDays} days ago':'${diff.inDays}d ago';
+    if(diff.inMinutes<60) return long?'${diff.inMinutes} min ago (UTC)':'${diff.inMinutes}m ago (UTC)';
+    if(diff.inHours<24) return long?'${diff.inHours} hr ago (UTC)':'${diff.inHours}h ago (UTC)';
+    return long?'${diff.inDays} days ago (UTC)':'${diff.inDays}d ago (UTC)';
   }
 }
 
