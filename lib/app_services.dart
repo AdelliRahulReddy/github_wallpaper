@@ -253,7 +253,7 @@ class StorageService {
       .setString(AppConstants.keyLastBackgroundSync, d.toIso8601String());
   static DateTime? getLastBackgroundSync() {
     final s = _s?.getString(AppConstants.keyLastBackgroundSync);
-    return s != null ? DateTime.tryParse(s) : null;
+    return s != null ? DateTime.tryParse(s)?.toUtc() : null;
   }
 
   static Future<void> setOnboardingComplete(bool v) async =>
@@ -347,17 +347,24 @@ class StorageService {
   // Track last successful update (for deduplication)
   static Future<void> setLastSuccessfulUpdate(DateTime dt) async {
     (await init())
-        .setString(AppConstants.keyLastSuccessfulUpdate, dt.toIso8601String());
+        .setString(AppConstants.keyLastSuccessfulUpdate, dt.toUtc().toIso8601String());
   }
 
   static DateTime? getLastSuccessfulUpdate() {
-    final str = _s?.getString(AppConstants.keyLastSuccessfulUpdate);
-    if (str == null) return null;
-    try {
-      return DateTime.parse(str);
-    } catch (_) {
-      return null;
-    }
+    final s = _s?.getString(AppConstants.keyLastSuccessfulUpdate);
+    return s != null ? DateTime.tryParse(s)?.toUtc() : null;
+  }
+
+  /// Returns the single most recent sync timestamp from any source.
+  static DateTime? getEffectiveLastSync() {
+    final u = getLastUpdate();
+    final b = getLastBackgroundSync();
+    final s = getLastSuccessfulUpdate();
+    
+    DateTime? latest = u;
+    if (b != null && (latest == null || b.isAfter(latest))) latest = b;
+    if (s != null && (latest == null || s.isAfter(latest))) latest = s;
+    return latest;
   }
 
   static Future<void> logout() async {
@@ -425,7 +432,9 @@ class GitHubService {
 
       // 3. Save to cache
       await StorageService.setCachedData(parsed);
-      await StorageService.setLastUpdate(DateTime.now().toUtc());
+      final now = DateTime.now().toUtc();
+      await StorageService.setLastUpdate(now);
+      await StorageService.setLastSuccessfulUpdate(now);
 
       return parsed;
     } on SocketException {

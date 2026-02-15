@@ -319,10 +319,8 @@ class _HomePageState extends State<HomePage> {
   }) {
     final scheme = Theme.of(context).colorScheme;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
-    final bgSync = StorageService.getLastBackgroundSync();
-    final updated =
-        'Updated ${PresentationFormatter.formatTimeAgoCompact(data.lastUpdated)}'
-        '${bgSync != null ? ' • Sync ${PresentationFormatter.formatTimeAgoCompact(bgSync)}' : ''}';
+    final lastSync = StorageService.getEffectiveLastSync() ?? data.lastUpdated;
+    final updated = 'Last Synced ${PresentationFormatter.formatTimeAgoCompact(lastSync)}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

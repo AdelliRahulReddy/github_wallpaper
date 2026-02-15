@@ -39,7 +39,7 @@ class ContributionDay {
       this.contributionLevel});
 
   factory ContributionDay.fromJson(Map<String, dynamic> j) => ContributionDay(
-      date: AppDateUtils.parseDate(j['date']) ?? DateTime.now(),
+      date: AppDateUtils.parseDate(j['date']) ?? DateTime.now().toUtc(),
       contributionCount: (j['contributionCount'] as num?)?.toInt() ?? 0,
       contributionLevel: (j['contributionLevel'] as String?));
 

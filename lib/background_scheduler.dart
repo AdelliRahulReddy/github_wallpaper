@@ -28,7 +28,7 @@ void callbackDispatcher() {
       // DEDUPLICATION: Check if update was recently completed by FCM
       final lastUpdate = StorageService.getLastSuccessfulUpdate();
       if (lastUpdate != null) {
-        final timeSinceUpdate = DateTime.now().difference(lastUpdate);
+        final timeSinceUpdate = DateTime.now().toUtc().difference(lastUpdate.toUtc());
         final cooldownMinutes =
             AppConstants.autoUpdateIntervalMinutes - 5; // 5 min buffer
 

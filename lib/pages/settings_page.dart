@@ -44,7 +44,8 @@ class _SettingsPageState extends State<SettingsPage> {
       _autoUpdate = StorageService.getAutoUpdate();
       _crashlyticsConsent = StorageService.getCrashlyticsConsent();
       _includePrivateRepos = StorageService.getIncludePrivateRepos();
-      _lastUpdate = StorageService.getLastUpdate();
+     final lastUpdate = StorageService.getEffectiveLastSync();
+    _lastUpdate = lastUpdate;
     });
   }
 
