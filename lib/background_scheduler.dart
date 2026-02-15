@@ -1,10 +1,11 @@
 // ══════════════════════════════════════════════════════════════════════════
 // 🔔 BACKGROUND UPDATE SCHEDULER
 // ══════════════════════════════════════════════════════════════════════════
-// 
+//
 // This service manages WorkManager scheduling for guaranteed background updates.
 // Works even when app is closed, battery restricted, or after device reboot.
 
+import 'package:flutter/foundation.dart';
 import 'package:workmanager/workmanager.dart';
 import 'app_services.dart';
 import 'app_utils.dart';
@@ -21,31 +22,31 @@ void callbackDispatcher() {
       // CRITICAL: Initialize StorageService for background isolate
       // Background tasks run in separate isolate without main app context
       await StorageService.init();
-      
+
       AppLog.info('Background update triggered by WorkManager');
-      
+
       // DEDUPLICATION: Check if update was recently completed by FCM
       final lastUpdate = StorageService.getLastSuccessfulUpdate();
       if (lastUpdate != null) {
         final timeSinceUpdate = DateTime.now().difference(lastUpdate);
-        final cooldownMinutes = AppConstants.autoUpdateIntervalMinutes - 5; // 5 min buffer
-        
+        final cooldownMinutes =
+            AppConstants.autoUpdateIntervalMinutes - 5; // 5 min buffer
+
         if (timeSinceUpdate.inMinutes < cooldownMinutes) {
-          AppLog.info('Skipping WorkManager update - FCM already updated ${timeSinceUpdate.inMinutes} min ago (cooldown: $cooldownMinutes min)');
+          AppLog.info(
+              'Skipping WorkManager update - FCM already updated ${timeSinceUpdate.inMinutes} min ago (cooldown: $cooldownMinutes min)');
           return true; // Not an error, just skipping
         }
       }
-      
+
       // Perform wallpaper refresh in background
-      final result = await WallpaperService.refreshWallpaper(isBackground: true);
-      
-      if (result.isSuccess) {
-        AppLog.info('Background update completed successfully');
-        return true;
-      } else {
-        AppLog.info('Background update skipped: ${result.name}');
-        return false;
-      }
+      final result =
+          await WallpaperService.refreshWallpaper(isBackground: true);
+      final isSuccess = BackgroundScheduler.shouldMarkTaskSuccessful(result);
+      AppLog.info(
+        '${isSuccess ? 'Background update completed' : 'Background update retryable failure'}: ${result.name}',
+      );
+      return isSuccess;
     } catch (e, s) {
       AppLog.error('Background update failed: $e', s);
       return false;
@@ -57,14 +58,27 @@ void callbackDispatcher() {
 class BackgroundScheduler {
   static bool _initialized = false;
 
+  @visibleForTesting
+  static bool shouldMarkTaskSuccessful(RefreshResult result) {
+    switch (result) {
+      case RefreshResult.success:
+      case RefreshResult.noChanges:
+      case RefreshResult.authError:
+      case RefreshResult.throttled:
+        return true;
+      case RefreshResult.networkError:
+      case RefreshResult.unknownError:
+        return false;
+    }
+  }
+
   /// Initialize WorkManager (call once on app start)
   static Future<void> initialize() async {
     if (_initialized) return;
-    
+
     try {
       await Workmanager().initialize(
         callbackDispatcher,
-        isInDebugMode: false, // Set to true only for WorkManager debugging
       );
       _initialized = true;
       AppLog.info('WorkManager initialized successfully');
@@ -74,7 +88,7 @@ class BackgroundScheduler {
   }
 
   /// Schedule periodic wallpaper updates
-  /// 
+  ///
   /// Runs every 1-2 hours (Android decides exact interval based on battery/Doze)
   /// - Survives app closure
   /// - Survives device reboot
@@ -93,15 +107,17 @@ class BackgroundScheduler {
         constraints: Constraints(
           networkType: NetworkType.connected,
           requiresBatteryNotLow: false, // Allow even on low battery
-          requiresCharging: false,       // Allow on battery
-          requiresDeviceIdle: false,     // Allow when device is active
+          requiresCharging: false, // Allow on battery
+          requiresDeviceIdle: false, // Allow when device is active
         ),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace, // Changed for workmanager 0.9.0
+        existingWorkPolicy:
+            ExistingPeriodicWorkPolicy.replace, // Changed for workmanager 0.9.0
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 15),
       );
-      
-      AppLog.info('Background updates scheduled (every ${AppConstants.autoUpdateIntervalMinutes} minutes)');
+
+      AppLog.info(
+          'Background updates scheduled (every ${AppConstants.autoUpdateIntervalMinutes} minutes)');
     } catch (e, s) {
       AppLog.error('Failed to schedule background updates: $e', s);
     }

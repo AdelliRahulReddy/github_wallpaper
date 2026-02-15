@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/app_services.dart';
@@ -140,9 +141,18 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
           ErrorHandler.showSuccess(context, AppStrings.dataSynced);
         }
 
-        // 🚀 CRITICAL: Trigger wallpaper update if already applied
+        // Update wallpaper directly from freshly synced data to avoid a second API fetch.
         if (StorageService.hasAppliedWallpaper()) {
-          WallpaperService.refreshWallpaper(isBackground: false);
+          unawaited(
+            WallpaperService.generateAndSetWallpaper(
+              data: newData,
+              config: StorageService.getWallpaperConfig(),
+              target: StorageService.getLastWallpaperTarget(),
+            ).catchError((e, s) {
+              AppLog.error('Failed to apply wallpaper after sync: $e', s);
+              return false;
+            }),
+          );
         }
       }
     } catch (e) {
@@ -234,20 +244,20 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         destinations: [
           NavigationDestination(
             icon: Icon(Icons.dashboard_outlined, size: AppTheme.iconMD),
-            selectedIcon:
-                Icon(Icons.dashboard_rounded, color: cs.primary, size: AppTheme.iconMD),
+            selectedIcon: Icon(Icons.dashboard_rounded,
+                color: cs.primary, size: AppTheme.iconMD),
             label: 'Dashboard',
           ),
           NavigationDestination(
             icon: Icon(Icons.palette_outlined, size: AppTheme.iconMD),
-            selectedIcon:
-                Icon(Icons.palette_rounded, color: cs.primary, size: AppTheme.iconMD),
+            selectedIcon: Icon(Icons.palette_rounded,
+                color: cs.primary, size: AppTheme.iconMD),
             label: 'Customize',
           ),
           NavigationDestination(
             icon: Icon(Icons.settings_outlined, size: AppTheme.iconMD),
-            selectedIcon:
-                Icon(Icons.settings_rounded, color: cs.primary, size: AppTheme.iconMD),
+            selectedIcon: Icon(Icons.settings_rounded,
+                color: cs.primary, size: AppTheme.iconMD),
             label: 'Settings',
           ),
         ],

@@ -1,27 +1,31 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
 import 'package:crypto/crypto.dart';
+import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
 import 'package:synchronized/synchronized.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
-import 'package:firebase_app_check/firebase_app_check.dart';
-import 'package:flutter/services.dart';
-import 'package:flutter/foundation.dart';
+import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
 
 import 'app_exceptions.dart';
 import 'app_models.dart';
 import 'app_utils.dart';
-import 'ui_render.dart';
 import 'firebase_options.dart';
+import 'ui_render.dart';
+
 export 'app_exceptions.dart';
+
+
 
 // STORAGE
 class StorageService {
@@ -30,7 +34,7 @@ class StorageService {
   static const _kRef = 'pending_wp_refresh';
   static const _ss = FlutterSecureStorage(
       aOptions: AndroidOptions(encryptedSharedPreferences: true));
-  
+
   // MEMORY CACHE
   static CachedContributionData? _memCache;
 
@@ -52,16 +56,17 @@ class StorageService {
       // Migrate old plaintext cache if needed
       final oldCache = _s?.getString(AppConstants.keyCachedData);
       if (oldCache != null) {
-        final existingSecure = await _ss.read(key: AppConstants.keyCachedDataSensitive);
+        final existingSecure =
+            await _ss.read(key: AppConstants.keyCachedDataSensitive);
         if (existingSecure == null) {
           // Old cache exists but no encrypted version - migrate it
           final json = jsonDecode(oldCache) as Map<String, dynamic>;
           final sensitiveFields = <String, dynamic>{};
-          
+
           if (json.containsKey('repositories')) {
             sensitiveFields['repositories'] = json.remove('repositories');
           }
-          
+
           if (sensitiveFields.isNotEmpty) {
             await _ss.write(
               key: AppConstants.keyCachedDataSensitive,
@@ -72,9 +77,10 @@ class StorageService {
           }
         }
       }
-      
+
       // Load encrypted data into memory for fast synchronous access
-      final sensitiveStr = await _ss.read(key: AppConstants.keyCachedDataSensitive);
+      final sensitiveStr =
+          await _ss.read(key: AppConstants.keyCachedDataSensitive);
       if (sensitiveStr != null && sensitiveStr.isNotEmpty) {
         _sensitiveCache = jsonDecode(sensitiveStr) as Map<String, dynamic>;
       }
@@ -119,33 +125,31 @@ class StorageService {
   // Cache with encrypted sensitive data
   static Future<void> setCachedData(CachedContributionData d) async {
     _memCache = d;
-    
+
     // Separate sensitive from non-sensitive data
     final json = d.toJson();
     final sensitiveFields = <String, dynamic>{};
-    
+
     // Extract sensitive fields to encrypt
     if (json.containsKey('repositories')) {
       // Filter by user preference
       final includePrivate = getIncludePrivateRepos();
       final repos = json['repositories'] as List?;
-      
+
       if (includePrivate && repos != null) {
         sensitiveFields['repositories'] = repos;
       } else if (repos != null) {
         // Only include public repos
-        sensitiveFields['repositories'] = repos
-            .where((r) => r is Map && r['isPrivate'] != true)
-            .toList();
+        sensitiveFields['repositories'] =
+            repos.where((r) => r is Map && r['isPrivate'] != true).toList();
       }
       json.remove('repositories');
     }
-    
-    
+
     // Store non-sensitive data in SharedPreferences
     await (await init())
         .setString(AppConstants.keyCachedData, jsonEncode(json));
-    
+
     // Store sensitive data in FlutterSecureStorage
     if (sensitiveFields.isNotEmpty) {
       await _ss.write(
@@ -165,21 +169,21 @@ class StorageService {
       // Get non-sensitive data from SharedPreferences
       final basicJson = _s?.getString(AppConstants.keyCachedData);
       if (basicJson == null) return null;
-      
+
       final json = jsonDecode(basicJson) as Map<String, dynamic>;
-      
+
       // Merge preloaded sensitive data from memory
       if (_sensitiveCache != null) {
         json.addAll(_sensitiveCache!);
       }
-      
+
       _memCache = CachedContributionData.fromJson(json);
       return _memCache;
     } catch (_) {
       return null;
     }
   }
-  
+
   /// Clear in-memory cache to force reload from storage
   static void clearMemoryCache() {
     _memCache = null;
@@ -192,22 +196,30 @@ class StorageService {
     final prefs = await init();
     prefs.remove(AppConstants.keyCachedData);
     prefs.remove(AppConstants.keyLastUpdate);
+    prefs.remove(AppConstants.keyLastSuccessfulUpdate);
+    prefs.remove(AppConstants.keyLastBackgroundSync);
+    prefs.remove(AppConstants.keyWallpaperHash);
+    prefs.remove(AppConstants.keyWallpaperPath);
+    prefs.remove(AppConstants.keyLastWallpaperTarget);
+    prefs.remove(_kRef);
     await _ss.delete(key: AppConstants.keyCachedDataSensitive);
   }
 
   // Private repo preference
   static Future<void> setIncludePrivateRepos(bool include) async =>
       (await init()).setBool(AppConstants.keyIncludePrivateRepos, include);
-      
+
   static bool getIncludePrivateRepos() =>
-      _s?.getBool(AppConstants.keyIncludePrivateRepos) ?? true; // Default: true for backward compat
-  
+      _s?.getBool(AppConstants.keyIncludePrivateRepos) ??
+      true; // Default: true for backward compat
+
   // Crashlytics consent (GDPR compliance)
   static Future<void> setCrashlyticsConsent(bool consent) async =>
       (await init()).setBool(AppConstants.keyCrashlyticsConsent, consent);
-      
+
   static bool getCrashlyticsConsent() =>
-      _s?.getBool(AppConstants.keyCrashlyticsConsent) ?? false; // Default: false (GDPR)
+      _s?.getBool(AppConstants.keyCrashlyticsConsent) ??
+      false; // Default: false (GDPR)
 
   // Config
   static Future<void> saveWallpaperConfig(WallpaperConfig c) async =>
@@ -228,9 +240,10 @@ class StorageService {
   static Future<void> setAutoUpdate(bool e) async =>
       (await init()).setBool(AppConstants.keyAutoUpdate, e);
   static bool getAutoUpdate() =>
-      _s?.getBool(AppConstants.keyAutoUpdate) ?? false;
-  static Future<void> setLastUpdate(DateTime d) async => (await init())
-      .setString(AppConstants.keyLastUpdate, d.toIso8601String());
+      _s?.getBool(AppConstants.keyAutoUpdate) ??
+      true; // Default enabled for first-run consistency with product behavior.
+  static Future<void> setLastUpdate(DateTime d) async =>
+      (await init()).setString(AppConstants.keyLastUpdate, d.toIso8601String());
   static DateTime? getLastUpdate() {
     final s = _s?.getString(AppConstants.keyLastUpdate);
     return s != null ? DateTime.tryParse(s) : null;
@@ -327,13 +340,14 @@ class StorageService {
 
   static WallpaperTarget getLastWallpaperTarget() {
     final name = _s?.getString(AppConstants.keyLastWallpaperTarget);
-    return WallpaperTarget.values.firstWhere((e) => e.name == name,
-        orElse: () => WallpaperTarget.both);
+    return WallpaperTarget.values
+        .firstWhere((e) => e.name == name, orElse: () => WallpaperTarget.both);
   }
 
   // Track last successful update (for deduplication)
   static Future<void> setLastSuccessfulUpdate(DateTime dt) async {
-    (await init()).setString(AppConstants.keyLastSuccessfulUpdate, dt.toIso8601String());
+    (await init())
+        .setString(AppConstants.keyLastSuccessfulUpdate, dt.toIso8601String());
   }
 
   static DateTime? getLastSuccessfulUpdate() {
@@ -355,6 +369,7 @@ class StorageService {
       ..remove(AppConstants.keyOnboarding)
       ..remove(AppConstants.keyWallpaperHash)
       ..remove(AppConstants.keyWallpaperPath)
+      ..remove(AppConstants.keyLastWallpaperTarget)
       ..remove(AppConstants.keyHasSeenDashboard)
       ..remove(AppConstants.keyFirstLoginGreetingPending)
       ..remove(AppConstants.keyAutoUpdate)
@@ -362,15 +377,8 @@ class StorageService {
       ..remove(AppConstants.keyLastBackgroundSync)
       ..remove(_kRef);
   }
-
-
-
-
 }
 
-String computeStableSignatureHash(String signature) {
-  return sha256.convert(utf8.encode(signature)).toString();
-}
 
 // GITHUB
 class GitHubService {
@@ -442,7 +450,7 @@ class GitHubService {
                 },
                 body: jsonEncode({
                   'query': q,
-                    'variables': {
+                  'variables': {
                     'login': u,
                     'from': now
                         .subtract(
@@ -471,14 +479,19 @@ class GitHubService {
     try {
       final user = j['data']?['user'];
       if (user == null) throw UserNotFoundException();
-      
+
       final avatarUrl = user['avatarUrl'] as String?;
       final coll = user['contributionsCollection'];
-      if (coll == null) throw GitHubException('Incomplete data: contributionsCollection missing');
-      
+      if (coll == null) {
+        throw GitHubException(
+            'Incomplete data: contributionsCollection missing');
+      }
+
       final cal = coll['contributionCalendar'];
-      if (cal == null) throw GitHubException('Incomplete data: contributionCalendar missing');
-      
+      if (cal == null) {
+        throw GitHubException('Incomplete data: contributionCalendar missing');
+      }
+
       final days = <ContributionDay>[];
       final weeks = cal['weeks'] as List?;
       if (weeks != null) {
@@ -495,8 +508,8 @@ class GitHubService {
       final repoContribs = coll['commitContributionsByRepository'] as List?;
       if (repoContribs != null) {
         for (var r in repoContribs) {
-          if (r['contributions']?['totalCount'] != null && 
-              r['contributions']['totalCount'] > 0 && 
+          if (r['contributions']?['totalCount'] != null &&
+              r['contributions']['totalCount'] > 0 &&
               r['repository'] != null) {
             final repo = r['repository'];
             final langs = <RepoLanguageSlice>[];
@@ -505,9 +518,9 @@ class GitHubService {
               for (var l in edges) {
                 if (l['node'] != null) {
                   langs.add(RepoLanguageSlice(
-                    name: l['node']['name'] ?? 'Unknown',
-                    color: l['node']['color'],
-                    size: l['size'] ?? 0));
+                      name: l['node']['name'] ?? 'Unknown',
+                      color: l['node']['color'],
+                      size: l['size'] ?? 0));
                 }
               }
             }
@@ -553,6 +566,11 @@ class GitHubService {
   }
 
   static void dispose() => _c.close();
+}
+
+
+String computeStableSignatureHash(String signature) {
+  return sha256.convert(utf8.encode(signature)).toString();
 }
 
 // WALLPAPER
@@ -619,7 +637,8 @@ class WallpaperService {
       }
       await StorageService.setLastWallpaperTarget(target);
       await StorageService.saveWallpaperResult(hash, wallpaperPath);
-      await StorageService.setLastSuccessfulUpdate(DateTime.now()); // Track when update succeeded
+      await StorageService.setLastSuccessfulUpdate(
+          DateTime.now()); // Track when update succeeded
       onProgress?.call(1.0);
       return true;
     });
@@ -682,14 +701,16 @@ class WallpaperService {
   static Future<String> _save(Uint8List b) async {
     try {
       final d = await getTemporaryDirectory();
-      
+
       // Cleanup: Delete all old wallpaper files to prevent storage accumulation
       try {
         final dir = Directory(d.path);
         if (await dir.exists()) {
           final files = dir.listSync();
           for (final f in files) {
-            if (f is File && f.path.contains('wp_') && f.path.endsWith('.png')) {
+            if (f is File &&
+                f.path.contains('wp_') &&
+                f.path.endsWith('.png')) {
               await f.delete();
             }
           }
@@ -738,9 +759,7 @@ class WallpaperService {
           return RefreshResult.authError;
         }
         final d = await GitHubService.getContributions(
-            username: username,
-            token: token,
-            forceRefresh: true);
+            username: username, token: token, forceRefresh: true);
         final target = StorageService.getLastWallpaperTarget();
         final result = await generateAndSetWallpaper(
                 data: d,
@@ -785,6 +804,7 @@ class WallpaperService {
     return computeStableSignatureHash(signature);
   }
 }
+
 
 // SETUP & FCM
 class DeviceCompatibilityChecker {
@@ -837,7 +857,7 @@ Future<void> _bgH(RemoteMessage m) async {
 
       await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform);
-      
+
       try {
         if (FirebaseCrashlytics.instance.isCrashlyticsCollectionEnabled) {
           // Crashlytics might be ready
@@ -845,14 +865,16 @@ Future<void> _bgH(RemoteMessage m) async {
       } catch (_) {}
 
       await StorageService.init();
-      if (StorageService.getAutoUpdate() && StorageService.hasAppliedWallpaper()) {
+      if (StorageService.getAutoUpdate() &&
+          StorageService.hasAppliedWallpaper()) {
         // Try immediate refresh in background
         try {
           await WallpaperService.refreshWallpaper(isBackground: true);
         } catch (e) {
           // If immediate refresh fails (e.g. background restriction), fallback to pending flag
           await StorageService.setPendingWallpaperRefresh(true);
-          AppLog.error('Immediate background refresh failed, set pending flag: $e');
+          AppLog.error(
+              'Immediate background refresh failed, set pending flag: $e');
         }
       }
     }
@@ -909,6 +931,7 @@ class FcmService {
   }
 }
 
+
 class AppConfig {
   static final _l = Lock();
   static String? _sig;
@@ -930,6 +953,7 @@ class AppConfig {
     } catch (_) {}
   }
 }
+
 // BOOTSTRAP
 class BootstrapService {
   static Future<bool> boot({
@@ -945,9 +969,11 @@ class BootstrapService {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
       ).timeout(const Duration(seconds: 15));
-      
-      await FirebaseCrashlytics.instance
-          .setCrashlyticsCollectionEnabled(!kDebugMode);
+
+      final crashlyticsConsent = StorageService.getCrashlyticsConsent();
+      await FirebaseCrashlytics.instance.setCrashlyticsCollectionEnabled(
+        !kDebugMode && crashlyticsConsent,
+      );
       onProgress(0.6);
 
       // 3. Firebase Services (App Check, FCM)
@@ -970,15 +996,22 @@ class BootstrapService {
   }
 
   static Future<void> _initFirebaseServices() async {
-    if (kIsWeb || (defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS)) {
+    if (kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS)) {
       return;
     }
 
     try {
-      await FirebaseAppCheck.instance.activate(
-        providerAndroid: kDebugMode ? AndroidDebugProvider() : AndroidPlayIntegrityProvider(),
-        providerApple: kDebugMode ? AppleDebugProvider() : AppleAppAttestProvider(),
-      ).timeout(const Duration(seconds: 5));
+      await FirebaseAppCheck.instance
+          .activate(
+            providerAndroid: kDebugMode
+                ? AndroidDebugProvider()
+                : AndroidPlayIntegrityProvider(),
+            providerApple:
+                kDebugMode ? AppleDebugProvider() : AppleAppAttestProvider(),
+          )
+          .timeout(const Duration(seconds: 5));
     } catch (e) {
       AppLog.error('AppCheck Activation Failed: $e');
     }

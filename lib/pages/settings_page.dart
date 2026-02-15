@@ -3,6 +3,8 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_theme.dart';
 import 'package:github_wallpaper/app_utils.dart';
@@ -58,9 +60,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text(
-            'Are you sure you want to logout? This will clear all your data.'),
+        title: Text(AppStrings.logoutConfirmTitle),
+        content: Text(
+            AppStrings.logoutConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -69,7 +71,7 @@ class _SettingsPageState extends State<SettingsPage> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
-            child: const Text('Logout'),
+            child: Text(AppStrings.logout),
           ),
         ],
       ),
@@ -78,6 +80,10 @@ class _SettingsPageState extends State<SettingsPage> {
     if (confirmed == true) {
       if (!mounted) return;
 
+      // Ensure background update lifecycle is fully torn down on logout.
+      await StorageService.setAutoUpdate(false);
+      await FcmService.syncTopicSubscription();
+      await BackgroundScheduler.cancelUpdates();
       await StorageService.logout();
 
       if (!mounted) return;
@@ -94,17 +100,16 @@ class _SettingsPageState extends State<SettingsPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Clear Cache'),
-        content: const Text(
-            'This will remove cached contribution data. You\'ll need to sync again.'),
+        title: Text(AppStrings.clearCacheConfirmTitle),
+        content: Text(AppStrings.clearCacheConfirmMessage),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
+            child: Text(AppStrings.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Clear'),
+            child: Text(AppStrings.clear),
           ),
         ],
       ),
@@ -116,7 +121,7 @@ class _SettingsPageState extends State<SettingsPage> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Cache cleared successfully')),
+        SnackBar(content: Text(AppStrings.cacheCleared)),
       );
       _loadSettings();
     }
@@ -133,8 +138,8 @@ class _SettingsPageState extends State<SettingsPage> {
           AppTheme.h16,
 
           AppSectionHeader(
-            title: 'Settings',
-            subtitle: 'Manage your account and preferences',
+            title: AppStrings.settings,
+            subtitle: AppStrings.settingsSubtitle,
             trailing: Icon(Icons.tune_rounded, color: scheme.primary),
           ),
 
@@ -176,7 +181,7 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppSectionHeader(title: 'Account'),
+          const AppSectionHeader(title: AppStrings.account),
           AppTheme.h16,
 
           // Username
@@ -203,7 +208,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _username ?? 'Unknown',
+                      _username ?? AppStrings.unknown,
                       style: TextStyle(
                         fontSize: AppTheme.fontLarge,
                         fontWeight: FontWeight.w800,
@@ -212,7 +217,7 @@ class _SettingsPageState extends State<SettingsPage> {
                     ),
                     AppTheme.h4,
                     Text(
-                      'GitHub Account',
+                      AppStrings.githubAccount,
                       style: TextStyle(
                         fontSize: AppTheme.fontBody,
                         color: scheme.onSurface.withValues(alpha: 0.72),
@@ -246,7 +251,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   AppTheme.w8,
                   Text(
-                    'Last synced: ${PresentationFormatter.formatTimeSince(_lastUpdate!)}',
+                    '${AppStrings.lastSynced} ${PresentationFormatter.formatTimeSince(_lastUpdate!)}',
                     style: TextStyle(
                       fontSize: AppTheme.fontBody,
                       color: scheme.onSurface.withValues(alpha: 0.72),
@@ -271,72 +276,74 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppSectionHeader(title: 'Preferences'),
+          const AppSectionHeader(title: AppStrings.preferences),
           AppTheme.h16,
 
           // Auto Update Toggle
           _buildToggleRow(
             icon: Icons.autorenew,
             iconColor: scheme.primary,
-            title: 'Auto Update',
-            subtitle: 'Auto-refresh every ${AppConstants.autoUpdateIntervalMinutes} min (survives app closure & reboot)',
+            title: AppStrings.autoUpdate,
+            subtitle: AppStrings.autoUpdateSubtitle,
             value: _autoUpdate,
             onChanged: (value) async {
               await StorageService.setAutoUpdate(value);
               await FcmService.syncTopicSubscription();
-              
+
               // Schedule or cancel WorkManager background tasks
               if (value) {
                 await BackgroundScheduler.scheduleUpdates();
               } else {
                 await BackgroundScheduler.cancelUpdates();
               }
-              
+
               if (mounted) {
                 setState(() => _autoUpdate = value);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text(value
-                        ? '✅ Auto-update enabled (updates every 1-2 hours)'
-                        : 'Auto-update disabled'),
+                        ? AppStrings.autoUpdateEnabled
+                        : AppStrings.autoUpdateDisabled),
                   ),
                 );
               }
             },
           ),
-          
+
           AppTheme.h16,
-          
+
           // Crashlytics Consent Toggle
           _buildToggleRow(
             icon: Icons.bug_report_outlined,
             iconColor: AppTheme.warningOrange,
-            title: 'Crash Reporting',
-            subtitle: 'Help improve app stability (anonymous, sanitized)',
+            title: AppStrings.crashReporting,
+            subtitle: AppStrings.crashReportingSubtitle,
             value: _crashlyticsConsent,
             onChanged: (value) async {
               await StorageService.setCrashlyticsConsent(value);
+              await FirebaseCrashlytics.instance
+                  .setCrashlyticsCollectionEnabled(!kDebugMode && value);
               if (mounted) {
                 setState(() => _crashlyticsConsent = value);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(value 
-                        ? 'Crash reporting enabled' 
-                        : 'Crash reporting disabled'),
+                    content: Text(value
+                        ? AppStrings.crashReportingEnabled
+                        : AppStrings.crashReportingDisabled),
                   ),
                 );
               }
             },
           ),
-          
+
           AppTheme.h16,
-          
+
           // Include Private Repos Toggle
           _buildToggleRow(
             icon: Icons.lock_outline,
             iconColor: AppTheme.accentViolet,
-            title: 'Include Private Repositories',
-            subtitle: 'Cache private repo names (encrypted locally)',
+            title: AppStrings.includePrivateRepos,
+            subtitle: AppStrings.includePrivateReposSubtitle,
             value: _includePrivateRepos,
             onChanged: (value) async {
               await StorageService.setIncludePrivateRepos(value);
@@ -348,9 +355,9 @@ class _SettingsPageState extends State<SettingsPage> {
                 setState(() => _includePrivateRepos = value);
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
-                    content: Text(value 
-                        ? 'Private repos will be cached (encrypted)' 
-                        : 'Private repo cache cleared'),
+                    content: Text(value
+                        ? AppStrings.privateReposCached
+                        : AppStrings.privateRepoCacheCleared),
                   ),
                 );
               }
@@ -360,7 +367,7 @@ class _SettingsPageState extends State<SettingsPage> {
       ),
     );
   }
-  
+
   Widget _buildToggleRow({
     required IconData icon,
     required Color iconColor,
@@ -424,15 +431,15 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppSectionHeader(title: 'Data'),
+          const AppSectionHeader(title: AppStrings.data),
           AppTheme.h16,
 
           // Clear Cache Button
           _buildSettingButton(
             icon: Icons.cleaning_services,
             iconColor: AppTheme.warningOrange,
-            title: 'Clear Cache',
-            subtitle: 'Remove cached contribution data',
+            title: AppStrings.clearCache,
+            subtitle: AppStrings.removeCachedData,
             onTap: _clearCache,
           ),
         ],
@@ -450,14 +457,14 @@ class _SettingsPageState extends State<SettingsPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const AppSectionHeader(title: 'About'),
+          const AppSectionHeader(title: AppStrings.about),
           AppTheme.h16,
 
           // App Version
           _buildSettingButton(
             icon: Icons.info_outline,
             iconColor: AppTheme.accentViolet,
-            title: 'Version',
+            title: AppStrings.version,
             subtitle: _appVersion,
             onTap: null, // Read-only
           ),
@@ -468,8 +475,8 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSettingButton(
             icon: Icons.privacy_tip_outlined,
             iconColor: AppTheme.successGreen,
-            title: 'Privacy Policy',
-            subtitle: 'Read our privacy policy',
+            title: AppStrings.privacyPolicy,
+            subtitle: AppStrings.readPrivacyPolicy,
             trailing: Icons.open_in_new,
             onTap: () async {
               final messenger = ScaffoldMessenger.of(context);
@@ -497,7 +504,7 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSettingButton(
             icon: Icons.code,
             iconColor: scheme.secondary,
-            title: 'Developer',
+            title: AppStrings.developer,
             subtitle: AppStrings.developerName,
             onTap: null, // Read-only
           ),
@@ -508,14 +515,13 @@ class _SettingsPageState extends State<SettingsPage> {
           _buildSettingButton(
             icon: Icons.chat_bubble_outline,
             iconColor: AppTheme.successGreen,
-            title: 'Need Help?',
-            subtitle: 'Chat on WhatsApp',
+            title: AppStrings.needHelp,
+            subtitle: AppStrings.chatOnWhatsApp,
             trailing: Icons.open_in_new,
             onTap: () async {
               if (!context.mounted) return;
               final scaffoldMessenger = ScaffoldMessenger.of(context);
-              final phone =
-                  ValidationUtils.cleanPhone(AppStrings.supportPhone);
+              final phone = ValidationUtils.cleanPhone(AppStrings.supportPhone);
               final uri = Uri.parse('${AppStrings.whatsAppUrlScheme}$phone');
 
               try {
@@ -629,8 +635,8 @@ class _SettingsPageState extends State<SettingsPage> {
           children: [
             const Icon(Icons.logout, size: 20),
             AppTheme.w8,
-            const Text(
-              'Logout',
+            Text(
+              AppStrings.logout,
               style: TextStyle(
                 fontSize: AppTheme.fontLarge,
                 fontWeight: FontWeight.w600,

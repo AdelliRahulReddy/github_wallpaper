@@ -34,7 +34,8 @@ class _SetupPageState extends State<SetupPage> {
         ErrorHandler.handle(
           context,
           Exception('launchUrl returned false'),
-          userMessage: 'Unable to open GitHub token page. Please open it in a browser.',
+          userMessage:
+              'Unable to open GitHub token page. Please open it in a browser.',
         );
       }
     } catch (e) {
@@ -42,7 +43,8 @@ class _SetupPageState extends State<SetupPage> {
       ErrorHandler.handle(
         context,
         e,
-        userMessage: 'Unable to open GitHub token page. Please open it in a browser.',
+        userMessage:
+            'Unable to open GitHub token page. Please open it in a browser.',
       );
     }
   }
@@ -71,11 +73,11 @@ class _SetupPageState extends State<SetupPage> {
 
       await StorageService.setUsername(username);
       await StorageService.setToken(token);
-      
+
       // Show consent dialogs before completing onboarding
       if (!mounted) return;
       await _showConsentDialogs();
-      
+
       await StorageService.setOnboardingComplete(true);
       await StorageService.setFirstLoginGreetingPending(true);
 
@@ -92,63 +94,65 @@ class _SetupPageState extends State<SetupPage> {
       });
     }
   }
-  
+
   Future<void> _showConsentDialogs() async {
     // Crashlytics Consent Dialog
     final crashlyticsConsent = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Help Improve GitWall'),
-        content: const Text(
-          'Allow anonymous crash reporting to help us fix bugs faster?\n\n'
-          '• All data is anonymized\n'
-          '• Tokens are automatically redacted\n'
-          '• You can disable anytime in Settings',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('No Thanks'),
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Help Improve GitWall'),
+            content: const Text(
+              'Allow anonymous crash reporting to help us fix bugs faster?\n\n'
+              '• All data is anonymized\n'
+              '• Tokens are automatically redacted\n'
+              '• You can disable anytime in Settings',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('No Thanks'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Allow'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Allow'),
-          ),
-        ],
-      ),
-    ) ?? true; // Default to true
-    
+        ) ??
+        false; // Privacy-safe default
+
     await StorageService.setCrashlyticsConsent(crashlyticsConsent);
-    
+
     // Capture context before second async operation
     if (!mounted) return;
-    
+
     // Private Repos Consent Dialog
     final privateReposConsent = await showDialog<bool>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Private Repository Stats'),
-        content: const Text(
-          'Include private repositories in your dashboard?\n\n'
-          '• Repository names cached locally (encrypted)\n'
-          '• Stored in Android Keystore/iOS Keychain\n'
-          '• You can disable anytime in Settings',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('Public Only'),
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Private Repository Stats'),
+            content: const Text(
+              'Include private repositories in your dashboard?\n\n'
+              '• Repository names cached locally (encrypted)\n'
+              '• Stored in Android Keystore/iOS Keychain\n'
+              '• You can disable anytime in Settings',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext, false),
+                child: const Text('Public Only'),
+              ),
+              FilledButton(
+                onPressed: () => Navigator.pop(dialogContext, true),
+                child: const Text('Include Private'),
+              ),
+            ],
           ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('Include Private'),
-          ),
-        ],
-      ),
-    ) ?? true; // Default to true
-    
+        ) ??
+        true; // Default to true
+
     await StorageService.setIncludePrivateRepos(privateReposConsent);
   }
 
@@ -218,31 +222,28 @@ class _SetupPageState extends State<SetupPage> {
                             AppStrings.connectAccount,
                             textAlign: TextAlign.center,
                             style: (textTheme.headlineSmall ??
-                                    const TextStyle(fontSize: AppTheme.fontHeadline))
+                                    const TextStyle(
+                                        fontSize: AppTheme.fontHeadline))
                                 .copyWith(
                               fontWeight: FontWeight.w900,
                               color: cs.onSurface,
                               height: 1.1,
                               letterSpacing: -0.6,
                             ),
-                          )
-                              .animate()
-                              .fadeIn()
-                              .slideY(begin: 0.2),
+                          ).animate().fadeIn().slideY(begin: 0.2),
                           AppTheme.h8,
                           Text(
                             'Import your GitHub statistics',
                             textAlign: TextAlign.center,
                             style: (textTheme.bodyMedium ??
-                                    const TextStyle(fontSize: AppTheme.fontBase))
+                                    const TextStyle(
+                                        fontSize: AppTheme.fontBase))
                                 .copyWith(
                               color: cs.onSurface.withValues(alpha: 0.75),
                               fontWeight: FontWeight.w600,
                               height: 1.3,
                             ),
-                          )
-                              .animate()
-                              .fadeIn(delay: 200.ms),
+                          ).animate().fadeIn(delay: 200.ms),
                         ],
                       ),
                     ),
@@ -258,7 +259,8 @@ class _SetupPageState extends State<SetupPage> {
                           color: cs.outline.withValues(alpha: 0.5),
                           width: 1.5,
                         ),
-                        boxShadow: AppTheme.shadow(cs.shadow, opacity: 0.08, blur: 30),
+                        boxShadow:
+                            AppTheme.shadow(cs.shadow, opacity: 0.08, blur: 30),
                       ),
                       padding: AppTheme.pAll24,
                       child: Column(
@@ -308,7 +310,8 @@ class _SetupPageState extends State<SetupPage> {
                                 Text(
                                   'How to get a GitHub token',
                                   style: (textTheme.titleSmall ??
-                                          const TextStyle(fontSize: AppTheme.fontSmall))
+                                          const TextStyle(
+                                              fontSize: AppTheme.fontSmall))
                                       .copyWith(
                                     color: cs.onSurface,
                                     fontWeight: FontWeight.w800,
@@ -323,7 +326,8 @@ class _SetupPageState extends State<SetupPage> {
                                   '3) Scope: read:user (required); add repo only if you want private repo stats\n'
                                   '4) Generate, copy it once, and paste it here',
                                   style: (textTheme.bodySmall ??
-                                          const TextStyle(fontSize: AppTheme.fontCaption))
+                                          const TextStyle(
+                                              fontSize: AppTheme.fontCaption))
                                       .copyWith(
                                     color: cs.onSurface.withValues(alpha: 0.78),
                                     fontWeight: FontWeight.w600,
@@ -334,8 +338,9 @@ class _SetupPageState extends State<SetupPage> {
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: TextButton(
-                                    onPressed:
-                                        _isLoading ? null : _openTokenCreationPage,
+                                    onPressed: _isLoading
+                                        ? null
+                                        : _openTokenCreationPage,
                                     child: Text(
                                       '${AppStrings.needToken}${AppStrings.createHere}',
                                       style: TextStyle(
@@ -415,7 +420,8 @@ class _SetupPageState extends State<SetupPage> {
                         Text(
                           'Secure local-only authentication',
                           style: (textTheme.bodySmall ??
-                                  const TextStyle(fontSize: AppTheme.fontCaption))
+                                  const TextStyle(
+                                      fontSize: AppTheme.fontCaption))
                               .copyWith(
                             color: cs.onSurface.withValues(alpha: 0.65),
                             fontWeight: FontWeight.w600,

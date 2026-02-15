@@ -59,5 +59,8 @@ exports.triggerDailyUpdateV2 = onSchedule(
         logger.error("Periodic update push failed after retries (v2)", {
             error: String(lastError),
         });
+        throw lastError instanceof Error
+            ? lastError
+            : new Error(String(lastError));
     },
 );

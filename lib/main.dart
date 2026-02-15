@@ -14,6 +14,32 @@ import 'pages/onboarding_page.dart';
 import 'pages/main_nav_page.dart';
 import 'pages/splash_screen.dart';
 
+void _recordErrorIfConsented(Object error, StackTrace stack,
+    {bool fatal = true}) {
+  if (!StorageService.getCrashlyticsConsent()) return;
+  try {
+    final sanitizedMsg = SensitiveDataSanitizer.sanitize(error.toString());
+    FirebaseCrashlytics.instance
+        .recordError(Exception(sanitizedMsg), stack, fatal: fatal);
+  } catch (_) {}
+}
+
+void _recordFlutterErrorIfConsented(FlutterErrorDetails details) {
+  if (!StorageService.getCrashlyticsConsent()) return;
+  try {
+    final sanitizedMsg =
+        SensitiveDataSanitizer.sanitize(details.exception.toString());
+    FirebaseCrashlytics.instance.recordFlutterFatalError(
+      FlutterErrorDetails(
+        exception: Exception(sanitizedMsg),
+        stack: details.stack,
+        library: details.library,
+        context: details.context,
+      ),
+    );
+  } catch (_) {}
+}
+
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
@@ -30,55 +56,18 @@ void main() {
     FlutterError.onError = (details) {
       FlutterError.presentError(details);
       AppLog.error(details.exception, details.stack);
-      // Sanitize and report to Crashlytics with consent check
-      if (StorageService.getCrashlyticsConsent()) {
-        try {
-          final sanitizedMsg = details.exception.toString()
-            .replaceAll(RegExp(r'ghp_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-            .replaceAll(RegExp(r'gho_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-            .replaceAll(RegExp(r'ghs_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-            .replaceAll(RegExp(r'Bearer\s+\S+'), 'Bearer [REDACTED]');
-          FirebaseCrashlytics.instance.recordFlutterFatalError(
-            FlutterErrorDetails(
-              exception: Exception(sanitizedMsg),
-              stack: details.stack,
-              library: details.library,
-              context: details.context,
-            ),
-          );
-        } catch (_) {}
-      }
+      _recordFlutterErrorIfConsented(details);
     };
     PlatformDispatcher.instance.onError = (error, stack) {
       AppLog.error(error, stack);
-      // Sanitize and report to Crashlytics with consent check
-      if (StorageService.getCrashlyticsConsent()) {
-        try {
-          final sanitizedMsg = error.toString()
-            .replaceAll(RegExp(r'ghp_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-            .replaceAll(RegExp(r'gho_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-            .replaceAll(RegExp(r'ghs_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-            .replaceAll(RegExp(r'Bearer\s+\S+'), 'Bearer [REDACTED]');
-          FirebaseCrashlytics.instance.recordError(Exception(sanitizedMsg), stack, fatal: true);
-        } catch (_) {}
-      }
+      _recordErrorIfConsented(error, stack, fatal: true);
       return true;
     };
 
     runApp(const MyApp());
   }, (error, stack) {
     AppLog.error(error, stack);
-    // Sanitize and report to Crashlytics with consent check
-    if (StorageService.getCrashlyticsConsent()) {
-      try {
-        final sanitizedMsg = error.toString()
-          .replaceAll(RegExp(r'ghp_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-          .replaceAll(RegExp(r'gho_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-          .replaceAll(RegExp(r'ghs_[a-zA-Z0-9_]+'), '[REDACTED_TOKEN]')
-          .replaceAll(RegExp(r'Bearer\s+\S+'), 'Bearer [REDACTED]');
-        FirebaseCrashlytics.instance.recordError(Exception(sanitizedMsg), stack, fatal: true);
-      } catch (_) {}
-    }
+    _recordErrorIfConsented(error, stack, fatal: true);
   });
 }
 
@@ -196,7 +185,7 @@ class _AppInitializerState extends State<AppInitializer> {
 
       // Initialize WorkManager for guaranteed background updates
       await BackgroundScheduler.initialize();
-      
+
       // Schedule periodic updates if auto-update is enabled
       if (StorageService.getAutoUpdate()) {
         await BackgroundScheduler.scheduleUpdates();

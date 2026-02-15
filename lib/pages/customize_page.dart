@@ -31,7 +31,7 @@ class _CustomizePageState extends State<CustomizePage> {
   late WallpaperConfig _config;
   late TextEditingController _quoteController;
   bool _isGenerating = false;
-  String _deviceName = 'Loading...';
+  String _deviceName = AppStrings.loading;
   // Fixed to lock screen layout; preview uses MonthHeatmapRenderer for all targets
   static const WallpaperTarget _previewTarget = WallpaperTarget.lock;
 
@@ -51,7 +51,7 @@ class _CustomizePageState extends State<CustomizePage> {
 
   Future<void> _loadDeviceInfo() async {
     final deviceInfo = DeviceInfoPlugin();
-    String name = 'Unknown Device';
+    String name = AppStrings.unknownDevice;
     try {
       if (Platform.isAndroid) {
         final androidInfo = await deviceInfo.androidInfo;
@@ -115,7 +115,7 @@ class _CustomizePageState extends State<CustomizePage> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Set Wallpaper',
+                AppStrings.setWallpaper,
                 style: TextStyle(
                   fontSize: AppTheme.fontTitle,
                   fontWeight: FontWeight.bold,
@@ -125,17 +125,17 @@ class _CustomizePageState extends State<CustomizePage> {
               AppTheme.h16,
               ListTile(
                 leading: const Icon(Icons.home_outlined),
-                title: const Text('Home Screen'),
+                title: const Text(AppStrings.homeScreen),
                 onTap: () => Navigator.pop(context, 'home'),
               ),
               ListTile(
                 leading: const Icon(Icons.lock_outlined),
-                title: const Text('Lock Screen'),
+                title: const Text(AppStrings.lockScreen),
                 onTap: () => Navigator.pop(context, 'lock'),
               ),
               ListTile(
                 leading: const Icon(Icons.smartphone),
-                title: const Text('Both Screens'),
+                title: const Text(AppStrings.bothScreens),
                 onTap: () => Navigator.pop(context, 'both'),
               ),
               AppTheme.h8,
@@ -225,7 +225,7 @@ class _CustomizePageState extends State<CustomizePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AppSectionHeader(
-                title: 'Customize',
+                title: AppStrings.customize,
                 subtitle: _deviceName,
                 trailing: Icon(Icons.wallpaper_rounded, color: scheme.primary),
               ),
@@ -289,7 +289,7 @@ class _CustomizePageState extends State<CustomizePage> {
             ),
             AppTheme.h24,
             Text(
-              'No data available',
+              AppStrings.noDataAvailable,
               style: TextStyle(
                 fontSize: AppTheme.fontLarge,
                 fontWeight: FontWeight.w600,
@@ -298,7 +298,7 @@ class _CustomizePageState extends State<CustomizePage> {
             ),
             AppTheme.h8,
             Text(
-              'Sync your GitHub data first',
+              AppStrings.syncFirst,
               style: TextStyle(
                 fontSize: AppTheme.fontBase,
                 color: scheme.onSurface.withValues(alpha: 0.65),
@@ -311,7 +311,7 @@ class _CustomizePageState extends State<CustomizePage> {
                 onPressed: widget.onRequestSync,
                 icon: const Icon(Icons.sync),
                 label: const Text(
-                  'Sync Now',
+                  AppStrings.syncNow,
                   style: TextStyle(
                     fontSize: AppTheme.fontLarge,
                     fontWeight: FontWeight.w600,
@@ -417,7 +417,7 @@ class _CustomizePageState extends State<CustomizePage> {
               ),
               AppTheme.h8,
               Text(
-                'Preview for $_deviceName',
+                '${AppStrings.previewFor} $_deviceName',
                 style: TextStyle(
                   fontSize: AppTheme.fontBody,
                   fontWeight: FontWeight.w500,
@@ -427,7 +427,7 @@ class _CustomizePageState extends State<CustomizePage> {
               ),
               AppTheme.h4,
               Text(
-                'Wallpaper: ${physicalWidth}x${physicalHeight}px',
+                '${AppStrings.wallpaperResolution} ${physicalWidth}x${physicalHeight}px',
                 style: TextStyle(
                   fontSize: AppTheme.fontCaption,
                   color: scheme.onSurface.withValues(alpha: 0.65),
@@ -445,7 +445,7 @@ class _CustomizePageState extends State<CustomizePage> {
   // THEME SECTION
   // ══════════════════════════════════════════════════════════════════════
 
-// Theme section removed as per user request ("REMOVE DARK AND LIGHHT MODE WE KEEP SYSTEM DEFAULT")
+// Theme section removed; app currently uses a light-only runtime theme.
 
   // ══════════════════════════════════════════════════════════════════════
   // CUSTOMIZATION SECTION
@@ -464,7 +464,7 @@ class _CustomizePageState extends State<CustomizePage> {
             children: [
               Expanded(
                 child: Text(
-                  'Auto Fit Width',
+                  AppStrings.autoFitWidth,
                   style: TextStyle(
                     fontSize: AppTheme.fontBase,
                     fontWeight: FontWeight.w600,
@@ -487,7 +487,7 @@ class _CustomizePageState extends State<CustomizePage> {
               onPressed: _fitToWidth,
               icon: const Icon(Icons.fit_screen, size: 16),
               label: const Text(
-                'Auto Fix for Device',
+                AppStrings.autoFixDevice,
                 style: TextStyle(fontSize: AppTheme.fontBody),
               ),
               style: TextButton.styleFrom(
@@ -500,7 +500,7 @@ class _CustomizePageState extends State<CustomizePage> {
           const Divider(),
           AppTheme.h16,
           Text(
-            'Text Overlay',
+            AppStrings.textOverlay,
             style: TextStyle(
               fontSize: AppTheme.fontBase,
               fontWeight: FontWeight.w600,
@@ -511,8 +511,8 @@ class _CustomizePageState extends State<CustomizePage> {
           TextField(
             controller: _quoteController,
             decoration: const InputDecoration(
-              labelText: 'Custom Quote',
-              hintText: 'Enter your motivation...',
+              labelText: AppStrings.customQuote,
+              hintText: AppStrings.quoteHint,
             ),
             onChanged: (value) {
               _updateConfig(_config.copyWith(customQuote: value));
@@ -521,7 +521,7 @@ class _CustomizePageState extends State<CustomizePage> {
           AppTheme.h12,
           if (_config.customQuote.isNotEmpty) ...[
             _buildSlider(
-              label: 'Quote Size',
+              label: AppStrings.quoteSize,
               value: _config.quoteFontSize,
               min: 10.0,
               max: 40.0,
@@ -532,7 +532,7 @@ class _CustomizePageState extends State<CustomizePage> {
             ),
             AppTheme.h12,
             _buildSlider(
-              label: 'Quote Opacity',
+              label: AppStrings.quoteOpacity,
               value: _config.quoteOpacity,
               min: 0.1,
               max: 1.0,
@@ -547,7 +547,7 @@ class _CustomizePageState extends State<CustomizePage> {
             children: [
               Expanded(
                 child: Text(
-                  'Scale',
+                  AppStrings.scale,
                   style: TextStyle(
                     fontSize: AppTheme.fontBase,
                     fontWeight: FontWeight.w600,
@@ -580,7 +580,7 @@ class _CustomizePageState extends State<CustomizePage> {
           ),
           AppTheme.h20,
           _buildSlider(
-            label: 'Opacity',
+            label: AppStrings.opacity,
             value: _config.opacity,
             min: 0.3,
             max: 1.0,
@@ -591,7 +591,7 @@ class _CustomizePageState extends State<CustomizePage> {
           ),
           AppTheme.h20,
           _buildSlider(
-            label: 'Corner Radius',
+            label: AppStrings.cornerRadius,
             value: _config.cornerRadius,
             min: 0,
             max: 8,
@@ -602,7 +602,7 @@ class _CustomizePageState extends State<CustomizePage> {
           ),
           AppTheme.h20,
           Text(
-            'Layout automatically reserves space for the status bar/notch and lock-screen clock. Position controls are applied after that.',
+            AppStrings.layoutNote,
             style: TextStyle(
               fontSize: AppTheme.fontCaption,
               color: scheme.onSurface.withValues(alpha: 0.65),
@@ -610,7 +610,7 @@ class _CustomizePageState extends State<CustomizePage> {
           ),
           AppTheme.h12,
           _buildSlider(
-            label: 'Position (Vertical, within safe area)',
+            label: AppStrings.positionVertical,
             value: _config.verticalPosition,
             min: 0.0,
             max: 1.0,
@@ -621,7 +621,7 @@ class _CustomizePageState extends State<CustomizePage> {
           ),
           AppTheme.h20,
           _buildSlider(
-            label: 'Position (Horizontal, within safe area)',
+            label: AppStrings.positionHorizontal,
             value: _config.horizontalPosition,
             min: 0.0,
             max: 1.0,
@@ -727,7 +727,7 @@ class _CustomizePageState extends State<CustomizePage> {
                     AppTheme.w8,
                     Flexible(
                       child: Text(
-                        'Apply Wallpaper',
+                        AppStrings.applyWallpaper,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -766,7 +766,7 @@ class _CustomizePageState extends State<CustomizePage> {
               color: AppTheme.errorRed.withValues(alpha: 0.1),
               child: const Center(
                 child: Text(
-                  'SYSTEM CLOCK AREA',
+                  AppStrings.systemClockArea,
                   style: TextStyle(
                       color: AppTheme.errorRed,
                       fontSize: AppTheme.fontCaption,
@@ -785,7 +785,7 @@ class _CustomizePageState extends State<CustomizePage> {
               color: AppTheme.primaryBlue.withValues(alpha: 0.1),
               child: const Center(
                 child: Text(
-                  'GESTURE AREA',
+                  AppStrings.gestureArea,
                   style: TextStyle(
                       color: AppTheme.primaryBlue,
                       fontSize: AppTheme.fontCaption,
@@ -803,4 +803,3 @@ class _CustomizePageState extends State<CustomizePage> {
 // ══════════════════════════════════════════════════════════════════════════
 // WALLPAPER PREVIEW PAINTER
 // ══════════════════════════════════════════════════════════════════════════
-

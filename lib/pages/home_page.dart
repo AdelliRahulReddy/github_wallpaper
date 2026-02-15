@@ -149,7 +149,7 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          _showFirstLoginGreeting ? 'WELCOME 👋' : 'WELCOME BACK 👋',
+                          _showFirstLoginGreeting ? AppStrings.welcome : AppStrings.welcomeBack,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -271,16 +271,16 @@ class _HomePageState extends State<HomePage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           AppSectionHeader(
-                            title: 'Get Started',
+                            title: AppStrings.getStarted,
                             subtitle:
-                                'Pull to refresh to sync your GitHub activity.',
+                                AppStrings.homeGetStartedSubtitle,
                           ),
                           AppTheme.h16,
                           SizedBox(
                             width: double.infinity,
                             child: FilledButton(
                               onPressed: widget.onRefresh,
-                              child: const Text('Sync Now'),
+                              child: const Text(AppStrings.syncNow),
                             ),
                           ),
                         ],
@@ -330,7 +330,7 @@ class _HomePageState extends State<HomePage> {
         Padding(
           padding: AppTheme.pOnlyT8B12,
           child: AppSectionHeader(
-            title: 'Overview',
+            title: AppStrings.overview,
             subtitle: updated,
             trailing: IconButton.filledTonal(
               onPressed: widget.isLoading ? null : widget.onRefresh,
@@ -341,10 +341,10 @@ class _HomePageState extends State<HomePage> {
         ),
         AppTheme.h8,
         HeroMetricCard(
-          title: 'Total Contributions',
+          title: AppStrings.totalContributions,
           value: PresentationFormatter.formatCompactNumber(
               data.totalContributions),
-          subtitle: 'Cumulative commits across all years',
+          subtitle: AppStrings.totalContributionsSubtitle,
           icon: Icons.auto_graph_rounded,
           color: scheme.primary,
         ),
@@ -373,31 +373,31 @@ class _HomePageState extends State<HomePage> {
               physics: const NeverScrollableScrollPhysics(),
               children: [
                 MetricTile(
-                  label: 'Current streak',
+                  label: AppStrings.currentStreak,
                   value: '${data.currentStreak}d',
                   icon: Icons.local_fire_department_rounded,
                   iconColor: AppTheme.warningOrange,
                 ),
                 MetricTile(
-                  label: 'Today',
+                  label: AppStrings.today,
                   value: '${data.todayCommits}',
                   icon: Icons.today_rounded,
                   iconColor: scheme.secondary,
                 ),
                 MetricTile(
-                  label: 'Longest streak',
+                  label: AppStrings.longestStreak,
                   value: '${data.longestStreak}d',
                   icon: Icons.emoji_events_rounded,
                   iconColor: AppTheme.accentViolet,
                 ),
                 MetricTile(
-                  label: 'Active repos',
+                  label: AppStrings.activeRepos,
                   value: '${data.activeRepositoriesCount}',
                   icon: Icons.inventory_2_rounded,
                   iconColor: scheme.primary,
                 ),
                 MetricTile(
-                  label: '7-day trend',
+                  label: AppStrings.trend7d,
                   value: PresentationFormatter.formatCompactNumber(
                       trend7d.current),
                   helper: trend7d.deltaLabel,
@@ -405,7 +405,7 @@ class _HomePageState extends State<HomePage> {
                   iconColor: scheme.primary,
                 ),
                 MetricTile(
-                  label: '30-day trend',
+                  label: AppStrings.trend30d,
                   value: PresentationFormatter.formatCompactNumber(
                       trend30d.current),
                   helper: trend30d.deltaLabel,
@@ -431,9 +431,9 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
-          title: 'Activity graph',
+          title: AppStrings.activityGraph,
           subtitle:
-              'Last 6 months • ${PresentationFormatter.formatCompactNumber(total)} commits',
+              '${AppStrings.last6Months} • ${PresentationFormatter.formatCompactNumber(total)} ${AppStrings.commits}',
         ),
         AppTheme.h12,
         AppCard(
@@ -447,7 +447,7 @@ class _HomePageState extends State<HomePage> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   Text(
-                    'Less',
+                    AppStrings.less,
                     style: TextStyle(
                       color: scheme.onSurface.withValues(alpha: 0.70),
                       fontSize: AppTheme.fontCaption,
@@ -498,7 +498,7 @@ class _HomePageState extends State<HomePage> {
                     }),
                   ),
                   Text(
-                    'More',
+                    AppStrings.more,
                     style: TextStyle(
                       color: scheme.onSurface.withValues(alpha: 0.70),
                       fontSize: AppTheme.fontCaption,
@@ -513,7 +513,7 @@ class _HomePageState extends State<HomePage> {
                 child: days.isEmpty
                     ? Center(
                         child: Text(
-                          'No activity data available',
+                          AppStrings.noActivityData,
                           style: TextStyle(
                             color: scheme.onSurface.withValues(alpha: 0.70),
                           ),
@@ -542,9 +542,9 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
-          title: 'Commit frequency',
+          title: AppStrings.commitFrequency,
           subtitle:
-              'Last $_trendDays days • ${PresentationFormatter.formatCompactNumber(total)} commits',
+              'Last $_trendDays days • ${PresentationFormatter.formatCompactNumber(total)} ${AppStrings.commits}',
         ),
         AppTheme.h12,
         AppCard(
@@ -557,7 +557,7 @@ class _HomePageState extends State<HomePage> {
                 child: values.isEmpty
                     ? Center(
                         child: Text(
-                          'No recent activity to chart.',
+                          AppStrings.noRecentActivity,
                           style: TextStyle(
                             color: scheme.onSurface.withValues(alpha: 0.72),
                             fontWeight: FontWeight.w600,
@@ -622,7 +622,7 @@ class _HomePageState extends State<HomePage> {
               ),
               AppTheme.h12,
               Text(
-                'Tap the chart to inspect a day.',
+                AppStrings.tapChartToInspect,
                 style: TextStyle(
                   color: scheme.onSurface.withValues(alpha: 0.60),
                   fontSize: AppTheme.fontCaption,
@@ -644,8 +644,8 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         AppSectionHeader(
-          title: 'Active repositories',
-          subtitle: '${data.activeRepositoriesCount} repositories with commits',
+          title: AppStrings.activeRepositories,
+          subtitle: '${data.activeRepositoriesCount} ${AppStrings.reposWithCommits}',
         ),
         AppTheme.h12,
         AppCard(
@@ -654,7 +654,7 @@ class _HomePageState extends State<HomePage> {
               ? Padding(
                   padding: AppTheme.pAll20,
                   child: Text(
-                    'No repository activity found for this period.',
+                    AppStrings.noRepoActivity,
                     style: TextStyle(
                       color: scheme.onSurface.withValues(alpha: 0.72),
                       fontSize: AppTheme.fontBody,
@@ -702,7 +702,7 @@ class _HomePageState extends State<HomePage> {
                       trailing: ConstrainedBox(
                         constraints: const BoxConstraints(maxWidth: 110),
                         child: Text(
-                          '${PresentationFormatter.formatCompactNumber(r.commitCount)} commits',
+                          '${PresentationFormatter.formatCompactNumber(r.commitCount)} ${AppStrings.commits}',
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           textAlign: TextAlign.end,
@@ -729,14 +729,14 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const AppSectionHeader(
-          title: 'Top languages',
-          subtitle: 'Estimated from your active repositories',
+          title: AppStrings.topLanguages,
+          subtitle: AppStrings.languagesSubtitle,
         ),
         AppTheme.h12,
         AppCard(
           child: langs.isEmpty
               ? Text(
-                  'No language data available for this period.',
+                  AppStrings.noLanguageData,
                   style: TextStyle(
                     color: scheme.onSurface.withValues(alpha: 0.72),
                     fontSize: AppTheme.fontBody,
@@ -790,8 +790,8 @@ class _HomePageState extends State<HomePage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const AppSectionHeader(
-          title: 'Activity insights',
-          subtitle: 'Patterns across your recent contribution history',
+          title: AppStrings.activityInsights,
+          subtitle: AppStrings.insightsSubtitle,
         ),
         AppTheme.h12,
         AppCard(
@@ -799,7 +799,7 @@ class _HomePageState extends State<HomePage> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Weekend vs weekday',
+                AppStrings.weekendVsWeekday,
                 style: TextStyle(
                   color: scheme.onSurface,
                   fontSize: AppTheme.fontLarge,
@@ -836,7 +836,7 @@ class _HomePageState extends State<HomePage> {
                       MediaQuery.of(context).textScaler.scale(1.0) > 1.15;
 
                   final weekdayStat = _MiniStat(
-                    label: 'Weekdays',
+                    label: AppStrings.weekdays,
                     value: PresentationFormatter.formatCompactNumber(
                       weekdayTotal,
                     ),
@@ -844,7 +844,7 @@ class _HomePageState extends State<HomePage> {
                     color: scheme.primary,
                   );
                   final weekendStat = _MiniStat(
-                    label: 'Weekends',
+                    label: AppStrings.weekends,
                     value: PresentationFormatter.formatCompactNumber(
                       weekendTotal,
                     ),
@@ -874,7 +874,7 @@ class _HomePageState extends State<HomePage> {
               ),
               AppTheme.h20,
               Text(
-                'Impact levels',
+                AppStrings.impactLevels,
                 style: TextStyle(
                   color: scheme.onSurface,
                   fontSize: AppTheme.fontLarge,
@@ -894,7 +894,7 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             Expanded(
                               child: _ImpactChip(
-                                label: 'Low',
+                                label: AppStrings.levelLow,
                                 count: levels[1],
                                 color: _heatmapColor(1),
                               ),
@@ -902,7 +902,7 @@ class _HomePageState extends State<HomePage> {
                             AppTheme.w8,
                             Expanded(
                               child: _ImpactChip(
-                                label: 'Med',
+                                label: AppStrings.levelMed,
                                 count: levels[2],
                                 color: _heatmapColor(2),
                               ),
@@ -914,7 +914,7 @@ class _HomePageState extends State<HomePage> {
                           children: [
                             Expanded(
                               child: _ImpactChip(
-                                label: 'High',
+                                label: AppStrings.levelHigh,
                                 count: levels[3],
                                 color: _heatmapColor(3),
                               ),
@@ -922,7 +922,7 @@ class _HomePageState extends State<HomePage> {
                             AppTheme.w8,
                             Expanded(
                               child: _ImpactChip(
-                                label: 'Max',
+                                label: AppStrings.levelMax,
                                 count: levels[4],
                                 color: _heatmapColor(4),
                               ),
@@ -989,7 +989,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           Icon(Icons.error_outline, size: 48, color: scheme.error),
           AppTheme.h16,
-          Text(widget.loadError ?? 'Unknown error',
+          Text(widget.loadError ?? AppStrings.unknown,
               style:
                   TextStyle(color: scheme.onSurface.withValues(alpha: 0.72))),
           AppTheme.h16,
@@ -1430,7 +1430,7 @@ class _HeatmapCell extends StatelessWidget {
 
     return Semantics(
       button: true,
-      label: '$dateStr. ${day!.contributionCount} commits.',
+      label: '$dateStr. ${day!.contributionCount} ${AppStrings.commits}.',
       child: Material(
         color: scheme.surface.withValues(alpha: 0),
         child: InkWell(
@@ -1458,7 +1458,7 @@ class _HeatmapCell extends StatelessWidget {
                       ),
                       AppTheme.h12,
                       Text(
-                        '${day!.contributionCount} commits',
+                        '${day!.contributionCount} ${AppStrings.commits}',
                         style: TextStyle(
                           fontSize: AppTheme.fontLarge,
                           color: scheme.onSurface.withValues(alpha: 0.72),

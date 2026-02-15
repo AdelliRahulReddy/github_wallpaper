@@ -6,7 +6,7 @@ Display your GitHub contributions as a stunning, auto-updating wallpaper on your
 
 - **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
 - **🔄 Silent Sync** – Wallpapers refresh automatically in the background via Firebase Cloud Messaging without interrupting your workflow.
-- **🎨 Deep Customization** – Adjust dark/light themes, scale, opacity, positioning, and add custom motivational quotes.
+- **🎨 Deep Customization** – Adjust scale, opacity, positioning, and add custom motivational quotes.
 - **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
 - **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data stays yours.
 - **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent look.

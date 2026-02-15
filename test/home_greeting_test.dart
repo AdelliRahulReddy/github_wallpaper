@@ -37,8 +37,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('WELCOME 👋'), findsOneWidget);
-    expect(find.text('WELCOME BACK 👋'), findsNothing);
+    expect(find.text(AppStrings.welcome), findsOneWidget);
+    expect(find.text(AppStrings.welcomeBack), findsNothing);
   });
 
   testWidgets('Shows Welcome back for returning users', (tester) async {
@@ -59,7 +59,7 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.text('WELCOME BACK 👋'), findsOneWidget);
-    expect(find.text('WELCOME 👋'), findsNothing);
+    expect(find.text(AppStrings.welcomeBack), findsOneWidget);
+    expect(find.text(AppStrings.welcome), findsNothing);
   });
 }
