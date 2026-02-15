@@ -620,8 +620,12 @@ class WallpaperService {
           previousPath != null && await File(previousPath).exists();
       final isUnchanged = hash == previousHash && hasPreviousFile;
 
-      if (!forceApply && isUnchanged) return false;
+      if (!forceApply && isUnchanged) {
+        AppLog.info('Wallpaper unchanged, skipping update (hash: $hash)');
+        return false;
+      }
 
+      AppLog.info('Applying wallpaper (force: $forceApply, hash: $hash)');
       onProgress?.call(0.35);
       String wallpaperPath;
       if (isUnchanged) {
@@ -634,11 +638,13 @@ class WallpaperService {
       onProgress?.call(0.8);
       if (Platform.isAndroid) {
         await _setAndroidWallpaper(File(wallpaperPath), target);
+        await StorageService.setHasAppliedWallpaper(true); // Ensure tracked
       }
       await StorageService.setLastWallpaperTarget(target);
       await StorageService.saveWallpaperResult(hash, wallpaperPath);
       await StorageService.setLastSuccessfulUpdate(
           DateTime.now()); // Track when update succeeded
+      AppLog.info('Wallpaper applied successfully');
       onProgress?.call(1.0);
       return true;
     });

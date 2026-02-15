@@ -16,7 +16,8 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  final DateTime? directUpdate;
+  const SettingsPage({super.key, this.directUpdate});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -130,6 +131,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final lastEffectiveUpdate = widget.directUpdate ?? _lastUpdate;
     return SingleChildScrollView(
       padding: AppTheme.pAll20,
       child: Column(
@@ -146,7 +148,7 @@ class _SettingsPageState extends State<SettingsPage> {
           AppTheme.h24,
 
           // Account Section
-          _buildAccountSection(),
+          _buildAccountSection(lastEffectiveUpdate),
 
           AppTheme.h20,
 
@@ -175,7 +177,7 @@ class _SettingsPageState extends State<SettingsPage> {
   // ACCOUNT SECTION
   // ══════════════════════════════════════════════════════════════════════
 
-  Widget _buildAccountSection() {
+  Widget _buildAccountSection(DateTime? lastUpdate) {
     final scheme = Theme.of(context).colorScheme;
     return AppCard(
       child: Column(
@@ -233,7 +235,7 @@ class _SettingsPageState extends State<SettingsPage> {
           AppTheme.h16,
 
           // Last Sync
-          if (_lastUpdate != null)
+          if (lastUpdate != null)
             Container(
               padding: AppTheme.pAll12,
               decoration: BoxDecoration(
@@ -251,7 +253,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   ),
                   AppTheme.w8,
                   Text(
-                    '${AppStrings.lastSynced} ${PresentationFormatter.formatTimeSince(_lastUpdate!)}',
+                    '${AppStrings.lastSynced} ${PresentationFormatter.formatTimeSince(lastUpdate)}',
                     style: TextStyle(
                       fontSize: AppTheme.fontBody,
                       color: scheme.onSurface.withValues(alpha: 0.72),

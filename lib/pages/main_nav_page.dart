@@ -148,6 +148,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
               data: newData,
               config: StorageService.getWallpaperConfig(),
               target: StorageService.getLastWallpaperTarget(),
+              forceApply: true, // Crucial: Force update on manual refresh
             ).catchError((e, s) {
               AppLog.error('Failed to apply wallpaper after sync: $e', s);
               return false;
@@ -229,7 +230,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
           data: _data,
           onSetWallpaper: _handleSetWallpaper,
           onRequestSync: _requestSyncFromCustomize),
-      const SettingsPage(),
+      SettingsPage(directUpdate: _data?.lastUpdated),
     ];
 
     return Scaffold(
