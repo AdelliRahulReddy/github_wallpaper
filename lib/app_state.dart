@@ -7,12 +7,21 @@ class PresentationFormatter {
   static String formatTimeSince(DateTime d) => timeAgo(d, long:true);
   static String formatTimeAgoCompact(DateTime d) => timeAgo(d, long:false);
   static String timeAgo(DateTime d, {bool long=false}) {
+  static String timeAgo(DateTime d, {bool long=false}) {
     final now = DateTime.now().toUtc();
-    final diff = now.difference(d.toUtc());
+    final target = d.toUtc();
+    final diff = now.difference(target);
+    
+    // Defensive logging for drift (internal dev mode)
+    if (diff.inSeconds.abs() > 300) {
+      AppLog.info('Clock drift detected: now=$now, target=$target, diff=${diff.inMinutes}m');
+    }
+
     if(diff.inMinutes<1) return long?'Just now':'just now';
     if(diff.inMinutes<60) return long?'${diff.inMinutes} min ago (UTC)':'${diff.inMinutes}m ago (UTC)';
     if(diff.inHours<24) return long?'${diff.inHours} hr ago (UTC)':'${diff.inHours}h ago (UTC)';
     return long?'${diff.inDays} days ago (UTC)':'${diff.inDays}d ago (UTC)';
+  }
   }
 }
 

@@ -246,7 +246,7 @@ class StorageService {
       (await init()).setString(AppConstants.keyLastUpdate, d.toIso8601String());
   static DateTime? getLastUpdate() {
     final s = _s?.getString(AppConstants.keyLastUpdate);
-    return s != null ? DateTime.tryParse(s) : null;
+    return s != null ? DateTime.tryParse(s)?.toUtc() : null;
   }
 
   static Future<void> setLastBackgroundSync(DateTime d) async => (await init())
@@ -642,9 +642,11 @@ class WallpaperService {
       }
       await StorageService.setLastWallpaperTarget(target);
       await StorageService.saveWallpaperResult(hash, wallpaperPath);
-      await StorageService.setLastSuccessfulUpdate(
-          DateTime.now()); // Track when update succeeded
-      AppLog.info('Wallpaper applied successfully');
+      // Track when update succeeded using globally consistent key
+      final now = DateTime.now().toUtc();
+      await StorageService.setLastUpdate(now); 
+      await StorageService.setLastSuccessfulUpdate(now);
+      AppLog.info('Wallpaper applied successfully at $now (UTC)');
       onProgress?.call(1.0);
       return true;
     });
@@ -776,7 +778,7 @@ class WallpaperService {
         if (result.isSuccess) {
           await StorageService.consumePendingWallpaperRefresh();
           if (isBackground) {
-            await StorageService.setLastBackgroundSync(DateTime.now());
+            await StorageService.setLastBackgroundSync(DateTime.now().toUtc());
           }
         }
         return result;
