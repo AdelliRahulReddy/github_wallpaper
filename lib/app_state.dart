@@ -1,18 +1,16 @@
-
+import 'package:flutter/foundation.dart';
+import 'app_utils.dart';
 
 class PresentationFormatter {
-  // Uses local time intentionally - greeting should match user's wall clock
   static String getGreeting() { final h = DateTime.now().hour; return h<12?'Good Morning':h<17?'Good Afternoon':'Good Evening'; }
   static String formatCompactNumber(int n) => n>=1000000?'${(n/1000000).toStringAsFixed(1)}m':n>=1000?'${(n/1000).toStringAsFixed(1)}k':'$n';
   static String formatTimeSince(DateTime d) => timeAgo(d, long:true);
   static String formatTimeAgoCompact(DateTime d) => timeAgo(d, long:false);
   static String timeAgo(DateTime d, {bool long=false}) {
-  static String timeAgo(DateTime d, {bool long=false}) {
     final now = DateTime.now().toUtc();
     final target = d.toUtc();
     final diff = now.difference(target);
     
-    // Defensive logging for drift (internal dev mode)
     if (diff.inSeconds.abs() > 300) {
       AppLog.info('Clock drift detected: now=$now, target=$target, diff=${diff.inMinutes}m');
     }
@@ -21,7 +19,6 @@ class PresentationFormatter {
     if(diff.inMinutes<60) return long?'${diff.inMinutes} min ago (UTC)':'${diff.inMinutes}m ago (UTC)';
     if(diff.inHours<24) return long?'${diff.inHours} hr ago (UTC)':'${diff.inHours}h ago (UTC)';
     return long?'${diff.inDays} days ago (UTC)':'${diff.inDays}d ago (UTC)';
-  }
   }
 }
 
@@ -32,63 +29,141 @@ class TrendSummary {
 }
 
 class ContributionAnalyzer {
-  static Map<String, dynamic> analyzeContributions<T>(List<T> days, {required DateTime Function(T) dateOf, required int Function(T) countOf, DateTime? nowUtc}) {
-    final totals = <DateTime, int>{};
-    for(var d in days) { final dt=dateOf(d), k=DateTime.utc(dt.year,dt.month,dt.day); totals[k]=(totals[k]??0)+countOf(d); }
-    if(totals.isEmpty) return {'currentStreak':0, 'longestStreak':0, 'todayContributions':0, 'activeDaysCount':0, 'peakDayContributions':0, 'totalContributions':0, 'mostActiveWeekday':'Monday'};
+  static Map<String, dynamic> analyzeContributions(List<dynamic> days,
+      {required DateTime? nowUtc,
+      required DateTime Function(dynamic) dateOf,
+      required int Function(dynamic) countOf}) {
+    final now = nowUtc ?? DateTime.now().toUtc();
+    final sortedDays = List.from(days)..sort((a, b) => dateOf(a).compareTo(dateOf(b)));
     
-    // Use local time for "Today" determination to align with user's wall clock
-    final n = (nowUtc?.toLocal() ?? DateTime.now());
-    final targetToday = DateTime.utc(n.year, n.month, n.day);
+    // 1. Create a map for easy O(1) date lookup
+    final dayMap = <String, int>{};
+    for (var d in days) {
+      dayMap[AppDateUtils.formatDate(dateOf(d).toLocal())] = countOf(d);
+    }
 
-    final s = _streaks(totals, targetToday);
-    final wd = List.filled(7, 0); totals.forEach((k,v) => wd[k.weekday-1]+=v);
-    var maxW=0; for(var i=1; i<7; i++) { if(wd[i]>wd[maxW]) maxW=i; }
+    final localNow = now.toLocal();
+    final todayStr = AppDateUtils.formatDate(localNow);
+    final yesterdayStr = AppDateUtils.formatDate(localNow.subtract(const Duration(days: 1)));
+
+    // 2. Identify Current Streak
+    int currentStreak = 0;
+    DateTime checkDate = localNow;
+    
+    // If today is 0, we can still have a streak from yesterday (grace period)
+    if ((dayMap[todayStr] ?? 0) <= 0) {
+      checkDate = localNow.subtract(const Duration(days: 1));
+    }
+
+    while (true) {
+      final dateStr = AppDateUtils.formatDate(checkDate);
+      if ((dayMap[dateStr] ?? 0) > 0) {
+        currentStreak++;
+        checkDate = checkDate.subtract(const Duration(days: 1));
+      } else {
+        break;
+      }
+    }
+
+    // 3. Identify Longest Streak, Total, Peak, etc.
+    int longestStreak = 0;
+    int totalContributions = 0;
+    int activeDaysCount = 0;
+    int peakDayContributions = 0;
+    int tempStreak = 0;
+    DateTime? prevDate;
+
+    for (var d in sortedDays) {
+      final date = dateOf(d).toLocal();
+      final count = countOf(d);
+      
+      if (count > 0) {
+        totalContributions += count;
+        activeDaysCount++;
+        if (count > peakDayContributions) peakDayContributions = count;
+
+        if (prevDate != null) {
+          final diff = date.difference(prevDate).inDays;
+          if (diff == 1) {
+            tempStreak++;
+          } else {
+            if (tempStreak > longestStreak) longestStreak = tempStreak;
+            tempStreak = 1;
+          }
+        } else {
+          tempStreak = 1;
+        }
+        prevDate = date;
+      } else {
+        if (tempStreak > longestStreak) longestStreak = tempStreak;
+        tempStreak = 0;
+        prevDate = null;
+      }
+    }
+    if (tempStreak > longestStreak) longestStreak = tempStreak;
+
+    // 4. Weekday analysis
+    final weekdayCounts = <int, int>{};
+    for (var entry in dayMap.entries) {
+      final date = AppDateUtils.parseDate(entry.key)!;
+      weekdayCounts[date.weekday] = (weekdayCounts[date.weekday] ?? 0) + entry.value;
+    }
+    
+    final weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    int maxWeekday = 1;
+    int maxWCount = -1;
+    for (int i = 1; i <= 7; i++) {
+       final c = weekdayCounts[i] ?? 0;
+       if (c > maxWCount) {
+         maxWCount = c;
+         maxWeekday = i;
+       }
+    }
 
     return {
-      'currentStreak': s['c'], 'longestStreak': s['l'], 'todayContributions': totals[targetToday]??0,
-      'activeDaysCount': totals.values.where((c)=>c>0).length, 'peakDayContributions': totals.values.fold(0, (m,c)=>c>m?c:m), 'totalContributions': totals.values.fold(0, (s,c)=>s+c),
-      'mostActiveWeekday': ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][maxW]
+      'currentStreak': currentStreak,
+      'longestStreak': longestStreak,
+      'totalContributions': totalContributions,
+      'activeDaysCount': activeDaysCount,
+      'peakDayContributions': peakDayContributions,
+      'todayContributions': dayMap[todayStr] ?? 0,
+      'mostActiveWeekday': weekdays[maxWeekday - 1],
     };
   }
 
-  static TrendSummary computeTrend<T>(List<T> days, {required int window, required DateTime Function(T) dateOf, required int Function(T) countOf}) {
-    if(days.isEmpty||window<=0) return const TrendSummary(current:0, previous:0);
-    final sorted = List<T>.from(days)..sort((a,b)=>dateOf(a).compareTo(dateOf(b)));
-    final cnt = sorted.map(countOf).toList(), end=cnt.length, start=(end-window).clamp(0,end), prev=(start-window).clamp(0,start);
-    return TrendSummary(current: cnt.sublist(start,end).fold(0,(a,b)=>a+b), previous: cnt.sublist(prev,start).fold(0,(a,b)=>a+b));
-  }
-
-  static Map<String, int> _streaks(Map<DateTime, int> totals, DateTime today) {
-    if(totals.isEmpty) return {'c':0, 'l':0};
-    final dates = totals.keys.toList()..sort();
-    final treat0 = (totals.length / (dates.last.difference(dates.first).inDays+1)) < 0.9;
+  static TrendSummary computeTrend(List<dynamic> days,
+      {required int window,
+      required DateTime Function(dynamic) dateOf,
+      required int Function(dynamic) countOf}) {
+    final now = DateTime.now().toLocal();
+    final today = DateTime(now.year, now.month, now.day);
     
-    var l=0, t=0, safety=0;
-    for(var d=dates.first; !d.isAfter(dates.last); d=d.add(const Duration(days:1))) {
-      if (++safety > 5000) break; // Safety guard for corrupted dates (Problem 3)
-      final c = totals[d];
-      if(c==null) { if(treat0) t=0; continue; }
-      if(c>0) { t++; if(t>l) l=t; } else { t=0; }
-    }
-
-    // Grace period: If no commits today, check yesterday to maintain streak continuity (GitHub-standard behavior)
-    var cS=0;
-    final cursor = (totals[today]??0)>0 ? today : ((totals[today.subtract(const Duration(days:1))]??0)>0 ? today.subtract(const Duration(days:1)) : null);
-    if(cursor!=null) {
-      var current = cursor;
-      safety=0;
-      for(; !current.isBefore(dates.first); current=current.subtract(const Duration(days:1))) {
-        if (++safety > 5000) break; // Safety guard
-        final c = totals[current];
-        if(c == null || c <= 0) break; 
-        cS++;
+    int current = 0;
+    int previous = 0;
+    
+    final currentStart = today.subtract(Duration(days: window));
+    final previousStart = today.subtract(Duration(days: window * 2));
+    
+    for (var d in days) {
+      final date = dateOf(d);
+      final count = countOf(d);
+      
+      if (date.isAfter(currentStart) || date.isAtSameMomentAs(currentStart)) {
+        if (date.isBefore(today) || date.isAtSameMomentAs(today)) {
+          current += count;
+        }
+      } else if (date.isAfter(previousStart) || date.isAtSameMomentAs(previousStart)) {
+        previous += count;
       }
     }
-    return {'c':cS, 'l':l};
+    
+    return TrendSummary(current: current, previous: previous);
   }
 }
 
 class CacheValidator {
-  static bool isStale(DateTime last, [Duration? th, DateTime? n]) => (n??DateTime.now().toUtc()).difference(last.toUtc()) > (th ?? const Duration(hours: 1));
+  static bool isStale(DateTime lastUpdated, {Duration threshold = const Duration(hours: 6)}) {
+    final now = DateTime.now().toUtc();
+    return now.difference(lastUpdated.toUtc()).abs() > threshold;
+  }
 }
