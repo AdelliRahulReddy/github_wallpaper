@@ -179,6 +179,11 @@ class StorageService {
       return null;
     }
   }
+  
+  /// Clear in-memory cache to force reload from storage
+  static void clearMemoryCache() {
+    _memCache = null;
+  }
 
   static Future<void> clearCache() async {
     _memCache = null;
@@ -382,6 +387,9 @@ class GitHubService {
           cached.username.toLowerCase() == username.toLowerCase()) {
         return cached;
       }
+    } else {
+      // CRITICAL: Clear in-memory cache to force fresh data load
+      StorageService.clearMemoryCache();
     }
 
     // 2. Fetch from API
