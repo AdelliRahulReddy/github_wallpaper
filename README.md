@@ -44,7 +44,7 @@ Display your GitHub contributions as a stunning, auto-updating wallpaper on your
    flutter run
    ```
 
-## 🔐 GitHub Token Setup
+# 🔐 GitHub Token Setup
 
 To fetch your contribution data, GitWall requires a GitHub Personal Access Token (PAT).
 
