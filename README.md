@@ -79,7 +79,7 @@ lib/
 ├── app_models.dart        # Type-safe immutable data models
 ├── app_state.dart         # Logic for streaks & trend calculations
 └── pages/                 # UI pages (Dashboard, Customize, Settings)
-```
+``
 
 ## 📜 License
 
