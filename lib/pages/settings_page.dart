@@ -86,6 +86,7 @@ class _SettingsPageState extends State<SettingsPage> {
       await StorageService.setAutoUpdate(false);
       await FcmService.syncTopicSubscription();
       await BackgroundScheduler.cancelUpdates();
+      await StorageService.setHasAuthError(false);
       await StorageService.logout();
 
       if (!mounted) return;
@@ -94,6 +95,120 @@ class _SettingsPageState extends State<SettingsPage> {
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (_) => const OnboardingPage()),
         (route) => false,
+      );
+    }
+  }
+
+  Future<void> _handleUpdateToken() async {
+    final tokenController = TextEditingController();
+    bool tokenVisible = false;
+    bool isLoading = false;
+    String? errorMsg;
+
+    bool saved = false;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final scheme = Theme.of(ctx).colorScheme;
+            return AlertDialog(
+              title: const Text('Update GitHub Token'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Paste your new Personal Access Token below.',
+                    style: TextStyle(
+                      fontSize: AppTheme.fontBody,
+                      color: scheme.onSurface.withValues(alpha: 0.7),
+                    ),
+                  ),
+                  AppTheme.h16,
+                  TextFormField(
+                    controller: tokenController,
+                    obscureText: !tokenVisible,
+                    decoration: InputDecoration(
+                      hintText: 'ghp_...',
+                      prefixIcon: const Icon(Icons.vpn_key_outlined, size: 20),
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          tokenVisible ? Icons.visibility_off_outlined : Icons.visibility_outlined,
+                          size: 20,
+                        ),
+                        onPressed: () => setDialogState(() => tokenVisible = !tokenVisible),
+                      ),
+                    ),
+                  ),
+                  if (errorMsg != null) ...[
+                    AppTheme.h8,
+                    Text(
+                      errorMsg!,
+                      style: TextStyle(
+                        fontSize: AppTheme.fontBody,
+                        color: scheme.error,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final newToken = tokenController.text.trim();
+                          if (newToken.isEmpty) {
+                            setDialogState(() => errorMsg = 'Token cannot be empty.');
+                            return;
+                          }
+                          setDialogState(() {
+                            isLoading = true;
+                            errorMsg = null;
+                          });
+                          final valid = await GitHubService.validateToken(newToken);
+                          if (!valid) {
+                            setDialogState(() {
+                              isLoading = false;
+                              errorMsg = 'Invalid or expired token. Please try again.';
+                            });
+                            return;
+                          }
+                          await StorageService.setToken(newToken);
+                          await StorageService.setHasAuthError(false);
+                          saved = true; // Signal to outer code
+                          if (dialogContext.mounted) Navigator.pop(dialogContext);
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    // Dialog is now fully closed — safe to update the outer widget tree
+    tokenController.dispose();
+    if (saved && mounted) {
+      setState(() {}); // Re-read hasAuthError → banner disappears
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Token updated successfully!'),
+          behavior: SnackBarBehavior.floating,
+        ),
       );
     }
   }
@@ -264,6 +379,17 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
+
+          AppTheme.h12,
+
+          // Update Token Row
+          _buildSettingButton(
+            icon: Icons.vpn_key_outlined,
+            iconColor: AppTheme.warningOrange,
+            title: 'Update GitHub Token',
+            subtitle: 'Replace your current access token',
+            onTap: _handleUpdateToken,
+          ),
         ],
       ),
     );

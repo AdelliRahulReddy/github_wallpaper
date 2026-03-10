@@ -238,6 +238,59 @@ class _HomePageState extends State<HomePage> {
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 [
+                  if (StorageService.hasAuthError()) ...[
+                    GestureDetector(
+                      onTap: () {
+                        // Normally we'd navigate to settings here.
+                        // For now we'll rely on the main nav to switch tabs.
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Please update your GitHub token in Settings.'),
+                            backgroundColor: scheme.error,
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      child: Container(
+                        padding: AppTheme.pAll16,
+                        margin: const EdgeInsets.only(bottom: 16),
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          borderRadius: AppTheme.brMedium,
+                          border: Border.all(color: scheme.error.withValues(alpha: 0.5)),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                            AppTheme.w12,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Action Required: Token Expired',
+                                    style: TextStyle(
+                                      color: scheme.onErrorContainer,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: AppTheme.fontBody,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Wallpaper updates are paused. Tap Settings to update your GitHub token.',
+                                    style: TextStyle(
+                                      color: scheme.onErrorContainer.withValues(alpha: 0.8),
+                                      fontSize: AppTheme.fontCaption,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                   if (widget.loadError != null && data != null) ...[
                     AppCard(
                       padding: AppTheme.pAll16,

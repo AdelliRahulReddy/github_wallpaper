@@ -1,0 +1,5 @@
+Analyzing github_wallpaper...                                   
+
+warning - Unused import: 'package:flutter/foundation.dart' - lib\app_state.dart:1:8 - unused_import
+warning - The value of the local variable 'yesterdayStr' isn't used - lib\app_state.dart:47:11 - unused_local_variable
+

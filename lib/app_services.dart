@@ -16,6 +16,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'app_exceptions.dart';
 import 'app_models.dart';
@@ -264,6 +265,11 @@ class StorageService {
       (await init()).setBool(AppConstants.keyFirstLoginGreetingPending, v);
   static bool isFirstLoginGreetingPending() =>
       _s?.getBool(AppConstants.keyFirstLoginGreetingPending) ?? false;
+
+  // ✨ NEW - Auth Error State for Token Expiration
+  static Future<void> setHasAuthError(bool v) async => (await init()).setBool('has_auth_error', v);
+  static bool hasAuthError() => _s?.getBool('has_auth_error') ?? false;
+
   static Future<void> setPendingWallpaperRefresh(bool v) async {
     final p = await init();
     v ? p.setBool(_kRef, true) : p.remove(_kRef);
@@ -386,6 +392,58 @@ class StorageService {
   }
 }
 
+// ══════════════════════════════════════════════════════════════════════════
+// NOTIFICATION SERVICE
+// ══════════════════════════════════════════════════════════════════════════
+class NotificationService {
+  static final FlutterLocalNotificationsPlugin _plugin =
+      FlutterLocalNotificationsPlugin();
+  static bool _initialized = false;
+
+  static Future<void> init() async {
+    if (_initialized) return;
+    const AndroidInitializationSettings initAndroid =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+        
+    // Darwin initialization settings are required for iOS/macOS, even though target is Android
+    final DarwinInitializationSettings initDarwin = DarwinInitializationSettings(
+      requestAlertPermission: false,
+      requestBadgePermission: false,
+      requestSoundPermission: false,
+    );
+        
+    final InitializationSettings initSettings =
+        InitializationSettings(android: initAndroid, iOS: initDarwin, macOS: initDarwin);
+        
+    await _plugin.initialize(initSettings);
+    _initialized = true;
+    AppLog.info('NotificationService initialized');
+  }
+
+  static Future<void> showAuthErrorNotification() async {
+    if (!_initialized) await init();
+    
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'auth_error_channel',
+      'Authentication Errors',
+      channelDescription: 'Notifications for expired GitHub tokens',
+      importance: Importance.high,
+      priority: Priority.high,
+      color: Color(0xFF0D1117), // GitHub Dark BG
+    );
+    
+    const NotificationDetails platformDetails =
+        NotificationDetails(android: androidDetails);
+        
+    await _plugin.show(
+      1001,
+      'GitHub Token Expired',
+      'Wallpaper updates paused. Tap settings to update your token.',
+      platformDetails,
+    );
+  }
+}
 
 // GITHUB
 class GitHubService {
@@ -571,6 +629,31 @@ class GitHubService {
           jsonDecode(r.body)['data']?['viewer']?['login'] != null;
     } catch (_) {
       return false;
+    }
+  }
+
+  /// Lightweight background check specifically for token expiration detection.
+  /// Throws TokenExpiredException if the token is affirmatively rejected.
+  static Future<void> checkAuthStatus() async {
+    final t = await StorageService.getToken();
+    if (t == null) return;
+    try {
+      final r = await _c
+          .post(Uri.parse(AppConstants.apiUrl),
+              headers: {'Authorization': 'Bearer $t'},
+              body: jsonEncode({'query': 'query{viewer{login}}'}))
+          .timeout(const Duration(seconds: 5));
+          
+      if (r.statusCode == 401 || r.statusCode == 403) {
+        throw TokenExpiredException();
+      } else if (r.statusCode == 200) {
+        if (StorageService.hasAuthError()) {
+          await StorageService.setHasAuthError(false);
+        }
+      }
+    } catch (e) {
+      if (e is TokenExpiredException) rethrow; // Pass it up
+      // Ignore network errors or timeouts during silent check
     }
   }
 
@@ -784,28 +867,36 @@ class WallpaperService {
                 target: target)
             ? RefreshResult.success
             : RefreshResult.noChanges;
-        if (result.isSuccess) {
-          await StorageService.consumePendingWallpaperRefresh();
-          if (isBackground) {
-            await StorageService.setLastBackgroundSync(DateTime.now().toUtc());
-          }
+      if (result.isSuccess) {
+        // Clear auth error if there was one
+        if (StorageService.hasAuthError()) {
+          await StorageService.setHasAuthError(false);
         }
-        return result;
-      } on NetworkException {
-        return RefreshResult.networkError;
-      } on SocketException {
-        return RefreshResult.networkError;
-      } on TokenExpiredException {
-        return RefreshResult.authError;
-      } on AccessDeniedException {
-        return RefreshResult.authError;
-      } on RateLimitException {
-        return RefreshResult.throttled;
-      } catch (e) {
-        return RefreshResult.unknownError;
+        await StorageService.consumePendingWallpaperRefresh();
+        if (isBackground) {
+          await StorageService.setLastBackgroundSync(DateTime.now().toUtc());
+        }
       }
-    });
-  }
+      return result;
+    } on NetworkException {
+      return RefreshResult.networkError;
+    } on SocketException {
+      return RefreshResult.networkError;
+    } on TokenExpiredException {
+      await StorageService.setHasAuthError(true);
+      if (isBackground) await NotificationService.showAuthErrorNotification();
+      return RefreshResult.authError;
+    } on AccessDeniedException {
+      await StorageService.setHasAuthError(true);
+      if (isBackground) await NotificationService.showAuthErrorNotification();
+      return RefreshResult.authError;
+    } on RateLimitException {
+      return RefreshResult.throttled;
+    } catch (e) {
+      return RefreshResult.unknownError;
+    }
+  });
+}
 
   // Connectivity check removed in favor of standard http error handling
 

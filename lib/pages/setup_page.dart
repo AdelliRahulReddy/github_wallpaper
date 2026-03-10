@@ -73,6 +73,7 @@ class _SetupPageState extends State<SetupPage> {
 
       await StorageService.setUsername(username);
       await StorageService.setToken(token);
+      await StorageService.setHasAuthError(false);
 
       // Show consent dialogs before completing onboarding
       if (!mounted) return;

@@ -84,6 +84,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
             _isLoading = false;
           });
           _checkBackgroundSync();
+          unawaited(_silentAuthCheck());
         }
       } else {
         await _syncData(force: true);
@@ -107,6 +108,18 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         AppLog.info('Background sync triggered on load: ${diff.inHours}h since last update');
         _syncData(silent: true, force: true);
       }
+    }
+  }
+
+  Future<void> _silentAuthCheck() async {
+    try {
+      // Very cheap validation to catch tokens revoked while app was closed
+      await GitHubService.checkAuthStatus();
+    } on TokenExpiredException {
+      await StorageService.setHasAuthError(true);
+      if (mounted) setState(() {}); // Trigger rebuild to show banner
+    } catch (_) {
+      // Ignored
     }
   }
 
@@ -139,6 +152,10 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
           _isLoading = false;
         });
 
+        if (StorageService.hasAuthError()) {
+          StorageService.setHasAuthError(false);
+        }
+
         if (!silent) {
           ErrorHandler.showSuccess(context, AppStrings.dataSynced);
         }
@@ -159,6 +176,9 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         }
       }
     } catch (e) {
+      if (e is TokenExpiredException || e is AccessDeniedException) {
+        await StorageService.setHasAuthError(true);
+      }
       if (mounted) {
         if (!silent) {
           setState(() {
@@ -166,6 +186,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
             _isLoading = false;
           });
         } else {
+          // Even if silent, we should trigger a rebuild so the banner appears!
           setState(() => _isLoading = false);
         }
       }

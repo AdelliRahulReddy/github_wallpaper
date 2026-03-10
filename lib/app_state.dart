@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'app_utils.dart';
 
 class PresentationFormatter {
@@ -44,7 +43,6 @@ class ContributionAnalyzer {
 
     final localNow = now.toLocal();
     final todayStr = AppDateUtils.formatDate(localNow);
-    final yesterdayStr = AppDateUtils.formatDate(localNow.subtract(const Duration(days: 1)));
 
     // 2. Identify Current Streak
     int currentStreak = 0;
