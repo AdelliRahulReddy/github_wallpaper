@@ -6,13 +6,14 @@ Display your GitHub contributions as a stunning, auto-updating wallpaper on your
 
 ## ✨ Features
 
-- **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens
-- **🔄 Silent Sync (v1.1)** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
+- **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
+- **🔄 Silent Sync** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
 - **🎨 Deep Customization** – Adjust scale, opacity, positioning, corner radius, and add custom motivational quotes.
 - **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
-- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch stats.
+- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch contribution stats.
 - **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent modern look.
 - **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
+- **⚠️ Token Expiration Alerts (v1.2)** – Proactively detects expired or revoked GitHub tokens. Shows a warning banner on the dashboard, sends a background notification, and lets you update your token directly from Settings — no logout required.
 
 ## 🚀 Getting Started
 
@@ -56,12 +57,16 @@ To fetch your contribution data, GitWall requires a GitHub Personal Access Token
 > [!TIP]
 > [Generate a token automatically](https://github.com/settings/tokens/new?scopes=read:user&description=GitWall) with the required scope pre-selected.
 
+> [!NOTE]
+> If your token expires, the app will show a warning banner on the Dashboard. Go to **Settings → Update GitHub Token** to replace it without losing your preferences.
+
 ## 🛠️ Tech Stack
 
 - **Framework**: [Flutter](https://flutter.dev) (Dart) - *UI Layer*
 - **Native Bridge**: Kotlin (Android WallpaperManager API)
 - **Background Jobs**: [WorkManager](https://pub.dev/packages/workmanager)
 - **Push Messaging**: [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging)
+- **Local Notifications**: [flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications)
 - **API**: [GitHub GraphQL API v4](https://docs.github.com/en/graphql)
 - **Persistence**: 
   - `flutter_secure_storage` (Encrypted tokens)
@@ -74,12 +79,12 @@ To fetch your contribution data, GitWall requires a GitHub Personal Access Token
 lib/
 ├── main.dart              # App entry & service initialization
 ├── app_utils.dart         # Design tokens, AppStrings, & Constants
-├── app_services.dart      # GitHub API, storage, & wallpaper logic
+├── app_services.dart      # GitHub API, storage, wallpaper & notification logic
 ├── ui_render.dart         # Custom painters & wallpaper generators
 ├── app_models.dart        # Type-safe immutable data models
 ├── app_state.dart         # Logic for streaks & trend calculations
 └── pages/                 # UI pages (Dashboard, Customize, Settings)
-``
+```
 
 ## 📜 License
 
