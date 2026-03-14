@@ -13,7 +13,7 @@ Display your GitHub contributions as a stunning, auto-updating wallpaper on your
 - **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch contribution stats.
 - **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent modern look.
 - **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
-- **⚠️ Token Expiration Alerts (v1.2)** – Proactively detects expired or revoked GitHub tokens. Shows a warning banner on the dashboard, sends a background notification, and lets you update your token directly from Settings — no logout required.
+- **⚠️ Token Expiration Alerts (v1.2)** – Proactively detects expired or revoked GitHub tokens. Shows a warning banner on the dashboard, sends a background notification, and lets you update your token directly from Settings — no logout required
 
 ## 🚀 Getting Started
 
