@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:github_wallpaper/app_theme.dart';
-import 'package:github_wallpaper/app_utils.dart';
 import 'package:github_wallpaper/pages/setup_page.dart';
 
 class OnboardingPage extends StatefulWidget {
@@ -102,11 +101,12 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   content: _SyncDemo(accent: accent),
                 ),
                 _Slide(
-                  title: 'Built by\nDeveloper',
-                  subtitle: AppStrings.onboardingDesc3,
+                  title: '100% Private,\n100% Yours',
+                  subtitle:
+                      'Your data never leaves your device. Secure, local, and built for privacy.',
                   isDark: isDark,
                   accent: accent,
-                  content: const _SupportDemo(),
+                  content: const _PrivacyDemo(),
                 ),
               ],
             ),
@@ -119,8 +119,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
                 onPressed: _navigateToSetup,
                 child: Text('Skip',
                     style: TextStyle(
-                        color: (isDark ? AppTheme.darkText : AppTheme.lightText)
-                            .withValues(alpha: 0.6),
+                        color: scheme.onSurface.withValues(alpha: 0.6),
                         fontWeight: FontWeight.w600,
                         fontSize: AppTheme.fontMedium)),
               ),
@@ -309,6 +308,7 @@ class _Slide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return CustomScrollView(
       slivers: [
         SliverFillRemaining(
@@ -323,15 +323,14 @@ class _Slide extends StatelessWidget {
                     style: TextStyle(
                         fontSize: AppTheme.fontDisplay + AppTheme.spacing8,
                         fontWeight: FontWeight.w900,
-                        color: isDark ? AppTheme.darkText : AppTheme.lightText,
+                        color: scheme.onSurface,
                         height: 1.1,
                         letterSpacing: -1.5)),
                 AppTheme.h20,
                 Text(subtitle,
                     style: TextStyle(
                         fontSize: AppTheme.fontLarge,
-                        color: (isDark ? AppTheme.darkText : AppTheme.lightText)
-                            .withValues(alpha: 0.7),
+                        color: scheme.onSurface.withValues(alpha: 0.7),
                         height: 1.5,
                         fontWeight: FontWeight.w500)),
                 AppTheme.h40,
@@ -434,157 +433,58 @@ class _SyncDemo extends StatelessWidget {
   }
 }
 
-// Slide 3: Support Demo
-class _SupportDemo extends StatelessWidget {
-  const _SupportDemo();
+// Slide 3: Privacy Demo
+class _PrivacyDemo extends StatelessWidget {
+  const _PrivacyDemo();
 
   @override
   Widget build(BuildContext context) {
-    final s = Theme.of(context).colorScheme;
+    final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       width: double.infinity,
-      padding: AppTheme.pAll24,
+      padding: AppTheme.pAll32,
       decoration: BoxDecoration(
-        color: s.surface.withValues(alpha: isDark ? 0.45 : 0.95),
+        color: scheme.surface.withValues(alpha: isDark ? 0.45 : 0.95),
         borderRadius: AppTheme.brXL,
-        border: Border.all(color: s.primary.withValues(alpha: 0.15)),
-        boxShadow: AppTheme.shadow(s.primary, opacity: 0.1),
+        border: Border.all(color: scheme.primary.withValues(alpha: 0.15)),
+        boxShadow: AppTheme.shadow(scheme.primary, opacity: 0.1),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Developer Profile Header
-          Row(
-            children: [
-              Container(
-                width: 64,
-                height: 64,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [s.primary, AppTheme.accentViolet],
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                  ),
-                  shape: BoxShape.circle,
-                  boxShadow: AppTheme.shadow(s.primary, opacity: 0.2),
-                ),
-                child: const Center(
-                  child: Text(
-                    "RR",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1,
-                    ),
-                  ),
-                ),
-              ),
-              AppTheme.w20,
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      AppStrings.developerName,
-                      style: TextStyle(
-                        fontSize: AppTheme.fontLarge + 2,
-                        fontWeight: FontWeight.w900,
-                        color: s.onSurface,
-                        letterSpacing: -0.5,
-                      ),
-                    ),
-                    Text(
-                      AppStrings.developerTagline,
-                      style: TextStyle(
-                        fontSize: AppTheme.fontSmall,
-                        fontWeight: FontWeight.w600,
-                        color: s.onSurface.withValues(alpha: 0.6),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Container(
+            padding: AppTheme.pAll24,
+            decoration: BoxDecoration(
+              color: scheme.primary.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.shield_outlined,
+              size: 64,
+              color: scheme.primary,
+            ),
           ),
-          AppTheme.h24,
-          
-          // Contact Items
-          _supportItem(
-            Icons.alternate_email_rounded, 
-            AppStrings.supportEmail, 
-            "Send an email",
-            s
-          ),
-          AppTheme.h12,
-          _supportItem(
-            Icons.star_rounded, 
-            "Rate on Play Store", 
-            "Support the project",
-            s
-          ),
-          
           AppTheme.h24,
           Text(
-            "High-quality development, crafted with ❤️",
+            'Secure & Local',
+            style: TextStyle(
+              fontSize: AppTheme.fontLarge,
+              fontWeight: FontWeight.w800,
+              color: scheme.onSurface,
+            ),
+          ),
+          AppTheme.h8,
+          Text(
+            'Direct GitHub API connection.\nEverything stays on your device.',
             textAlign: TextAlign.center,
             style: TextStyle(
-              fontSize: AppTheme.fontSmall,
-              fontStyle: FontStyle.italic,
-              color: s.onSurface.withValues(alpha: 0.4),
+              fontSize: AppTheme.fontBase,
+              color: scheme.onSurface.withValues(alpha: 0.6),
+              height: 1.4,
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _supportItem(IconData icon, String title, String subtitle, ColorScheme s) {
-    return Container(
-      padding: AppTheme.pAll16,
-      decoration: BoxDecoration(
-        color: s.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: AppTheme.brLarge,
-        border: Border.all(color: s.outline.withValues(alpha: 0.1)),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: AppTheme.pAll8,
-            decoration: BoxDecoration(
-              color: s.primary.withValues(alpha: 0.1),
-              borderRadius: AppTheme.brMedium,
-            ),
-            child: Icon(icon, size: 20, color: s.primary),
-          ),
-          AppTheme.w16,
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: AppTheme.fontMedium,
-                    fontWeight: FontWeight.w700,
-                    color: s.onSurface,
-                  ),
-                ),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    fontSize: AppTheme.fontCaption,
-                    color: s.onSurface.withValues(alpha: 0.5),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Icon(Icons.chevron_right_rounded, size: 20, color: s.onSurface.withValues(alpha: 0.2)),
         ],
       ),
     );

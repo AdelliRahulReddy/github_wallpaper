@@ -40,6 +40,17 @@
             </intent-filter>
         </activity>
 
+        <receiver
+            android:name=".GitWallWidgetProvider"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/gitwall_widget_info"/>
+        </receiver>
+
 
 
         <meta-data

@@ -3,6 +3,7 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:github_wallpaper/app_services.dart';
@@ -17,89 +18,14 @@ import 'package:url_launcher/url_launcher.dart';
 
 class SettingsPage extends StatefulWidget {
   final DateTime? directUpdate;
-  const SettingsPage({super.key, this.directUpdate});
+  final VoidCallback? onRequireSync;
+
+  const SettingsPage({super.key, this.directUpdate, this.onRequireSync});
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
-}
 
-class _SettingsPageState extends State<SettingsPage> {
-  String? _username;
-  bool _autoUpdate = true;
-  bool _crashlyticsConsent = true;
-  bool _includePrivateRepos = true;
-  DateTime? _lastUpdate;
-  String _appVersion = AppStrings.appVersion;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadSettings();
-    _loadAppVersion();
-  }
-
-  void _loadSettings() {
-    setState(() {
-      _username = StorageService.getUsername();
-      _autoUpdate = StorageService.getAutoUpdate();
-      _crashlyticsConsent = StorageService.getCrashlyticsConsent();
-      _includePrivateRepos = StorageService.getIncludePrivateRepos();
-     final lastUpdate = StorageService.getEffectiveLastSync();
-    _lastUpdate = lastUpdate;
-    });
-  }
-
-  Future<void> _loadAppVersion() async {
-    try {
-      final info = await PackageInfo.fromPlatform();
-      if (mounted) setState(() => _appVersion = info.version);
-    } catch (_) {
-      // Fallback to hardcoded version
-    }
-  }
-
-  Future<void> _handleLogout() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(AppStrings.logoutConfirmTitle),
-        content: Text(
-            AppStrings.logoutConfirmMessage),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
-            child: Text(AppStrings.logout),
-          ),
-        ],
-      ),
-    );
-
-    if (confirmed == true) {
-      if (!mounted) return;
-
-      // Ensure background update lifecycle is fully torn down on logout.
-      await StorageService.setAutoUpdate(false);
-      await FcmService.syncTopicSubscription();
-      await BackgroundScheduler.cancelUpdates();
-      await StorageService.setHasAuthError(false);
-      await StorageService.logout();
-
-      if (!mounted) return;
-
-      // Clear entire navigation stack so user can't go back
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const OnboardingPage()),
-        (route) => false,
-      );
-    }
-  }
-
-  Future<void> _handleUpdateToken() async {
+  static Future<bool> showUpdateTokenDialog(BuildContext context) async {
     final tokenController = TextEditingController();
     bool tokenVisible = false;
     bool isLoading = false;
@@ -200,8 +126,97 @@ class _SettingsPageState extends State<SettingsPage> {
       },
     );
 
-    // Dialog is now fully closed — safe to update the outer widget tree
     tokenController.dispose();
+    return saved;
+  }
+}
+
+class _SettingsPageState extends State<SettingsPage> {
+  String? _username;
+  bool _autoUpdate = true;
+  bool _crashlyticsConsent = true;
+  bool _includePrivateRepos = true;
+  bool _streakRemindersEnabled = false;
+  int _streakGoalDays = 30;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 20, minute: 0);
+  DateTime? _lastUpdate;
+  String _appVersion = AppStrings.appVersion;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSettings();
+    _loadAppVersion();
+  }
+
+  void _loadSettings() {
+    setState(() {
+      _username = StorageService.getUsername();
+      _autoUpdate = StorageService.getAutoUpdate();
+      _crashlyticsConsent = StorageService.getCrashlyticsConsent();
+      _includePrivateRepos = StorageService.getIncludePrivateRepos();
+      _streakGoalDays = StorageService.getStreakGoalDays();
+      _streakRemindersEnabled = StorageService.getStreakReminderEnabled();
+      _reminderTime = StorageService.getStreakReminderTime();
+     final lastUpdate = StorageService.getEffectiveLastSync();
+    _lastUpdate = lastUpdate;
+    });
+  }
+
+  Future<void> _loadAppVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (mounted) setState(() => _appVersion = info.version);
+    } catch (_) {
+      // Fallback to hardcoded version
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(AppStrings.logoutConfirmTitle),
+        content: Text(
+            AppStrings.logoutConfirmMessage),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: TextButton.styleFrom(foregroundColor: AppTheme.errorRed),
+            child: Text(AppStrings.logout),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      if (!mounted) return;
+
+      // Ensure background update lifecycle is fully torn down on logout.
+      await StorageService.setAutoUpdate(false);
+      await FcmService.syncTopicSubscription();
+      await BackgroundScheduler.cancelUpdates();
+      await BackgroundScheduler.cancelStreakReminders();
+      await StorageService.setHasAuthError(false);
+      await StorageService.logout();
+
+      if (!mounted) return;
+
+      // Clear entire navigation stack so user can't go back
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const OnboardingPage()),
+        (route) => false,
+      );
+    }
+  }
+
+
+  Future<void> _handleUpdateToken() async {
+    final saved = await SettingsPage.showUpdateTokenDialog(context);
     if (saved && mounted) {
       setState(() {}); // Re-read hasAuthError → banner disappears
       ScaffoldMessenger.of(context).showSnackBar(
@@ -249,7 +264,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final scheme = Theme.of(context).colorScheme;
     final lastEffectiveUpdate = widget.directUpdate ?? _lastUpdate;
     return SingleChildScrollView(
-      padding: AppTheme.pAll20,
+      padding: AppTheme.pagePadding(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -416,6 +431,7 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: AppStrings.autoUpdateSubtitle,
             value: _autoUpdate,
             onChanged: (value) async {
+              HapticFeedback.selectionClick();
               await StorageService.setAutoUpdate(value);
               await FcmService.syncTopicSubscription();
 
@@ -449,6 +465,7 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: AppStrings.crashReportingSubtitle,
             value: _crashlyticsConsent,
             onChanged: (value) async {
+              HapticFeedback.selectionClick();
               await StorageService.setCrashlyticsConsent(value);
               await FirebaseCrashlytics.instance
                   .setCrashlyticsCollectionEnabled(!kDebugMode && value);
@@ -475,11 +492,10 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: AppStrings.includePrivateReposSubtitle,
             value: _includePrivateRepos,
             onChanged: (value) async {
+              HapticFeedback.selectionClick();
               await StorageService.setIncludePrivateRepos(value);
-              if (!value) {
-                // Clear encrypted cache when disabled
-                await StorageService.clearCache();
-              }
+              // Trigger sync to adjust data representation right away
+              widget.onRequireSync?.call();
               if (mounted) {
                 setState(() => _includePrivateRepos = value);
                 ScaffoldMessenger.of(context).showSnackBar(
@@ -492,9 +508,111 @@ class _SettingsPageState extends State<SettingsPage> {
               }
             },
           ),
+          AppTheme.h16,
+          const Divider(),
+          AppTheme.h16,
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: scheme.primary.withValues(alpha: 0.12),
+                  borderRadius: AppTheme.brSmall,
+                  border: Border.all(color: scheme.primary.withValues(alpha: 0.2)),
+                ),
+                child: Icon(Icons.flag_rounded, color: scheme.primary, size: 20),
+              ),
+              AppTheme.w16,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      AppStrings.streakGoal,
+                      style: TextStyle(
+                        fontSize: AppTheme.fontMedium,
+                        fontWeight: FontWeight.w800,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    AppTheme.h2,
+                    Text(
+                      AppStrings.streakGoalSubtitle,
+                      style: TextStyle(
+                        fontSize: AppTheme.fontBody,
+                        color: scheme.onSurface.withValues(alpha: 0.72),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              DropdownButton<int>(
+                value: _streakGoalDays,
+                items: const [
+                  DropdownMenuItem(value: 7, child: Text('7d')),
+                  DropdownMenuItem(value: 14, child: Text('14d')),
+                  DropdownMenuItem(value: 30, child: Text('30d')),
+                  DropdownMenuItem(value: 60, child: Text('60d')),
+                  DropdownMenuItem(value: 100, child: Text('100d')),
+                ],
+                onChanged: (v) async {
+                  if (v == null) return;
+                  HapticFeedback.selectionClick();
+                  await StorageService.setStreakGoalDays(v);
+                  if (mounted) setState(() => _streakGoalDays = v);
+                },
+              ),
+            ],
+          ),
+          AppTheme.h16,
+          _buildToggleRow(
+            icon: Icons.notifications_active_outlined,
+            iconColor: AppTheme.warningOrange,
+            title: AppStrings.streakReminders,
+            subtitle: AppStrings.streakRemindersSubtitle,
+            value: _streakRemindersEnabled,
+            onChanged: (value) async {
+              HapticFeedback.selectionClick();
+              await StorageService.setStreakReminderEnabled(value);
+              if (value) {
+                await _requestNotificationPermission();
+                await BackgroundScheduler.scheduleStreakReminders();
+              } else {
+                await BackgroundScheduler.cancelStreakReminders();
+              }
+              if (mounted) setState(() => _streakRemindersEnabled = value);
+            },
+          ),
+          AppTheme.h16,
+          _buildSettingButton(
+            icon: Icons.schedule_rounded,
+            iconColor: scheme.secondary,
+            title: AppStrings.reminderTime,
+            subtitle:
+                '${AppStrings.reminderTimeSubtitle}: ${_reminderTime.format(context)}',
+            onTap: !_streakRemindersEnabled
+                ? null
+                : () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: _reminderTime,
+                    );
+                    if (picked == null) return;
+                    HapticFeedback.selectionClick();
+                    await StorageService.setStreakReminderTime(
+                        hour: picked.hour, minute: picked.minute);
+                    if (mounted) setState(() => _reminderTime = picked);
+                  },
+          ),
         ],
       ),
     );
+  }
+
+  Future<void> _requestNotificationPermission() async {
+    await NotificationService.requestPermissions();
   }
 
   Widget _buildToggleRow({
@@ -691,7 +809,10 @@ class _SettingsPageState extends State<SettingsPage> {
   }) {
     final scheme = Theme.of(context).colorScheme;
     return InkWell(
-      onTap: onTap,
+      onTap: onTap != null ? () {
+        HapticFeedback.lightImpact();
+        onTap();
+      } : null,
       borderRadius: AppTheme.brSmall,
       child: Padding(
         padding: AppTheme.pSymV8,

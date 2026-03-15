@@ -5,13 +5,14 @@
 // This service manages WorkManager scheduling for guaranteed background updates.
 // Works even when app is closed, battery restricted, or after device reboot.
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:workmanager/workmanager.dart';
 import 'app_services.dart';
 import 'app_utils.dart';
 
 /// Unique task identifier for WorkManager
 const String _taskName = "wallpaper-auto-update";
+const String _streakReminderTaskName = "streak-reminder-check";
 
 /// Background callback dispatcher
 /// This runs in a separate isolate when WorkManager triggers the task
@@ -19,14 +20,44 @@ const String _taskName = "wallpaper-auto-update";
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     try {
-      // CRITICAL: Initialize StorageService for background isolate
+      // CRITICAL: Initialize Flutter binding and StorageService for background isolate
       // Background tasks run in separate isolate without main app context
+      WidgetsFlutterBinding.ensureInitialized();
       await StorageService.init();
+
+      if (task == _streakReminderTaskName) {
+        final enabled = StorageService.getStreakReminderEnabled();
+        if (!enabled) return true;
+
+        final t = StorageService.getStreakReminderTime();
+        final now = DateTime.now();
+        final windowStart =
+            DateTime(now.year, now.month, now.day, t.hour, t.minute);
+        final windowEnd = windowStart.add(const Duration(minutes: 70));
+        if (now.isBefore(windowStart) || now.isAfter(windowEnd)) return true;
+
+        final dayKey = AppDateUtils.formatDate(now.toUtc());
+        if (StorageService.getStreakReminderLastSentDay() == dayKey) return true;
+
+        final cached = StorageService.getCachedData();
+        if (cached == null) return true;
+
+        final todayCommits = cached.getContributionsForDate(DateTime.now().toUtc());
+        if (todayCommits > 0) return true;
+
+        await NotificationService.showStreakReminderNotification(
+          goalDays: StorageService.getStreakGoalDays(),
+          currentStreak: cached.currentStreak,
+        );
+        await StorageService.setStreakReminderLastSentDay(dayKey);
+        AppLog.info('Streak reminder sent');
+        return true;
+      }
 
       AppLog.info('Background update triggered by WorkManager');
 
-      // DEDUPLICATION: Check if update was recently completed by FCM
-      final lastUpdate = StorageService.getLastSuccessfulUpdate();
+      // DEDUPLICATION: Check if update was recently completed by FCM or manual refresh
+      final lastUpdate = StorageService.getEffectiveLastSync();
       if (lastUpdate != null) {
         final timeSinceUpdate = DateTime.now().toUtc().difference(lastUpdate.toUtc());
         final cooldownMinutes =
@@ -34,7 +65,7 @@ void callbackDispatcher() {
 
         if (timeSinceUpdate.inMinutes < cooldownMinutes) {
           AppLog.info(
-              'Skipping WorkManager update - FCM already updated ${timeSinceUpdate.inMinutes} min ago (cooldown: $cooldownMinutes min)');
+              'Skipping WorkManager update - recently updated ${timeSinceUpdate.inMinutes} min ago (cooldown: $cooldownMinutes min)');
           return true; // Not an error, just skipping
         }
       }
@@ -120,6 +151,43 @@ class BackgroundScheduler {
           'Background updates scheduled (every ${AppConstants.autoUpdateIntervalMinutes} minutes)');
     } catch (e, s) {
       AppLog.error('Failed to schedule background updates: $e', s);
+    }
+  }
+
+  static Future<void> scheduleStreakReminders() async {
+    if (!_initialized) {
+      await initialize();
+    }
+    try {
+      await Workmanager().registerPeriodicTask(
+        _streakReminderTaskName,
+        _streakReminderTaskName,
+        frequency: Duration(minutes: AppConstants.autoUpdateIntervalMinutes),
+        constraints: Constraints(
+          networkType: NetworkType.not_required,
+          requiresBatteryNotLow: false,
+          requiresCharging: false,
+          requiresDeviceIdle: false,
+        ),
+        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+        backoffPolicy: BackoffPolicy.exponential,
+        backoffPolicyDelay: const Duration(minutes: 15),
+      );
+      AppLog.info('Streak reminders scheduled');
+    } catch (e, s) {
+      AppLog.error('Failed to schedule streak reminders: $e', s);
+    }
+  }
+
+  static Future<void> cancelStreakReminders() async {
+    if (!_initialized) {
+      await initialize();
+    }
+    try {
+      await Workmanager().cancelByUniqueName(_streakReminderTaskName);
+      AppLog.info('Streak reminders cancelled');
+    } catch (e, s) {
+      AppLog.error('Failed to cancel streak reminders: $e', s);
     }
   }
 

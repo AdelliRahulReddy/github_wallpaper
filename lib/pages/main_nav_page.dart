@@ -1,6 +1,8 @@
-import 'dart:async';
+﻿import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:confetti/confetti.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_models.dart';
 import 'package:github_wallpaper/app_utils.dart';
@@ -9,6 +11,7 @@ import 'package:github_wallpaper/app_theme.dart';
 import 'home_page.dart';
 import 'customize_page.dart';
 import 'settings_page.dart';
+import 'onboarding_page.dart';
 
 class MainNavPage extends StatefulWidget {
   const MainNavPage({super.key});
@@ -23,10 +26,12 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
   bool _isLoading = false;
   String? _loadError;
   late final VoidCallback _requestSyncFromCustomize;
+  late final ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     WidgetsBinding.instance.addObserver(this);
     _requestSyncFromCustomize = () {
       _onItemTapped(0);
@@ -37,6 +42,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _confettiController.dispose();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -53,7 +59,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     if (!mounted) return;
 
     if (!StorageService.getAutoUpdate()) return;
-    final lastUpdate = StorageService.getLastUpdate();
+    final lastUpdate = StorageService.getEffectiveLastSync();
     if (lastUpdate != null) {
       final diff = DateTime.now().toUtc().difference(lastUpdate.toUtc());
       if (diff.inMinutes > AppConstants.resumeSyncThresholdMinutes) {
@@ -101,7 +107,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
 
   void _checkBackgroundSync() {
     if (!StorageService.getAutoUpdate()) return;
-    final lastUpdate = StorageService.getLastUpdate();
+    final lastUpdate = StorageService.getEffectiveLastSync();
     if (lastUpdate != null) {
       final diff = DateTime.now().toUtc().difference(lastUpdate.toUtc());
       if (diff.inHours >= AppConstants.backgroundSyncThresholdHours) {
@@ -118,9 +124,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     } on TokenExpiredException {
       await StorageService.setHasAuthError(true);
       if (mounted) setState(() {}); // Trigger rebuild to show banner
-    } catch (_) {
-      // Ignored
-    }
+    } catch (_) {}
   }
 
   Future<void> _syncData({bool silent = false, bool force = false}) async {
@@ -137,7 +141,15 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
       final token = await StorageService.getToken();
 
       if (username == null || token == null) {
-        throw Exception(AppStrings.credentialsMissing);
+        // Handle corrupted storage or missing credentials
+        await StorageService.logout();
+        if (mounted) {
+          Navigator.of(context).pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => const OnboardingPage()),
+            (route) => false,
+          );
+        }
+        return;
       }
 
       final newData = await GitHubService.getContributions(
@@ -227,6 +239,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         } else {
           ErrorHandler.showSuccess(context, AppStrings.wallpaperGenerated);
         }
+        _confettiController.play();
       }
       return didApply;
     } catch (e) {
@@ -236,6 +249,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
   }
 
   void _onItemTapped(int index) {
+    HapticFeedback.selectionClick();
     setState(() => _selectedIndex = index);
   }
 
@@ -253,12 +267,30 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
           data: _data,
           onSetWallpaper: _handleSetWallpaper,
           onRequestSync: _requestSyncFromCustomize),
-      SettingsPage(directUpdate: _data?.lastUpdated),
+      SettingsPage(
+          directUpdate: _data?.lastUpdated,
+          onRequireSync: () => _syncData(silent: false, force: true)),
     ];
 
     return Scaffold(
-      body: SafeArea(
-          child: IndexedStack(index: _selectedIndex, children: screens)),
+      body: Stack(
+        children: [
+          SafeArea(child: IndexedStack(index: _selectedIndex, children: screens)),
+          Align(
+            alignment: Alignment.topCenter,
+            child: ConfettiWidget(
+              confettiController: _confettiController,
+              blastDirectionality: BlastDirectionality.explosive,
+              emissionFrequency: 0.05,
+              numberOfParticles: 30,
+              maxBlastForce: 25,
+              minBlastForce: 10,
+              gravity: 0.2,
+              colors: [cs.primary, cs.secondary, cs.tertiary, AppTheme.successGreen],
+            ),
+          ),
+        ],
+      ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _selectedIndex,
         onDestinationSelected: _onItemTapped,

@@ -3,13 +3,20 @@
 // ══════════════════════════════════════════════════════════════════════════
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:sensors_plus/sensors_plus.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/ui_render.dart';
 import 'package:github_wallpaper/app_models.dart';
 import 'package:github_wallpaper/app_theme.dart';
 import 'package:github_wallpaper/app_utils.dart';
 import 'package:device_info_plus/device_info_plus.dart';
+import 'package:github_wallpaper/theme_presets.dart';
+import 'package:github_wallpaper/daily_quotes.dart';
+import 'package:github_wallpaper/wallpaper_templates.dart';
+import 'dart:async';
 import 'dart:io';
+import 'dart:math' as math;
 
 class CustomizePage extends StatefulWidget {
   final CachedContributionData? data;
@@ -32,8 +39,12 @@ class _CustomizePageState extends State<CustomizePage> {
   late TextEditingController _quoteController;
   bool _isGenerating = false;
   String _deviceName = AppStrings.loading;
-  // Fixed to lock screen layout; preview uses MonthHeatmapRenderer for all targets
   static const WallpaperTarget _previewTarget = WallpaperTarget.lock;
+
+  // Parallax tilt
+  double _tiltX = 0.0;
+  double _tiltY = 0.0;
+  StreamSubscription<AccelerometerEvent>? _accelSub;
 
   @override
   void initState() {
@@ -41,10 +52,27 @@ class _CustomizePageState extends State<CustomizePage> {
     _config = StorageService.getWallpaperConfig();
     _quoteController = TextEditingController(text: _config.customQuote);
     _loadDeviceInfo();
+    _startParallax();
+  }
+
+  void _startParallax() {
+    try {
+      _accelSub = accelerometerEventStream().listen((e) {
+        if (!mounted) return;
+        setState(() {
+          // Clamp to ±4° for subtlety
+          _tiltX = (e.y / 9.8).clamp(-1.0, 1.0) * 4.0;
+          _tiltY = (e.x / 9.8).clamp(-1.0, 1.0) * (-4.0);
+        });
+      });
+    } catch (_) {
+      // Sensor not available – fine, no parallax
+    }
   }
 
   @override
   void dispose() {
+    _accelSub?.cancel();
     _quoteController.dispose();
     super.dispose();
   }
@@ -197,7 +225,7 @@ class _CustomizePageState extends State<CustomizePage> {
 
     final previewPanel = Container(
       width: double.infinity,
-      padding: AppTheme.pSymH20V12,
+      padding: AppTheme.pagePadding(context).copyWith(top: 12, bottom: 12),
       decoration: BoxDecoration(
         color: scheme.surface,
         border: Border(
@@ -220,16 +248,33 @@ class _CustomizePageState extends State<CustomizePage> {
         top: false,
         child: SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
-          padding: AppTheme.pAll20,
+          padding: AppTheme.pagePadding(context),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               AppSectionHeader(
                 title: AppStrings.customize,
                 subtitle: _deviceName,
-                trailing: Icon(Icons.wallpaper_rounded, color: scheme.primary),
+                trailing: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      icon: const Icon(Icons.restore_rounded),
+                      tooltip: 'Reset to Defaults',
+                      onPressed: () {
+                        HapticFeedback.lightImpact();
+                        _updateConfig(WallpaperConfig.defaults());
+                      },
+                    ),
+                    Icon(Icons.wallpaper_rounded, color: scheme.primary),
+                  ],
+                ),
               ),
               AppTheme.h16,
+              _buildTemplatePicker(),
+              AppTheme.h12,
+              _buildThemePicker(),
+              AppTheme.h12,
               // Theme toggle removed
               AppCard(
                 padding: AppTheme.pAll16,
@@ -380,41 +425,51 @@ class _CustomizePageState extends State<CustomizePage> {
                 label:
                     'Wallpaper preview for $_deviceName. Resolution $physicalWidth by $physicalHeight pixels.',
                 image: true,
-                child: Container(
-                  height: previewHeight,
-                  width: previewWidth,
-                  decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest,
-                    borderRadius: AppTheme.brLarge,
-                    boxShadow: AppTheme.shadow(scheme.shadow),
-                    border: Border.all(color: scheme.outline, width: 1),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: AppTheme.brLarge,
-                    child: Stack(
-                      children: [
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: WallpaperPreviewPainter(
-                              data: widget.data!,
-                              wallpaperWidth: wallpaperWidth,
-                              wallpaperHeight: wallpaperHeight,
-                              target: _previewTarget,
-                              config: DeviceCompatibilityChecker.applyPlacement(
-                                base: _config,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 120),
+                  curve: Curves.easeOut,
+                  transform: Matrix4.identity()
+                    ..setEntry(3, 2, 0.001) // perspective
+                    ..rotateX(math.pi / 180 * _tiltX)
+                    ..rotateY(math.pi / 180 * _tiltY),
+                  transformAlignment: Alignment.center,
+                  child: Container(
+                    height: previewHeight,
+                    width: previewWidth,
+                    decoration: BoxDecoration(
+                      color: scheme.surfaceContainerHighest,
+                      borderRadius: AppTheme.brLarge,
+                      boxShadow: AppTheme.shadow(scheme.shadow),
+                      border: Border.all(color: scheme.outline, width: 1),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: AppTheme.brLarge,
+                      child: Stack(
+                        children: [
+                          RepaintBoundary(
+                            child: CustomPaint(
+                              painter: WallpaperPreviewPainter(
+                                data: widget.data!,
+                                wallpaperWidth: wallpaperWidth,
+                                wallpaperHeight: wallpaperHeight,
                                 target: _previewTarget,
+                                config: DeviceCompatibilityChecker.applyPlacement(
+                                  base: _config,
+                                  target: _previewTarget,
+                                ),
                               ),
+                              child: Container(),
                             ),
-                            child: Container(),
                           ),
-                        ),
-                        // Visual Guide for System UI
-                        _buildSystemUiGuides(previewHeight / wallpaperHeight),
-                      ],
+                          // Visual Guide for System UI
+                          _buildSystemUiGuides(previewHeight / wallpaperHeight),
+                        ],
+                      ),
                     ),
                   ),
                 ),
               ),
+
               AppTheme.h8,
               Text(
                 '${AppStrings.previewFor} $_deviceName',
@@ -445,7 +500,210 @@ class _CustomizePageState extends State<CustomizePage> {
   // THEME SECTION
   // ══════════════════════════════════════════════════════════════════════
 
-// Theme section removed; app currently uses a light-only runtime theme.
+  Widget _buildThemePicker() {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: AppTheme.pagePadding(context),
+      decoration: AppTheme.glassCard(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '🎨  Heatmap Theme',
+            style: TextStyle(
+              fontSize: AppTheme.fontBase,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
+          ),
+          AppTheme.h4,
+          Text(
+            'Choose a colour palette for your wallpaper heatmap',
+            style: TextStyle(
+              fontSize: AppTheme.fontCaption,
+              color: scheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          AppTheme.h12,
+          SizedBox(
+            height: 80,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: ThemePresets.all.length,
+              separatorBuilder: (_, __) => AppTheme.w8,
+              itemBuilder: (context, index) {
+                final t = ThemePresets.all[index];
+                final isSelected = _config.themeId == t.id;
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    _updateConfig(_config.copyWith(themeId: t.id));
+                  },
+                  child: AnimatedContainer(
+                    duration: AppTheme.durationFast,
+                    width: 72,
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      borderRadius: AppTheme.brMedium,
+                      border: Border.all(
+                        color: isSelected ? scheme.primary : scheme.outline.withValues(alpha: 0.4),
+                        width: isSelected ? 2 : 1,
+                      ),
+                      color: isSelected
+                          ? scheme.primary.withValues(alpha: 0.08)
+                          : scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    ),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        // 5-cell colour swatch preview
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            for (int lvl = 0; lvl < t.levels.length; lvl++)
+                              Container(
+                                width: 9, height: 9,
+                                margin: const EdgeInsets.only(right: 2),
+                                decoration: BoxDecoration(
+                                  color: t.levels[lvl],
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
+                              ),
+                          ],
+                        ),
+                        AppTheme.h6,
+                        Text(
+                          '${t.emoji} ${t.label}',
+                          style: TextStyle(
+                            fontSize: 9,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                            color: isSelected ? scheme.primary : scheme.onSurface.withValues(alpha: 0.75),
+                          ),
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTemplatePicker() {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      padding: AppTheme.pagePadding(context),
+      decoration: AppTheme.glassCard(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '✨  Templates',
+            style: TextStyle(
+              fontSize: AppTheme.fontBase,
+              fontWeight: FontWeight.w700,
+              color: scheme.onSurface,
+            ),
+          ),
+          AppTheme.h4,
+          Text(
+            'Apply a 1-tap layout preset',
+            style: TextStyle(
+              fontSize: AppTheme.fontCaption,
+              color: scheme.onSurface.withValues(alpha: 0.6),
+            ),
+          ),
+          AppTheme.h12,
+          SizedBox(
+            height: 92,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: WallpaperTemplates.all.length,
+              separatorBuilder: (_, __) => AppTheme.w8,
+              itemBuilder: (context, index) {
+                final t = WallpaperTemplates.all[index];
+                return GestureDetector(
+                  onTap: () {
+                    HapticFeedback.selectionClick();
+                    final next = t.apply(_config);
+                    _updateConfig(next);
+                    _quoteController.text = next.customQuote;
+                    if (next.autoFitWidth) _fitToWidth();
+                  },
+                  child: Container(
+                    width: 170,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      borderRadius: AppTheme.brMedium,
+                      border: Border.all(
+                        color: scheme.outline.withValues(alpha: 0.4),
+                        width: 1,
+                      ),
+                      color: scheme.surfaceContainerHighest.withValues(alpha: 0.5),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '${t.emoji} ${t.label}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w800,
+                            color: scheme.onSurface,
+                          ),
+                        ),
+                        AppTheme.h6,
+                        Text(
+                          t.description,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: AppTheme.fontCaption,
+                            fontWeight: FontWeight.w600,
+                            color: scheme.onSurface.withValues(alpha: 0.7),
+                            height: 1.25,
+                          ),
+                        ),
+                        const Spacer(),
+                        Row(
+                          children: [
+                            Container(
+                              width: 10,
+                              height: 10,
+                              decoration: BoxDecoration(
+                                color: ThemePresets.fromId(t.apply(_config).themeId).levels[4],
+                                borderRadius: BorderRadius.circular(3),
+                              ),
+                            ),
+                            AppTheme.w6,
+                            Text(
+                              'Tap to apply',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: scheme.primary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   // ══════════════════════════════════════════════════════════════════════
   // CUSTOMIZATION SECTION
@@ -454,7 +712,7 @@ class _CustomizePageState extends State<CustomizePage> {
   Widget _buildCustomizationSection() {
     final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: AppTheme.pAll20,
+      padding: AppTheme.pagePadding(context),
       decoration: AppTheme.glassCard(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -476,6 +734,7 @@ class _CustomizePageState extends State<CustomizePage> {
                 value: _config.autoFitWidth,
                 activeThumbColor: scheme.primary,
                 onChanged: (value) {
+                  HapticFeedback.selectionClick();
                   _updateConfig(_config.copyWith(autoFitWidth: value));
                 },
               ),
@@ -484,7 +743,10 @@ class _CustomizePageState extends State<CustomizePage> {
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
-              onPressed: _fitToWidth,
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                _fitToWidth();
+              },
               icon: const Icon(Icons.fit_screen, size: 16),
               label: const Text(
                 AppStrings.autoFixDevice,
@@ -518,7 +780,28 @@ class _CustomizePageState extends State<CustomizePage> {
               _updateConfig(_config.copyWith(customQuote: value));
             },
           ),
-          AppTheme.h12,
+          AppTheme.h8,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () {
+                HapticFeedback.lightImpact();
+                final quote = DailyQuoteService.today();
+                _quoteController.text = quote;
+                _updateConfig(_config.copyWith(customQuote: quote));
+              },
+              icon: const Icon(Icons.auto_awesome, size: 16),
+              label: const Text(
+                "Use Today's Quote",
+                style: TextStyle(fontSize: AppTheme.fontBody),
+              ),
+              style: TextButton.styleFrom(
+                padding: AppTheme.pZero,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ),
+          AppTheme.h4,
           if (_config.customQuote.isNotEmpty) ...[
             _buildSlider(
               label: AppStrings.quoteSize,
@@ -689,7 +972,10 @@ class _CustomizePageState extends State<CustomizePage> {
             min: min,
             max: max,
             divisions: divisions,
-            onChanged: onChanged,
+            onChanged: (double val) {
+              HapticFeedback.selectionClick();
+              onChanged(val);
+            },
           ),
         ),
       ],
@@ -709,7 +995,10 @@ class _CustomizePageState extends State<CustomizePage> {
         enabled: !_isGenerating,
         label: 'Apply wallpaper',
         child: ElevatedButton(
-          onPressed: _isGenerating ? null : _saveAndApply,
+          onPressed: _isGenerating ? null : () {
+            HapticFeedback.heavyImpact();
+            _saveAndApply();
+          },
           child: _isGenerating
               ? SizedBox(
                   width: 24,

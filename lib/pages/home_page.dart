@@ -4,13 +4,18 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_models.dart';
 import 'package:github_wallpaper/app_theme.dart';
 import 'package:github_wallpaper/app_utils.dart';
 import 'package:github_wallpaper/app_state.dart';
 import 'package:github_wallpaper/ui_render.dart';
+import 'package:github_wallpaper/pages/settings_page.dart';
+import 'package:github_wallpaper/share_card.dart';
+import 'package:github_wallpaper/share_utils.dart';
 import 'package:intl/intl.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
 class HomePage extends StatefulWidget {
   final CachedContributionData? data;
@@ -36,6 +41,7 @@ class _HomePageState extends State<HomePage> {
   TrendSummary _trend7d = const TrendSummary(current: 0, previous: 0);
   TrendSummary _trend30d = const TrendSummary(current: 0, previous: 0);
   late final bool _showFirstLoginGreeting;
+  bool _isSharing = false;
 
   @override
   void initState() {
@@ -201,7 +207,7 @@ class _HomePageState extends State<HomePage> {
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
+                          color: scheme.onSurface.withValues(alpha: 0.05),
                           blurRadius: 10,
                           offset: const Offset(0, 4),
                         ),
@@ -234,26 +240,21 @@ class _HomePageState extends State<HomePage> {
                 : null,
           ),
           SliverPadding(
-            padding: AppTheme.pLTRB20_16_20_32,
+            padding: AppTheme.pagePaddingTop(context),
             sliver: SliverList(
               delegate: SliverChildListDelegate(
                 [
                   if (StorageService.hasAuthError()) ...[
                     GestureDetector(
-                      onTap: () {
-                        // Normally we'd navigate to settings here.
-                        // For now we'll rely on the main nav to switch tabs.
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: const Text('Please update your GitHub token in Settings.'),
-                            backgroundColor: scheme.error,
-                            behavior: SnackBarBehavior.floating,
-                          ),
-                        );
+                      onTap: () async {
+                        final updated = await SettingsPage.showUpdateTokenDialog(context);
+                        if (updated) {
+                           widget.onRefresh();
+                        }
                       },
                       child: Container(
                         padding: AppTheme.pAll16,
-                        margin: const EdgeInsets.only(bottom: 16),
+                        margin: AppTheme.pOnlyB16,
                         decoration: BoxDecoration(
                           color: scheme.errorContainer,
                           borderRadius: AppTheme.brMedium,
@@ -275,7 +276,7 @@ class _HomePageState extends State<HomePage> {
                                       fontSize: AppTheme.fontBody,
                                     ),
                                   ),
-                                  const SizedBox(height: 2),
+                                  AppTheme.h2,
                                   Text(
                                     'Wallpaper updates are paused. Tap Settings to update your GitHub token.',
                                     style: TextStyle(
@@ -355,7 +356,7 @@ class _HomePageState extends State<HomePage> {
                     _buildLanguagesSection(data),
                     AppTheme.h20,
                     _buildActivityInsights(data),
-                  ],
+                  ].animate(interval: 50.ms).fade(duration: 400.ms, curve: Curves.easeOut).slideY(begin: 0.05, curve: Curves.easeOut),
                 ],
               ),
             ),
@@ -383,10 +384,21 @@ class _HomePageState extends State<HomePage> {
           child: AppSectionHeader(
             title: AppStrings.overview,
             subtitle: updated,
-            trailing: IconButton.filledTonal(
-              onPressed: widget.isLoading ? null : widget.onRefresh,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              visualDensity: VisualDensity.compact,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton.filledTonal(
+                  onPressed: widget.isLoading ? null : widget.onRefresh,
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  visualDensity: VisualDensity.compact,
+                ),
+                AppTheme.w8,
+                IconButton.filledTonal(
+                  onPressed: _isSharing ? null : () => _openShareSheet(data, trend7d, trend30d),
+                  icon: const Icon(Icons.ios_share_rounded, size: 18),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
             ),
           ),
         ),
@@ -468,6 +480,104 @@ class _HomePageState extends State<HomePage> {
           },
         ),
       ],
+    );
+  }
+
+  Future<void> _openShareSheet(
+    CachedContributionData data,
+    TrendSummary trend7d,
+    TrendSummary trend30d,
+  ) async {
+    final boundaryKey = GlobalKey();
+    final scheme = Theme.of(context).colorScheme;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: scheme.surface,
+      shape: RoundedRectangleBorder(borderRadius: AppTheme.brVertLarge),
+      isScrollControlled: true,
+      builder: (ctx) {
+        final cs = Theme.of(ctx).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: AppTheme.pAll20,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 42,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: cs.outline.withValues(alpha: 0.4),
+                    borderRadius: AppTheme.brXXL,
+                  ),
+                ),
+                AppTheme.h16,
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        'Share',
+                        style: TextStyle(
+                          fontSize: AppTheme.fontTitle,
+                          fontWeight: FontWeight.w900,
+                          color: cs.onSurface,
+                        ),
+                      ),
+                    ),
+                    TextButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Close'),
+                    ),
+                  ],
+                ),
+                AppTheme.h12,
+                RepaintBoundary(
+                  key: boundaryKey,
+                  child: ShareCard(
+                    data: data,
+                    trend7d: trend7d,
+                    trend30d: trend30d,
+                  ),
+                ),
+                AppTheme.h16,
+                SizedBox(
+                  width: double.infinity,
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: _isSharing
+                        ? null
+                        : () async {
+                            try {
+                              if (mounted) setState(() => _isSharing = true);
+                              final bytes =
+                                  await ShareUtils.capturePng(boundaryKey);
+                              final path = await ShareUtils.savePngBytes(bytes,
+                                  prefix: 'gitwall_stats');
+                              final box = ctx.findRenderObject() as RenderBox?;
+                              final origin = box == null
+                                  ? null
+                                  : box.localToGlobal(Offset.zero) & box.size;
+                              await ShareUtils.sharePngFile(
+                                path,
+                                text: 'My GitWall stats',
+                                sharePositionOrigin: origin,
+                              );
+                            } catch (e) {
+                              if (ctx.mounted) ErrorHandler.handle(ctx, e);
+                            } finally {
+                              if (mounted) setState(() => _isSharing = false);
+                            }
+                          },
+                    icon: const Icon(Icons.share_rounded, size: 18),
+                    label: const Text('Share Image'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -561,20 +671,41 @@ class _HomePageState extends State<HomePage> {
               AppTheme.h12,
               SizedBox(
                 height: AppTheme.heatmapHeight,
-                child: days.isEmpty
+                child: total == 0
                     ? Center(
-                        child: Text(
-                          AppStrings.noActivityData,
-                          style: TextStyle(
-                            color: scheme.onSurface.withValues(alpha: 0.70),
-                          ),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              color: scheme.primary.withValues(alpha: 0.3),
+                              size: 40,
+                            ),
+                            AppTheme.h8,
+                            Text(
+                              'Ready for your first commit!',
+                              style: TextStyle(
+                                color: scheme.onSurface.withValues(alpha: 0.6),
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
                         ),
                       )
-                    : _ScrollableHeatmapGrid(
-                        days: days,
-                        quartiles: data.quartiles,
-                        heatmapColor: _heatmapColor,
-                      ),
+                    : days.isEmpty
+                        ? Center(
+                            child: Text(
+                              AppStrings.noActivityData,
+                              style: TextStyle(
+                                color: scheme.onSurface.withValues(alpha: 0.70),
+                              ),
+                            ),
+                          )
+                        : _ScrollableHeatmapGrid(
+                            days: days,
+                            quartiles: data.quartiles,
+                            heatmapColor: _heatmapColor,
+                          ),
               ),
             ],
           ),
@@ -1487,47 +1618,80 @@ class _HeatmapCell extends StatelessWidget {
         child: InkWell(
           borderRadius: AppTheme.brSmall,
           onTap: () {
+            HapticFeedback.selectionClick();
+            final friendlyDate = DateFormat('EEEE, d MMMM').format(day!.date.toLocal());
             showModalBottomSheet<void>(
               context: context,
               backgroundColor: scheme.surface,
               shape: RoundedRectangleBorder(
                 borderRadius: AppTheme.brVertLarge,
               ),
-              builder: (context) => SafeArea(
-              child: Padding(
-                padding: AppTheme.pAll20,
-                child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        dateStr,
-                        style: const TextStyle(
-                          fontSize: AppTheme.fontTitle,
-                          fontWeight: FontWeight.bold,
+              builder: (bsCtx) {
+                final bsScheme = Theme.of(bsCtx).colorScheme;
+                return SafeArea(
+                  child: Padding(
+                    padding: AppTheme.pAll20,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Drag handle
+                        Center(
+                          child: Container(
+                            width: 36, height: 4,
+                            decoration: BoxDecoration(
+                              color: bsScheme.outline.withValues(alpha: 0.4),
+                              borderRadius: AppTheme.brXXL,
+                            ),
+                          ),
                         ),
-                      ),
-                      AppTheme.h12,
-                      Text(
-                        '${day!.contributionCount} ${AppStrings.commits}',
-                        style: TextStyle(
-                          fontSize: AppTheme.fontLarge,
-                          color: scheme.onSurface.withValues(alpha: 0.72),
-                          fontWeight: FontWeight.w600,
+                        AppTheme.h16,
+                        Text(
+                          friendlyDate,
+                          style: TextStyle(
+                            fontSize: AppTheme.fontTitle,
+                            fontWeight: FontWeight.w800,
+                            color: bsScheme.onSurface,
+                          ),
                         ),
-                      ),
-                      AppTheme.h20,
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Close'),
+                        AppTheme.h12,
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: color.withValues(alpha: 0.15),
+                            borderRadius: AppTheme.brMedium,
+                            border: Border.all(color: color.withValues(alpha: 0.35)),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(width: 12, height: 12,
+                                decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                              AppTheme.w8,
+                              Text(
+                                '${day!.contributionCount} ${AppStrings.commits}',
+                                style: TextStyle(
+                                  fontSize: AppTheme.fontLarge,
+                                  color: bsScheme.onSurface,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                        AppTheme.h20,
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: () => Navigator.of(bsCtx).pop(),
+                            child: const Text('Close'),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-              ),
+                );
+              },
             );
           },
           child: Container(

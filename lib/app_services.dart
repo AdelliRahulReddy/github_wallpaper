@@ -23,6 +23,7 @@ import 'app_models.dart';
 import 'app_utils.dart';
 import 'firebase_options.dart';
 import 'ui_render.dart';
+import 'widget_service.dart';
 
 export 'app_exceptions.dart';
 
@@ -38,57 +39,31 @@ class StorageService {
 
   // MEMORY CACHE
   static CachedContributionData? _memCache;
+  static Map<String, dynamic>? _sensitiveCache;
 
   static Future<SharedPreferences> init() async {
     if (_p != null) return _p!;
     return await _initLock.synchronized(() async {
       if (_p != null) return _p!;
       _p = await SharedPreferences.getInstance();
-      // Preload encrypted sensitive cache data for synchronous access
-      await _preloadSensitiveCache();
+      await _loadSensitiveCache();
       return _p!;
     });
   }
 
-  static Map<String, dynamic>? _sensitiveCache;
-
-  static Future<void> _preloadSensitiveCache() async {
+  static Future<void> _loadSensitiveCache() async {
     try {
-      // Migrate old plaintext cache if needed
-      final oldCache = _s?.getString(AppConstants.keyCachedData);
-      if (oldCache != null) {
-        final existingSecure =
-            await _ss.read(key: AppConstants.keyCachedDataSensitive);
-        if (existingSecure == null) {
-          // Old cache exists but no encrypted version - migrate it
-          final json = jsonDecode(oldCache) as Map<String, dynamic>;
-          final sensitiveFields = <String, dynamic>{};
-
-          if (json.containsKey('repositories')) {
-            sensitiveFields['repositories'] = json.remove('repositories');
-          }
-
-          if (sensitiveFields.isNotEmpty) {
-            await _ss.write(
-              key: AppConstants.keyCachedDataSensitive,
-              value: jsonEncode(sensitiveFields),
-            );
-            // Update SharedPreferences with only non-sensitive data
-            await _s?.setString(AppConstants.keyCachedData, jsonEncode(json));
-          }
-        }
-      }
-
-      // Load encrypted data into memory for fast synchronous access
       final sensitiveStr =
           await _ss.read(key: AppConstants.keyCachedDataSensitive);
       if (sensitiveStr != null && sensitiveStr.isNotEmpty) {
         _sensitiveCache = jsonDecode(sensitiveStr) as Map<String, dynamic>;
       }
-    } catch (e) {
-      // Preload failed - cache will work without sensitive data
+    } catch (_) {
+      // Ignore load errors - cache will work without sensitive data
     }
   }
+
+
 
   static SharedPreferences? get _s => _p;
 
@@ -129,12 +104,20 @@ class StorageService {
 
     // Separate sensitive from non-sensitive data
     final json = d.toJson();
+    final includePrivate = getIncludePrivateRepos();
+    
+    // Privacy Fix: If private repos are excluded, we must recompute topLanguages
+    // for the unencrypted public cache to ensure private activity doesn't leak into analytics.
+    if (!includePrivate && json.containsKey('topLanguages')) {
+      final publicRepos = d.repositories.where((r) => !r.isPrivate).toList();
+      final publicLangs = CachedContributionData.calculateTopLanguages(publicRepos);
+      json['topLanguages'] = publicLangs.map((l) => l.toJson()).toList();
+    }
+
     final sensitiveFields = <String, dynamic>{};
 
     // Extract sensitive fields to encrypt
     if (json.containsKey('repositories')) {
-      // Filter by user preference
-      final includePrivate = getIncludePrivateRepos();
       final repos = json['repositories'] as List?;
 
       if (includePrivate && repos != null) {
@@ -148,8 +131,8 @@ class StorageService {
     }
 
     // Store non-sensitive data in SharedPreferences
-    await (await init())
-        .setString(AppConstants.keyCachedData, jsonEncode(json));
+    final prefs = await init();
+    await prefs.setString(AppConstants.keyCachedData, jsonEncode(json));
 
     // Store sensitive data in FlutterSecureStorage
     if (sensitiveFields.isNotEmpty) {
@@ -160,6 +143,7 @@ class StorageService {
       // Update in-memory cache for fast synchronous access
       _sensitiveCache = sensitiveFields;
     } else {
+      await _ss.delete(key: AppConstants.keyCachedDataSensitive);
       _sensitiveCache = null;
     }
   }
@@ -195,16 +179,29 @@ class StorageService {
     _sensitiveCache = null;
     MonthHeatmapRenderer.clearCaches(); // Clear rendering cache
     final prefs = await init();
-    prefs.remove(AppConstants.keyCachedData);
-    prefs.remove(AppConstants.keyLastUpdate);
-    prefs.remove(AppConstants.keyLastSuccessfulUpdate);
-    prefs.remove(AppConstants.keyLastBackgroundSync);
-    prefs.remove(AppConstants.keyWallpaperHash);
-    prefs.remove(AppConstants.keyWallpaperPath);
-    prefs.remove(AppConstants.keyLastWallpaperTarget);
-    prefs.remove(_kRef);
-    await _ss.delete(key: AppConstants.keyCachedDataSensitive);
+    
+    // Delete wallpaper file if it exists
+    final path = prefs.getString(AppConstants.keyWallpaperPath);
+    if (path != null) {
+      try {
+        final file = File(path);
+        if (await file.exists()) await file.delete();
+      } catch (_) {}
+    }
+
+    await Future.wait([
+      prefs.remove(AppConstants.keyCachedData),
+      prefs.remove(AppConstants.keyLastUpdate),
+      prefs.remove(AppConstants.keyLastSuccessfulUpdate),
+      prefs.remove(AppConstants.keyLastBackgroundSync),
+      prefs.remove(AppConstants.keyWallpaperHash),
+      prefs.remove(AppConstants.keyWallpaperPath),
+      prefs.remove(AppConstants.keyLastWallpaperTarget),
+      prefs.remove(_kRef),
+      _ss.delete(key: AppConstants.keyCachedDataSensitive),
+    ]);
   }
+
 
   // Private repo preference
   static Future<void> setIncludePrivateRepos(bool include) async =>
@@ -243,19 +240,42 @@ class StorageService {
   static bool getAutoUpdate() =>
       _s?.getBool(AppConstants.keyAutoUpdate) ??
       true; // Default enabled for first-run consistency with product behavior.
-  static Future<void> setLastUpdate(DateTime d) async =>
-      (await init()).setString(AppConstants.keyLastUpdate, d.toIso8601String());
-  static DateTime? getLastUpdate() {
-    final s = _s?.getString(AppConstants.keyLastUpdate);
-    return s != null ? DateTime.tryParse(s)?.toUtc() : null;
+
+  static Future<void> setStreakGoalDays(int days) async {
+    final v = days.clamp(1, 365);
+    (await init()).setInt(AppConstants.keyStreakGoalDays, v);
   }
 
-  static Future<void> setLastBackgroundSync(DateTime d) async => (await init())
-      .setString(AppConstants.keyLastBackgroundSync, d.toIso8601String());
-  static DateTime? getLastBackgroundSync() {
-    final s = _s?.getString(AppConstants.keyLastBackgroundSync);
-    return s != null ? DateTime.tryParse(s)?.toUtc() : null;
+  static int getStreakGoalDays() =>
+      _s?.getInt(AppConstants.keyStreakGoalDays) ?? 30;
+
+  static Future<void> setStreakReminderEnabled(bool enabled) async =>
+      (await init()).setBool(AppConstants.keyStreakReminderEnabled, enabled);
+
+  static bool getStreakReminderEnabled() =>
+      _s?.getBool(AppConstants.keyStreakReminderEnabled) ?? false;
+
+  static Future<void> setStreakReminderTime(
+      {required int hour, required int minute}) async {
+    final h = hour.clamp(0, 23);
+    final m = minute.clamp(0, 59);
+    final p = await init();
+    await p.setInt(AppConstants.keyStreakReminderHour, h);
+    await p.setInt(AppConstants.keyStreakReminderMinute, m);
   }
+
+  static TimeOfDay getStreakReminderTime() {
+    final h = _s?.getInt(AppConstants.keyStreakReminderHour) ?? 20;
+    final m = _s?.getInt(AppConstants.keyStreakReminderMinute) ?? 0;
+    return TimeOfDay(hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+  }
+
+  static Future<void> setStreakReminderLastSentDay(String dayKey) async =>
+      (await init()).setString(AppConstants.keyStreakReminderLastSentDay, dayKey);
+
+  static String? getStreakReminderLastSentDay() =>
+      _s?.getString(AppConstants.keyStreakReminderLastSentDay);
+
 
   static Future<void> setOnboardingComplete(bool v) async =>
       (await init()).setBool(AppConstants.keyOnboarding, v);
@@ -350,22 +370,27 @@ class StorageService {
         .firstWhere((e) => e.name == name, orElse: () => WallpaperTarget.both);
   }
 
-  // Track last successful update (for deduplication)
-  static Future<void> setLastSuccessfulUpdate(DateTime dt) async {
-    (await init())
-        .setString(AppConstants.keyLastSuccessfulUpdate, dt.toUtc().toIso8601String());
-  }
-
-  static DateTime? getLastSuccessfulUpdate() {
-    final s = _s?.getString(AppConstants.keyLastSuccessfulUpdate);
-    return s != null ? DateTime.tryParse(s)?.toUtc() : null;
+  /// Records a successful sync by updating both the generic and success timestamps.
+  static Future<void> recordSyncSuccess([DateTime? dt]) async {
+    final now = dt ?? DateTime.now().toUtc();
+    final p = await init();
+    final s = now.toIso8601String();
+    await p.setString(AppConstants.keyLastUpdate, s);
+    await p.setString(AppConstants.keyLastSuccessfulUpdate, s);
   }
 
   /// Returns the single most recent sync timestamp from any source.
   static DateTime? getEffectiveLastSync() {
-    final u = getLastUpdate();
-    final b = getLastBackgroundSync();
-    final s = getLastSuccessfulUpdate();
+    final p = _p;
+    if (p == null) return null;
+
+    final uStr = p.getString(AppConstants.keyLastUpdate);
+    final bStr = p.getString(AppConstants.keyLastBackgroundSync);
+    final sStr = p.getString(AppConstants.keyLastSuccessfulUpdate);
+    
+    final u = uStr != null ? DateTime.tryParse(uStr)?.toUtc() : null;
+    final b = bStr != null ? DateTime.tryParse(bStr)?.toUtc() : null;
+    final s = sStr != null ? DateTime.tryParse(sStr)?.toUtc() : null;
     
     DateTime? latest = u;
     if (b != null && (latest == null || b.isAfter(latest))) latest = b;
@@ -376,19 +401,26 @@ class StorageService {
   static Future<void> logout() async {
     await clearCache();
     await deleteToken();
-    (await init())
-      ..remove(AppConstants.keyUsername)
-      ..remove(AppConstants.keyWallpaperConfig)
-      ..remove(AppConstants.keyOnboarding)
-      ..remove(AppConstants.keyWallpaperHash)
-      ..remove(AppConstants.keyWallpaperPath)
-      ..remove(AppConstants.keyLastWallpaperTarget)
-      ..remove(AppConstants.keyHasSeenDashboard)
-      ..remove(AppConstants.keyFirstLoginGreetingPending)
-      ..remove(AppConstants.keyAutoUpdate)
-      ..remove(AppConstants.keyHasAppliedWallpaper)
-      ..remove(AppConstants.keyLastBackgroundSync)
-      ..remove(_kRef);
+    final prefs = await init();
+    await Future.wait([
+      prefs.remove(AppConstants.keyUsername),
+      prefs.remove(AppConstants.keyWallpaperConfig),
+      prefs.remove(AppConstants.keyOnboarding),
+      prefs.remove(AppConstants.keyWallpaperHash),
+      prefs.remove(AppConstants.keyWallpaperPath),
+      prefs.remove(AppConstants.keyLastWallpaperTarget),
+      prefs.remove(AppConstants.keyHasSeenDashboard),
+      prefs.remove(AppConstants.keyFirstLoginGreetingPending),
+      prefs.remove(AppConstants.keyAutoUpdate),
+      prefs.remove(AppConstants.keyHasAppliedWallpaper),
+      prefs.remove(AppConstants.keyLastBackgroundSync),
+      prefs.remove(_kRef),
+      prefs.remove(AppConstants.keyStreakGoalDays),
+      prefs.remove(AppConstants.keyStreakReminderEnabled),
+      prefs.remove(AppConstants.keyStreakReminderHour),
+      prefs.remove(AppConstants.keyStreakReminderMinute),
+      prefs.remove(AppConstants.keyStreakReminderLastSentDay),
+    ]);
   }
 }
 
@@ -420,6 +452,20 @@ class NotificationService {
     AppLog.info('NotificationService initialized');
   }
 
+  static Future<void> requestPermissions() async {
+    if (!_initialized) await init();
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      await android?.requestNotificationsPermission();
+    } catch (_) {}
+    try {
+      final ios = _plugin.resolvePlatformSpecificImplementation<
+          IOSFlutterLocalNotificationsPlugin>();
+      await ios?.requestPermissions(alert: true, badge: true, sound: true);
+    } catch (_) {}
+  }
+
   static Future<void> showAuthErrorNotification() async {
     if (!_initialized) await init();
     
@@ -440,6 +486,37 @@ class NotificationService {
       1001,
       'GitHub Token Expired',
       'Wallpaper updates paused. Tap settings to update your token.',
+      platformDetails,
+    );
+  }
+
+  static Future<void> showStreakReminderNotification({
+    required int goalDays,
+    required int currentStreak,
+  }) async {
+    if (!_initialized) await init();
+
+    const AndroidNotificationDetails androidDetails =
+        AndroidNotificationDetails(
+      'streak_reminder_channel',
+      'Streak Reminders',
+      channelDescription: 'Reminders to keep your GitHub streak alive',
+      importance: Importance.high,
+      priority: Priority.high,
+    );
+
+    const NotificationDetails platformDetails =
+        NotificationDetails(android: androidDetails);
+
+    final title = 'Save your streak';
+    final body = currentStreak >= goalDays
+        ? 'You hit your goal streak. Keep it going with a commit today.'
+        : 'No commits yet today. Commit now to keep your ${currentStreak}‑day streak alive.';
+
+    await _plugin.show(
+      2001,
+      title,
+      body,
       platformDetails,
     );
   }
@@ -490,9 +567,8 @@ class GitHubService {
 
       // 3. Save to cache
       await StorageService.setCachedData(parsed);
-      final now = DateTime.now().toUtc();
-      await StorageService.setLastUpdate(now);
-      await StorageService.setLastSuccessfulUpdate(now);
+      await StorageService.recordSyncSuccess();
+      unawaited(WidgetService.updateFromData(parsed));
 
       return parsed;
     } on SocketException {
@@ -615,10 +691,9 @@ class GitHubService {
     }
   }
 
-  static bool isFormatValid(String t) => isValidTokenFormat(t) == null;
 
   static Future<bool> validateToken(String t) async {
-    if (!isFormatValid(t)) return false;
+    if (isValidTokenFormat(t) != null) return false;
     try {
       final r = await _c
           .post(Uri.parse(AppConstants.apiUrl),
@@ -734,11 +809,7 @@ class WallpaperService {
       }
       await StorageService.setLastWallpaperTarget(target);
       await StorageService.saveWallpaperResult(hash, wallpaperPath);
-      // Track when update succeeded using globally consistent key
-      final now = DateTime.now().toUtc();
-      await StorageService.setLastUpdate(now); 
-      await StorageService.setLastSuccessfulUpdate(now);
-      AppLog.info('Wallpaper applied successfully at $now (UTC)');
+      AppLog.info('Wallpaper applied successfully (hash: $hash)');
       onProgress?.call(1.0);
       return true;
     });
@@ -844,7 +915,7 @@ class WallpaperService {
           isAndroid: Platform.isAndroid,
           autoUpdateEnabled: StorageService.getAutoUpdate(),
           hasPendingRefresh: StorageService.hasPendingWallpaperRefresh(),
-          lastUpdate: StorageService.getLastUpdate(),
+          lastUpdate: StorageService.getEffectiveLastSync(),
           username: username,
           token: token);
       if (!dec.shouldProceed) {
@@ -874,7 +945,7 @@ class WallpaperService {
         }
         await StorageService.consumePendingWallpaperRefresh();
         if (isBackground) {
-          await StorageService.setLastBackgroundSync(DateTime.now().toUtc());
+          await StorageService.recordSyncSuccess();
         }
       }
       return result;

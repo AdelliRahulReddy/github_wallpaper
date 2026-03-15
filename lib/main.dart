@@ -190,6 +190,9 @@ class _AppInitializerState extends State<AppInitializer> {
       if (StorageService.getAutoUpdate()) {
         await BackgroundScheduler.scheduleUpdates();
       }
+      if (StorageService.getStreakReminderEnabled()) {
+        await BackgroundScheduler.scheduleStreakReminders();
+      }
 
       if (pendingRefresh) {
         unawaited(_runPendingRefresh(runId));

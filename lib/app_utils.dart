@@ -156,7 +156,7 @@ class AppLog {
       debugPrint("🟢 [INFO]: $m");
     } else {
       try {
-        FirebaseCrashlytics.instance.log(m);
+        FirebaseCrashlytics.instance.log(SensitiveDataSanitizer.sanitize(m));
       } catch (_) {}
     }
   }
@@ -360,6 +360,13 @@ class AppStrings {
   static const includePrivateReposSubtitle = 'Cache private repo names (encrypted locally)';
   static const privateReposCached = 'Private repos will be cached (encrypted)';
   static const privateRepoCacheCleared = 'Private repo cache cleared';
+  static const streakGoals = 'Goals';
+  static const streakGoal = 'Streak Goal';
+  static const streakGoalSubtitle = 'Set a target to stay consistent';
+  static const streakReminders = 'Streak Reminders';
+  static const streakRemindersSubtitle = 'Get a reminder if you have 0 commits today';
+  static const reminderTime = 'Reminder Time';
+  static const reminderTimeSubtitle = 'Local time';
   static const data = 'Data';
   static const removeCachedData = 'Remove cached contribution data';
   static const clearCache = 'Clear Cache';
@@ -485,6 +492,11 @@ class AppConstants {
       keySafeInsetBottom = 'safe_bottom',
       keySafeInsetLeft = 'safe_left',
       keySafeInsetRight = 'safe_right';
+  static const String keyStreakGoalDays = 'streak_goal_days_v1';
+  static const String keyStreakReminderEnabled = 'streak_reminder_enabled_v1';
+  static const String keyStreakReminderHour = 'streak_reminder_hour_v1';
+  static const String keyStreakReminderMinute = 'streak_reminder_minute_v1';
+  static const String keyStreakReminderLastSentDay = 'streak_reminder_last_sent_day_v1';
   static const String fcmTopicDailyUpdates = 'daily-updates';
   static const List<String> weekdays = [
     'Sun',

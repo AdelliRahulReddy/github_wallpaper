@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -10,7 +10,6 @@ class AppTheme {
   static const successGreen = Color(0xFF1F883D);
   static const errorRed = Color(0xFFCF222E);
   static const warningOrange = Color(0xFF9A6700);
-  static const primaryBrandAccent = Color(0xFF2E5BFF); // Formerly skyDayAccent
   static const accentViolet = Color(0xFF9D50E0);
 
   // ══════════════════════════════════════════════════════════════════════════
@@ -69,12 +68,19 @@ class AppTheme {
   static const double heightRelaxed = 1.5; // Body text
 
   // ══════════════════════════════════════════════════════════════════════════
-  // CONVENIENCE TOKENS (SizedBox, Padding, Radius)
+  // CONVENIENCE TOKENS (SizedBox, Padding, Radius, Animation)
   // ══════════════════════════════════════════════════════════════════════════
+
+  // Durations
+  static const durationFast = Duration(milliseconds: 200);
+  static const durationNormal = Duration(milliseconds: 400);
+  static const durationSlow = Duration(milliseconds: 600);
+
 
   // Spacing (Vertical)
   static const h2 = SizedBox(height: 2.0);
   static const h4 = SizedBox(height: 4.0);
+  static const h6 = SizedBox(height: 6.0);
   static const h8 = SizedBox(height: spacing8);
   static const h12 = SizedBox(height: spacing12);
   static const h16 = SizedBox(height: spacing16);
@@ -91,6 +97,7 @@ class AppTheme {
 
   // Spacing (Horizontal)
   static const w4 = SizedBox(width: 4.0);
+  static const w6 = SizedBox(width: 6.0);
   static const w8 = SizedBox(width: spacing8);
   static const w12 = SizedBox(width: spacing12);
   static const w16 = SizedBox(width: spacing16);
@@ -142,15 +149,27 @@ class AppTheme {
   static const pZero = EdgeInsets.zero;
   static const pLTRB20_16_20_32 = EdgeInsets.fromLTRB(spacing20, spacing16, spacing20, spacing32);
 
-  // Radius
+  // Smart Device Padding
+  static EdgeInsets pagePadding(BuildContext context) {
+    final w = MediaQuery.sizeOf(context).width;
+    if (w > 600) return const EdgeInsets.all(spacing40);
+    if (w > 400) return const EdgeInsets.all(spacing24);
+    return const EdgeInsets.all(spacing20);
+  }
+
+  static EdgeInsets pagePaddingTop(BuildContext context) =>
+      pagePadding(context).copyWith(bottom: 0);
+
+
+  // Radius (Consolidated)
   static final brSmall = BorderRadius.circular(radiusSmall);
   static final brMedium = BorderRadius.circular(radiusMedium);
   static final brLarge = BorderRadius.circular(radiusLarge);
   static final brXL = BorderRadius.circular(radiusXL);
   static final brXXL = BorderRadius.circular(radiusXXL);
+  static final brXS = BorderRadius.circular(radiusSmall / 3);
   static final brVertLarge = const BorderRadius.vertical(top: Radius.circular(radiusLarge));
   static final brVertMedium = const BorderRadius.vertical(top: Radius.circular(radiusMedium));
-  static final brXS = BorderRadius.circular(radiusSmall / 3);
 
   // ══════════════════════════════════════════════════════════════════════════
   // SINGLE SOURCE OF TRUTH (Theme Generation)
@@ -176,7 +195,7 @@ class AppTheme {
       error: errorRed,
       onError: Colors.white,
       surface: isDark ? darkSurface : lightSurface,
-      onSurface: isDark ? Colors.white : lightText,
+      onSurface: isDark ? darkText : lightText,
       surfaceContainerHighest: isDark
           ? const Color(0xFF21262D)
           : const Color(0xFFF0F2F5),
@@ -385,7 +404,7 @@ class AppThemeExt extends ThemeExtension<AppThemeExt> {
   AppThemeExt._raw(
       {required this.heatmapLevels, required this.heatmapHighlight});
 
-  Color get heatmapTodayHighlight => heatmapHighlight;
+  // AppThemeExt contains heatmapLevels and heatmapHighlight
 
   @override
   AppThemeExt copyWith({List<Color>? heatmapLevels, Color? heatmapHighlight}) =>

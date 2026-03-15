@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../app_utils.dart';
 
@@ -20,14 +20,15 @@ class SplashScreen extends StatelessWidget {
     // 100% System Theme Adaptation
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = AppTheme.successGreen;
+    final accent = scheme.primary;
 
     final Gradient gradient = LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: isDark
-          ? [AppTheme.darkBg, AppTheme.darkSurface]
-          : [AppTheme.lightBg, AppTheme.lightSurface],
+      colors: [
+        scheme.surface,
+        scheme.surfaceContainerHighest,
+      ],
     );
 
     return Scaffold(
@@ -76,10 +77,7 @@ class SplashScreen extends StatelessWidget {
 
                     Text(AppStrings.appTagline,
                         style: TextStyle(
-                            color: (isDark
-                                    ? AppTheme.darkText
-                                    : AppTheme.lightText)
-                                .withValues(alpha: 0.7),
+                            color: scheme.onSurface.withValues(alpha: 0.7),
                             fontSize: AppTheme.fontMedium,
                             fontWeight: FontWeight.w500,
                             letterSpacing: 0.2)),
@@ -90,19 +88,16 @@ class SplashScreen extends StatelessWidget {
                     if (error == null)
                       Column(
                         children: [
-                          const SizedBox(
+                          SizedBox(
                               width: 28,
                               height: 28,
                               child: CircularProgressIndicator(
                                   strokeWidth: 3,
-                                  valueColor: AlwaysStoppedAnimation(AppTheme.successGreen))),
+                                  valueColor: AlwaysStoppedAnimation(accent))),
                           AppTheme.h20,
                           Text(_status(progress),
                               style: TextStyle(
-                                  color: (isDark
-                                          ? AppTheme.darkText
-                                          : AppTheme.lightText)
-                                      .withValues(alpha: 0.7),
+                                  color: scheme.onSurface.withValues(alpha: 0.7),
                                   fontSize: AppTheme.fontBody,
                                   fontWeight: FontWeight.w600,
                                   letterSpacing: 0.3)),
@@ -130,8 +125,7 @@ class SplashScreen extends StatelessWidget {
                 child: Text('v$appVersion',
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                        color: (isDark ? AppTheme.darkText : AppTheme.lightText)
-                            .withValues(alpha: 0.3),
+                        color: scheme.onSurface.withValues(alpha: 0.3),
                         fontSize: AppTheme.fontCaption,
                         fontWeight: FontWeight.w500,
                         letterSpacing: 0.5)),

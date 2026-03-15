@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_theme.dart';
@@ -397,12 +397,12 @@ class _SetupPageState extends State<SetupPage> {
                       child: FilledButton(
                         onPressed: _isLoading ? null : _completeSetup,
                         child: _isLoading
-                            ? const SizedBox(
+                            ? SizedBox(
                                 width: 24,
                                 height: 24,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 3,
-                                  color: Colors.white,
+                                  color: cs.onPrimary,
                                 ))
                             : const Text('Initialize Workspace'),
                       ),

@@ -92,7 +92,7 @@ void main() {
       username: username,
       dayCount: 120,
     ));
-    await StorageService.setLastUpdate(DateTime.now().toUtc());
+    await StorageService.recordSyncSuccess();
 
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle(const Duration(seconds: 8));

@@ -1,4 +1,4 @@
-import 'dart:ui' as ui;
+﻿import 'dart:ui' as ui;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -7,6 +7,7 @@ import 'app_exceptions.dart';
 import 'app_models.dart';
 import 'app_utils.dart';
 import 'app_theme.dart';
+import 'theme_presets.dart';
 
 class MonthHeatmapRenderer {
   static final _lT = AppThemeExt(isLight: true),
@@ -15,6 +16,12 @@ class MonthHeatmapRenderer {
   static final Map<int, List<_Cell>> _cellsCache = {};
 
   static void clearCaches() => _cellsCache.clear();
+  static void _pruneCache() {
+    if (_cellsCache.length > 12) {
+      final keys = _cellsCache.keys.toList()..sort();
+      _cellsCache.remove(keys.first);
+    }
+  }
 
   static void render(
       {required Canvas canvas,
@@ -33,6 +40,7 @@ class MonthHeatmapRenderer {
         monthKey,
         () => List.generate(
             daysNum, (i) => _Cell(DateTime.utc(ref.year, ref.month, i + 1), i)));
+    _pruneCache();
 
     // Bg
     canvas.drawRect(
@@ -123,6 +131,22 @@ class MonthHeatmapRenderer {
        }
     } else {
        scale = config.scale;
+       // BUG FIX: Re-measure text with manual scale to ensure correct qH
+       if (qTxt.isNotEmpty) {
+          final finalGridW = (7 * (baseBox * scale + baseSpacing * scale)) - (baseSpacing * scale);
+          qP = TextPainter(
+              text: TextSpan(
+                  text: qTxt,
+                  style: TextStyle(
+                      color: qCol,
+                      fontSize: config.quoteFontSize * scale,
+                      fontStyle: FontStyle.italic)),
+              textAlign: TextAlign.center,
+              textDirection: TextDirection.ltr,
+              maxLines: 3)
+            ..layout(maxWidth: finalGridW);
+          qH = qP.height;
+       }
     }
 
     final boxSz = baseBox * scale,
@@ -188,7 +212,7 @@ class MonthHeatmapRenderer {
         bordP = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = (spc / 1.5).clamp(1.0, boxSz * 0.2)
-          ..color = tEx.heatmapTodayHighlight;
+          ..color = tEx.heatmapHighlight;
     final rad = Radius.circular(config.cornerRadius * scale);
     final n = (todayUtc ?? DateTime.now().toUtc()).toUtc();
     final today = DateTime.utc(n.year, n.month, n.day);
@@ -205,9 +229,8 @@ class MonthHeatmapRenderer {
       final cnt = data.getContributionsForDate(c.date);
       final lvl =
           RenderUtils.getContributionLevel(cnt, quartiles: data.quartiles);
-      fillP.color = (tEx.heatmapLevels.length > lvl
-              ? tEx.heatmapLevels[lvl]
-              : tEx.heatmapLevels[0])
+      final themeLevels = ThemePresets.fromId(config.themeId).levels;
+      fillP.color = (themeLevels.length > lvl ? themeLevels[lvl] : themeLevels[0])
           .withValues(alpha: config.opacity);
 
       final r = RRect.fromRectAndRadius(

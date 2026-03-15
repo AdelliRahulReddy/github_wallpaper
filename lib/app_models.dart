@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'app_utils.dart';
 import 'app_state.dart';
+import 'theme_presets.dart';
 import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
 
 enum WallpaperTarget {
@@ -228,7 +229,7 @@ class CachedContributionData {
           RenderUtils.calculateQuartiles(
               norm.map((d) => d.contributionCount).toList()),
       List.unmodifiable(repositories ?? []),
-      List.unmodifiable(topLanguages ?? _calcLangs(repositories ?? [])),
+      List.unmodifiable(topLanguages ?? calculateTopLanguages(repositories ?? [])),
     );
   }
 
@@ -248,7 +249,7 @@ class CachedContributionData {
     return m.values.toList()..sort((a, b) => a.date.compareTo(b.date));
   }
 
-  static List<LanguageUsage> _calcLangs(List<RepoContribution> repos) {
+  static List<LanguageUsage> calculateTopLanguages(List<RepoContribution> repos) {
     final t = <String, double>{};
     final c = <String, String?>{};
     for (var r in repos) {
@@ -350,6 +351,7 @@ class WallpaperConfig {
       cornerRadius;
   final double paddingTop, paddingBottom, paddingLeft, paddingRight;
   final String customQuote;
+  final String themeId;
 
   const WallpaperConfig({
     this.isDarkMode = false,
@@ -366,13 +368,13 @@ class WallpaperConfig {
     this.paddingBottom = 0,
     this.paddingLeft = 0,
     this.paddingRight = 0,
+    this.themeId = ThemePresets.defaultId,
   });
 
   factory WallpaperConfig.defaults() => const WallpaperConfig();
 
   factory WallpaperConfig.fromJson(Map<String, dynamic> j) {
     final q = _str(j['customQuote']) ?? '';
-    // Sanitize quote to prevent control characters and injection
     final sanitizedQuote = ValidationUtils.sanitizeQuote(q);
     return WallpaperConfig(
       isDarkMode: j['isDarkMode'] == true,
@@ -392,6 +394,9 @@ class WallpaperConfig {
       paddingBottom: _dbl(j['paddingBottom'], 0, 0, 500),
       paddingLeft: _dbl(j['paddingLeft'], 0, 0, 500),
       paddingRight: _dbl(j['paddingRight'], 0, 0, 500),
+      themeId: (j['themeId'] is String && (j['themeId'] as String).isNotEmpty)
+          ? j['themeId'] as String
+          : ThemePresets.defaultId,
     );
   }
 
@@ -409,7 +414,8 @@ class WallpaperConfig {
         'paddingTop': paddingTop,
         'paddingBottom': paddingBottom,
         'paddingLeft': paddingLeft,
-        'paddingRight': paddingRight
+        'paddingRight': paddingRight,
+        'themeId': themeId,
       };
 
   WallpaperConfig copyWith(
@@ -418,7 +424,7 @@ class WallpaperConfig {
           double? horizontalPosition,
           double? scale,
           bool? autoFitWidth,
-          double? opacity,
+           double? opacity,
           String? customQuote,
           double? quoteFontSize,
           double? quoteOpacity,
@@ -426,7 +432,8 @@ class WallpaperConfig {
           double? paddingTop,
           double? paddingBottom,
           double? paddingLeft,
-          double? paddingRight}) =>
+          double? paddingRight,
+          String? themeId}) =>
       WallpaperConfig(
         isDarkMode: isDarkMode ?? this.isDarkMode,
         verticalPosition: verticalPosition ?? this.verticalPosition,
@@ -442,6 +449,7 @@ class WallpaperConfig {
         paddingBottom: paddingBottom ?? this.paddingBottom,
         paddingLeft: paddingLeft ?? this.paddingLeft,
         paddingRight: paddingRight ?? this.paddingRight,
+        themeId: themeId ?? this.themeId,
       );
 
   @override
@@ -461,6 +469,7 @@ class WallpaperConfig {
           paddingBottom == other.paddingBottom &&
           paddingLeft == other.paddingLeft &&
           paddingRight == other.paddingRight &&
+          themeId == other.themeId &&
           customQuote == other.customQuote);
 
   @override
@@ -478,6 +487,7 @@ class WallpaperConfig {
         paddingBottom,
         paddingLeft,
         paddingRight,
+        themeId,
         customQuote,
       ]);
 }
