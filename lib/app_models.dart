@@ -342,6 +342,11 @@ class CachedContributionData {
 @immutable
 class WallpaperConfig {
   final bool isDarkMode, autoFitWidth;
+  final bool showQuickStatsBar,
+      statCurrentStreak,
+      statLongestStreak,
+      statTotalCommits,
+      statTopLanguage;
   final double verticalPosition,
       horizontalPosition,
       scale,
@@ -352,6 +357,7 @@ class WallpaperConfig {
   final double paddingTop, paddingBottom, paddingLeft, paddingRight;
   final String customQuote;
   final String themeId;
+  final String templateId;
 
   const WallpaperConfig({
     this.isDarkMode = false,
@@ -369,6 +375,12 @@ class WallpaperConfig {
     this.paddingLeft = 0,
     this.paddingRight = 0,
     this.themeId = ThemePresets.defaultId,
+    this.showQuickStatsBar = true,
+    this.statCurrentStreak = true,
+    this.statLongestStreak = true,
+    this.statTotalCommits = true,
+    this.statTopLanguage = true,
+    this.templateId = 'minimal_dark',
   });
 
   factory WallpaperConfig.defaults() => const WallpaperConfig();
@@ -397,6 +409,14 @@ class WallpaperConfig {
       themeId: (j['themeId'] is String && (j['themeId'] as String).isNotEmpty)
           ? j['themeId'] as String
           : ThemePresets.defaultId,
+      showQuickStatsBar: j['showQuickStatsBar'] != false,
+      statCurrentStreak: j['statCurrentStreak'] != false,
+      statLongestStreak: j['statLongestStreak'] != false,
+      statTotalCommits: j['statTotalCommits'] != false,
+      statTopLanguage: j['statTopLanguage'] != false,
+      templateId: (j['templateId'] is String && (j['templateId'] as String).isNotEmpty)
+          ? j['templateId'] as String
+          : 'minimal_dark',
     );
   }
 
@@ -416,6 +436,12 @@ class WallpaperConfig {
         'paddingLeft': paddingLeft,
         'paddingRight': paddingRight,
         'themeId': themeId,
+        'showQuickStatsBar': showQuickStatsBar,
+        'statCurrentStreak': statCurrentStreak,
+        'statLongestStreak': statLongestStreak,
+        'statTotalCommits': statTotalCommits,
+        'statTopLanguage': statTopLanguage,
+        'templateId': templateId,
       };
 
   WallpaperConfig copyWith(
@@ -433,7 +459,13 @@ class WallpaperConfig {
           double? paddingBottom,
           double? paddingLeft,
           double? paddingRight,
-          String? themeId}) =>
+          String? themeId,
+          bool? showQuickStatsBar,
+          bool? statCurrentStreak,
+          bool? statLongestStreak,
+          bool? statTotalCommits,
+          bool? statTopLanguage,
+          String? templateId}) =>
       WallpaperConfig(
         isDarkMode: isDarkMode ?? this.isDarkMode,
         verticalPosition: verticalPosition ?? this.verticalPosition,
@@ -450,6 +482,12 @@ class WallpaperConfig {
         paddingLeft: paddingLeft ?? this.paddingLeft,
         paddingRight: paddingRight ?? this.paddingRight,
         themeId: themeId ?? this.themeId,
+        showQuickStatsBar: showQuickStatsBar ?? this.showQuickStatsBar,
+        statCurrentStreak: statCurrentStreak ?? this.statCurrentStreak,
+        statLongestStreak: statLongestStreak ?? this.statLongestStreak,
+        statTotalCommits: statTotalCommits ?? this.statTotalCommits,
+        statTopLanguage: statTopLanguage ?? this.statTopLanguage,
+        templateId: templateId ?? this.templateId,
       );
 
   @override
@@ -470,7 +508,13 @@ class WallpaperConfig {
           paddingLeft == other.paddingLeft &&
           paddingRight == other.paddingRight &&
           themeId == other.themeId &&
-          customQuote == other.customQuote);
+          customQuote == other.customQuote &&
+          showQuickStatsBar == other.showQuickStatsBar &&
+          statCurrentStreak == other.statCurrentStreak &&
+          statLongestStreak == other.statLongestStreak &&
+          statTotalCommits == other.statTotalCommits &&
+          statTopLanguage == other.statTopLanguage &&
+          templateId == other.templateId);
 
   @override
   int get hashCode => Object.hashAll([
@@ -489,5 +533,11 @@ class WallpaperConfig {
         paddingRight,
         themeId,
         customQuote,
+        showQuickStatsBar,
+        statCurrentStreak,
+        statLongestStreak,
+        statTotalCommits,
+        statTopLanguage,
+        templateId,
       ]);
 }

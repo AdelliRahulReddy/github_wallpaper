@@ -256,31 +256,64 @@ class AppStrings {
   static const continue_ = 'Continue';
   static const getStarted = 'Get Started';
   static const apply = 'Apply';
-  static const applyWallpaper = 'Apply Wallpaper';
+  static const applyWallpaper = 'Set Auto Wallpaper';
   static const syncNow = 'Sync Now';
   static const loading = 'Loading...';
   static const unknown = 'Unknown';
   static const error = 'Error';
 
   // Onboarding
-  static const onboardingTitle1 = 'Your Code,\nVisualized';
+  static const onboardingTagline = 'FOR DEVS';
+  static const onboardingTitle1 = 'Your streak.\nYour screen.';
   static const onboardingDesc1 =
-      'Transform your GitHub contributions into beautiful, minimal wallpapers';
-  static const onboardingTitle2 = 'Always\nUpdated';
+      'Every commit updates your wallpaper. Your consistency, always on display.';
+  static const onboardingTitle2 = 'Built for\ndevelopers.';
   static const onboardingDesc2 =
-      'Your wallpaper syncs automatically as you commit code throughout the day';
-  static const onboardingTitle3 = 'Built by Developer';
-  static const onboardingDesc3 =
-      'Loved the app? Reach out for support or just to say hi. Built with ❤️ by Rahulreddy.';
+      'Auto-sync, streak goals, weekly digests — everything a serious developer needs.';
+  static const onboardingCtaSlide2 = 'Claim Early Access';
+  static const onboardingHeatmapLabel = 'Your contribution streak';
+  static const onboardingStreakBadge = '21-day streak 🔥';
+  static const onboardingFeature1Title = 'Auto wallpaper sync';
+  static const onboardingFeature1Desc =
+      'Push code. Your wallpaper updates itself — no taps needed.';
+  static const onboardingFeature2Title = 'Streak goals & reminders';
+  static const onboardingFeature2Desc =
+      'Set a target. Get reminded before you break your streak.';
+  static const onboardingFeature3Title = 'Templates & palettes';
+  static const onboardingFeature3Desc =
+      'Pick a style and apply. Premium look in seconds.';
+  static const onboardingFeature4Title = 'GitHub analytics dashboard';
+  static const onboardingFeature4Desc =
+      'Trends, languages, repos — your activity at a glance.';
+  static const onboardingEarlyAccessSubtitle =
+      'You\'re one of the first developers on GitWall.\nEverything is unlocked, free.';
+  static const onboardingFreeForever =
+      'No subscriptions. No paywalls. All features are free for early access users.';
+  static const onboardingUnlock1 = 'All Palettes';
+  static const onboardingUnlock2 = 'All Templates';
+  static const onboardingUnlock3 = 'Full Controls';
+  static const onboardingUnlock4 = 'Streak Goals';
+
+// Keep these unchanged — used by setup_page.dart
+  static const earlyAccessTitle = 'Early Access\nUnlocked 🎉';
+  static const earlyAccessBody =
+      'Thanks for trying GitWall early.\n\nYou get all templates, palettes, and advanced customization features free.';
+  static const earlyAccessCta = 'Connect GitHub →';
+  static const setupSubtitle = 'Connect your GitHub to generate your wallpaper';
+  static const setupCta = 'Connect & Sync';
+  static const setupSecurityNote =
+      'Token stored in Android Keystore / iOS Keychain';
 
   // Home Page
   static const welcome = 'WELCOME 👋';
   static const welcomeBack = 'WELCOME BACK 👋';
   static const welcomeBackDots = 'WELCOME BACK 👋'; // Compatibility
-  static const homeGetStartedSubtitle = 'Pull to refresh to sync your GitHub activity.';
+  static const homeGetStartedSubtitle =
+      'Pull to refresh to sync your GitHub activity.';
   static const overview = 'Overview';
   static const totalContributions = 'Total Contributions';
-  static const totalContributionsSubtitle = 'Cumulative commits across all years';
+  static const totalContributionsSubtitle =
+      'Cumulative commits across all years';
   static const currentStreak = 'Current streak';
   static const today = 'Today';
   static const longestStreak = 'Longest streak';
@@ -290,6 +323,10 @@ class AppStrings {
   static const activityGraph = 'Activity graph';
   static const last6Months = 'Last 6 months';
   static const commits = 'commits';
+  static const statCurrentShort = 'Current';
+  static const statBestShort = 'Best';
+  static const statTotalShort = 'Total';
+  static const statTopShort = 'Top';
   static const less = 'Less';
   static const more = 'More';
   static const noActivityData = 'No activity data available';
@@ -304,7 +341,8 @@ class AppStrings {
   static const languagesSubtitle = 'Estimated from your active repositories';
   static const noLanguageData = 'No language data available for this period.';
   static const activityInsights = 'Activity insights';
-  static const insightsSubtitle = 'Patterns across your recent contribution history';
+  static const insightsSubtitle =
+      'Patterns across your recent contribution history';
   static const weekendVsWeekday = 'Weekend vs weekday';
   static const weekdays = 'Weekdays';
   static const weekends = 'Weekends';
@@ -317,7 +355,7 @@ class AppStrings {
   // Customize Page
   static const customize = 'Customize';
   static const unknownDevice = 'Unknown Device';
-  static const setWallpaper = 'Set Wallpaper';
+  static const setWallpaper = 'Set Auto Wallpaper';
   static const homeScreen = 'Home Screen';
   static const lockScreen = 'Lock Screen';
   static const bothScreens = 'Both Screens';
@@ -337,36 +375,55 @@ class AppStrings {
   static const scale = 'Scale';
   static const opacity = 'Opacity';
   static const cornerRadius = 'Corner Radius';
-  static const layoutNote = 'Layout automatically reserves space for the status bar/notch and lock-screen clock. Position controls are applied after that.';
+  static const layoutNote =
+      'Layout automatically reserves space for the status bar/notch and lock-screen clock. Position controls are applied after that.';
   static const positionVertical = 'Position (Vertical, within safe area)';
   static const positionHorizontal = 'Position (Horizontal, within safe area)';
 
   // Settings Page
   static const settings = 'Settings';
-  static const settingsSubtitle = 'Manage your account and preferences';
+  static const settingsSubtitle =
+      'Free app • Manage your account and preferences';
   static const account = 'Account';
   static const githubAccount = 'GitHub Account';
   static const lastSynced = 'Last synced:';
   static const preferences = 'Preferences';
-  static const autoUpdate = 'Auto Update';
-  static const autoUpdateSubtitle = 'Auto-refresh every 60 min (survives app closure & reboot)';
-  static const autoUpdateEnabled = '✅ Auto-update enabled (updates every 1-2 hours)';
-  static const autoUpdateDisabled = 'Auto-update disabled';
+  static const autoUpdate = 'Auto Wallpaper';
+  static const autoUpdateSubtitle =
+      'Updates your wallpaper on a schedule (works in background)';
+  static const autoUpdateEnabled =
+      '✅ Auto wallpaper enabled';
+  static const autoUpdateDisabled = 'Auto wallpaper disabled';
   static const crashReporting = 'Crash Reporting';
-  static const crashReportingSubtitle = 'Help improve app stability (anonymous, sanitized)';
+  static const crashReportingSubtitle =
+      'Help improve app stability (anonymous, sanitized)';
   static const crashReportingEnabled = 'Crash reporting enabled';
   static const crashReportingDisabled = 'Crash reporting disabled';
   static const includePrivateRepos = 'Include Private Repositories';
-  static const includePrivateReposSubtitle = 'Cache private repo names (encrypted locally)';
+  static const includePrivateReposSubtitle =
+      'Cache private repo names (encrypted locally)';
   static const privateReposCached = 'Private repos will be cached (encrypted)';
   static const privateRepoCacheCleared = 'Private repo cache cleared';
   static const streakGoals = 'Goals';
   static const streakGoal = 'Streak Goal';
   static const streakGoalSubtitle = 'Set a target to stay consistent';
   static const streakReminders = 'Streak Reminders';
-  static const streakRemindersSubtitle = 'Get a reminder if you have 0 commits today';
+  static const streakRemindersSubtitle =
+      'Get a reminder if you have 0 commits today';
+  static const streakSaved = 'Streak Saved';
+  static const streakSavedSubtitle =
+      'Celebrate when you save your streak after a reminder';
+  static const celebrations = 'Celebrations';
+  static const celebrationsSubtitle =
+      'Milestones for streaks and contributions';
+  static const weeklyDigest = 'Weekly Digest';
+  static const weeklyDigestSubtitle = 'A weekly summary of your activity';
+  static const digestTime = 'Digest Time';
+  static const digestTimeSubtitle = 'Sunday local time';
   static const reminderTime = 'Reminder Time';
   static const reminderTimeSubtitle = 'Local time';
+  static const proMode = 'Pro Mode';
+  static const proModeSubtitle = 'Coming soon';
   static const data = 'Data';
   static const removeCachedData = 'Remove cached contribution data';
   static const clearCache = 'Clear Cache';
@@ -378,10 +435,12 @@ class AppStrings {
   static const needHelp = 'Need Help?';
   static const chatOnWhatsApp = 'Chat on WhatsApp';
   static const logoutConfirmTitle = 'Logout';
-  static const logoutConfirmMessage = 'Are you sure you want to logout? This will clear all your data.';
+  static const logoutConfirmMessage =
+      'Are you sure you want to logout? This will clear all your data.';
   static const logout = 'Logout';
   static const clearCacheConfirmTitle = 'Clear Cache';
-  static const clearCacheConfirmMessage = 'This will remove cached contribution data. You\'ll need to sync again.';
+  static const clearCacheConfirmMessage =
+      'This will remove cached contribution data. You\'ll need to sync again.';
   static const clear = 'Clear';
 
   // Onboarding (legacy/shared)
@@ -403,7 +462,7 @@ class AppStrings {
   static const generatingWallpaper = 'Generating wallpaper...';
   static const applyingWallpaper = 'Applying wallpaper...';
   static const refreshingData = 'Refreshing data...';
-  static const wallpaperApplied = 'Wallpaper applied successfully!';
+  static const wallpaperApplied = 'Auto wallpaper set';
   static const wallpaperGenerated = 'Wallpaper image generated successfully';
   static const dataSynced = 'Data synced successfully';
   static const credentialsMissing = 'Credentials missing. Please login again.';
@@ -460,6 +519,15 @@ class AppConstants {
   static const int autoUpdateIntervalMinutes =
       60; // Change this to 120 if you set "every 120 minutes" in Cloud Function
 
+  static const String keyUpdateScheduleMode = 'update_schedule_mode_v1';
+  static const String keyUpdateScheduleHour = 'update_schedule_hour_v1';
+  static const String keyUpdateScheduleMinute = 'update_schedule_minute_v1';
+  static const String keyUpdateScheduleIntervalMinutes =
+      'update_schedule_interval_minutes_v1';
+  static const String keyUpdateScheduleLastDailyKey =
+      'update_schedule_last_daily_key_v1';
+  static const String keySafePreviewEnabled = 'safe_preview_enabled_v1';
+
   static const Duration cacheExpiry = Duration(hours: 6),
       apiTimeout = Duration(seconds: 30);
   static const String keyToken = 'gh_token',
@@ -496,7 +564,27 @@ class AppConstants {
   static const String keyStreakReminderEnabled = 'streak_reminder_enabled_v1';
   static const String keyStreakReminderHour = 'streak_reminder_hour_v1';
   static const String keyStreakReminderMinute = 'streak_reminder_minute_v1';
-  static const String keyStreakReminderLastSentDay = 'streak_reminder_last_sent_day_v1';
+  static const String keyStreakReminderLastSentDay =
+      'streak_reminder_last_sent_day_v1';
+  static const String keyStreakSavedEnabled = 'streak_saved_enabled_v1';
+  static const String keyStreakSavedLastSentDay =
+      'streak_saved_last_sent_day_v1';
+  static const String keyCelebrationsEnabled = 'celebrations_enabled_v1';
+  static const String keyCelebrationsLastStreakMilestone =
+      'celebrations_last_streak_v1';
+  static const String keyCelebrationsLastTotalMilestone =
+      'celebrations_last_total_v1';
+  static const String keyWeeklyDigestEnabled = 'weekly_digest_enabled_v1';
+  static const String keyWeeklyDigestHour = 'weekly_digest_hour_v1';
+  static const String keyWeeklyDigestMinute = 'weekly_digest_minute_v1';
+  static const String keyWeeklyDigestLastSentWeek =
+      'weekly_digest_last_week_v1';
+  static const String keyProEnabled = 'pro_enabled_v1';
+  static const String keyEarlyAccessShown = 'early_access_shown_v1';
+  static const String keyEarlyAccessCelebratePending =
+      'early_access_celebrate_pending_v1';
+  static const String keyEarlyAccessCelebrationShown =
+      'early_access_celebration_shown_v1';
   static const String fcmTopicDailyUpdates = 'daily-updates';
   static const List<String> weekdays = [
     'Sun',
@@ -544,7 +632,12 @@ class RefreshPolicy {
       String? username,
       String? token,
       bool hasConnectivity = true,
-      DateTime? now}) {
+      DateTime? now,
+      required UpdateScheduleMode scheduleMode,
+      required int scheduleHour,
+      required int scheduleMinute,
+      required int scheduleIntervalMinutes,
+      required String? lastDailyKey}) {
     if (!isAndroid && isBackground) {
       return const RefreshDecision.skip(RefreshSkipReason.noChanges);
     }
@@ -558,6 +651,29 @@ class RefreshPolicy {
     if (!autoUpdateEnabled && isBackground) {
       return const RefreshDecision.skip(RefreshSkipReason.noChanges);
     }
+
+    if (isBackground && !hasPendingRefresh) {
+      final localNow = (now ?? DateTime.now());
+      final localKey = AppDateUtils.formatDate(localNow);
+      if (scheduleMode == UpdateScheduleMode.autoDaily) {
+        if (lastDailyKey == localKey) {
+          return const RefreshDecision.skip(RefreshSkipReason.noChanges);
+        }
+        final start = DateTime(localNow.year, localNow.month, localNow.day,
+            scheduleHour, scheduleMinute);
+        final end = start.add(const Duration(minutes: 110));
+        if (localNow.isBefore(start) || localNow.isAfter(end)) {
+          return const RefreshDecision.skip(RefreshSkipReason.noChanges);
+        }
+      } else {
+        if (lastUpdate != null &&
+            nowUtc.difference(lastUpdate.toUtc()).inMinutes <
+                scheduleIntervalMinutes) {
+          return const RefreshDecision.skip(RefreshSkipReason.noChanges);
+        }
+      }
+    }
+
     if (isBackground &&
         lastUpdate != null &&
         nowUtc.difference(lastUpdate.toUtc()).inMinutes <
@@ -576,6 +692,8 @@ class RefreshPolicy {
     return const RefreshDecision.proceed();
   }
 }
+
+enum UpdateScheduleMode { autoDaily, interval }
 
 // RENDER UTILS
 class RenderUtils {
@@ -660,6 +778,24 @@ class AppDateUtils {
         ? DateTime.utc(int.parse(m.group(1)!), int.parse(m.group(2)!),
             int.parse(m.group(3)!))
         : DateTime.tryParse(s)?.toUtc();
+  }
+}
+
+class AppColorUtils {
+  static Color? parseHexColor(String? hex) {
+    if (hex == null) return null;
+    final cleaned = hex.trim();
+    if (cleaned.isEmpty) return null;
+    final normalized = cleaned.startsWith('#') ? cleaned.substring(1) : cleaned;
+    final value = int.tryParse(normalized, radix: 16);
+    if (value == null) return null;
+    if (normalized.length == 6) {
+      return Color(0xFF000000 | value);
+    }
+    if (normalized.length == 8) {
+      return Color(value);
+    }
+    return null;
   }
 }
 

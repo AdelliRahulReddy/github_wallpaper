@@ -1,8 +1,9 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:confetti/confetti.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_models.dart';
 import 'package:github_wallpaper/app_utils.dart';
@@ -38,6 +39,16 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
       _syncData(force: true);
     };
     _loadData();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) return;
+      if (StorageService.consumeEarlyAccessCelebratePending() &&
+          !StorageService.getEarlyAccessCelebrationShown()) {
+        await StorageService.setEarlyAccessCelebrationShown(true);
+        if (!mounted) return;
+        _confettiController.play();
+        await _showEarlyAccessCelebrationSheet();
+      }
+    });
   }
 
   @override
@@ -124,7 +135,9 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
     } on TokenExpiredException {
       await StorageService.setHasAuthError(true);
       if (mounted) setState(() {}); // Trigger rebuild to show banner
-    } catch (_) {}
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
   }
 
   Future<void> _syncData({bool silent = false, bool force = false}) async {
@@ -158,15 +171,15 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
         forceRefresh: force,
       );
 
+      if (StorageService.hasAuthError()) {
+        await StorageService.setHasAuthError(false);
+      }
+
       if (mounted) {
         setState(() {
           _data = newData;
           _isLoading = false;
         });
-
-        if (StorageService.hasAuthError()) {
-          StorageService.setHasAuthError(false);
-        }
 
         if (!silent) {
           ErrorHandler.showSuccess(context, AppStrings.dataSynced);
@@ -251,6 +264,96 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
   void _onItemTapped(int index) {
     HapticFeedback.selectionClick();
     setState(() => _selectedIndex = index);
+  }
+
+  Future<void> _showEarlyAccessCelebrationSheet() async {
+    final cs = context.colors;
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final scheme = Theme.of(ctx).colorScheme;
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: scheme.surface.withValues(alpha: 0.92),
+                borderRadius: AppTheme.brXXL,
+                border: Border.all(color: scheme.outline.withValues(alpha: 0.35)),
+                boxShadow: AppTheme.shadow(scheme.shadow, opacity: 0.14, blur: 40),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 64,
+                    height: 64,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      color: cs.primary.withValues(alpha: 0.14),
+                      border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
+                    ),
+                    child: Icon(Icons.verified_rounded, color: cs.primary, size: 30),
+                  ),
+                  AppTheme.h16,
+                  Text(
+                    'Early access claimed',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: AppTheme.fontTitle,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -0.6,
+                      color: scheme.onSurface,
+                    ),
+                  ),
+                  AppTheme.h8,
+                  Text(
+                    'You unlocked all templates and palettes for free.\nThanks for supporting GitWall early.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: scheme.onSurface.withValues(alpha: 0.78),
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  AppTheme.h16,
+                  SizedBox(
+                    width: double.infinity,
+                    height: 54,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(ctx).pop();
+                        _onItemTapped(1);
+                      },
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                      label: const Text('Customize now'),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 50,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: Text(
+                        'Later',
+                        style: TextStyle(
+                          fontWeight: FontWeight.w800,
+                          color: scheme.onSurface.withValues(alpha: 0.8),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ).animate().fadeIn(duration: 250.ms).slideY(begin: 0.06),
+          ),
+        );
+      },
+    );
   }
 
   @override

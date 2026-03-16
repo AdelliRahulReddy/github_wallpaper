@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import '../app_theme.dart';
 import '../app_utils.dart';
 
@@ -88,13 +88,6 @@ class SplashScreen extends StatelessWidget {
                     if (error == null)
                       Column(
                         children: [
-                          SizedBox(
-                              width: 28,
-                              height: 28,
-                              child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  valueColor: AlwaysStoppedAnimation(accent))),
-                          AppTheme.h20,
                           Text(_status(progress),
                               style: TextStyle(
                                   color: scheme.onSurface.withValues(alpha: 0.7),
@@ -262,13 +255,13 @@ class _ContributionGraph extends StatelessWidget {
   Widget build(BuildContext context) {
     final levels = AppThemeExt.of(context).heatmapLevels;
     final pattern = [
-      [0, 1, 2, 1, 0, 1, 2, 3, 2],
-      [1, 2, 3, 4, 3, 2, 3, 4, 3],
-      [0, 3, 4, 4, 4, 3, 4, 4, 4],
-      [1, 2, 4, 4, 4, 4, 4, 4, 3],
-      [0, 1, 3, 4, 4, 3, 4, 3, 2],
-      [1, 2, 2, 3, 3, 2, 3, 2, 1],
-      [0, 1, 0, 1, 2, 1, 1, 0, 0]
+      [0, 0, 1, 1, 2, 3, 4, 4, 4],
+      [0, 1, 1, 2, 3, 4, 4, 4, 3],
+      [0, 0, 1, 2, 3, 3, 4, 3, 4],
+      [1, 1, 2, 3, 4, 4, 3, 4, 4],
+      [0, 1, 1, 2, 3, 4, 4, 3, 2],
+      [0, 0, 1, 1, 2, 3, 3, 2, 1],
+      [0, 1, 0, 1, 2, 2, 1, 1, 0],
     ];
 
     return Column(

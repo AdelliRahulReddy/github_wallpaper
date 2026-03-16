@@ -4,30 +4,21 @@ import 'package:github_wallpaper/app_state.dart';
 
 void main() {
   group('ContributionAnalyzer Streaks & Today', () {
-    test('identifies Today correctly in local time', () {
+    test('identifies Today correctly in UTC', () {
       final days = [
         ContributionDay(date: DateTime.utc(2026, 2, 13), contributionCount: 5),
         ContributionDay(date: DateTime.utc(2026, 2, 14), contributionCount: 10),
       ];
 
-      // Simulated local time: Feb 14, 01:00 AM. 
-      // We want to ensure that even if UTC is still Feb 13, 
-      // if local time is Feb 14, it treats Feb 14 as "Today".
-      
-      // Since analyzeContributions uses nowUtc?.toLocal(), we provide a time 
-      // that is Feb 14 in local time.
-      final localNow = DateTime(2026, 2, 14, 1, 0); 
-      
       final results = ContributionAnalyzer.analyzeContributions(
         days,
         dateOf: (d) => d.date,
         countOf: (d) => d.contributionCount,
-        nowUtc: localNow.toUtc(), 
+        nowUtc: DateTime.utc(2026, 2, 13, 23, 0),
       );
 
-      // It should use nowUtc.toLocal() which is 2026-02-14
-      expect(results['todayContributions'], 10);
-      expect(results['currentStreak'], 2); // 13th and 14th
+      expect(results['todayContributions'], 5);
+      expect(results['currentStreak'], 1);
     });
 
     test('streak breaks correctly on missed day', () {

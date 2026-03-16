@@ -26,35 +26,94 @@ void callbackDispatcher() {
       await StorageService.init();
 
       if (task == _streakReminderTaskName) {
-        final enabled = StorageService.getStreakReminderEnabled();
-        if (!enabled) return true;
-
-        final t = StorageService.getStreakReminderTime();
         final now = DateTime.now();
-        final windowStart =
-            DateTime(now.year, now.month, now.day, t.hour, t.minute);
-        final windowEnd = windowStart.add(const Duration(minutes: 70));
-        if (now.isBefore(windowStart) || now.isAfter(windowEnd)) return true;
-
-        final dayKey = AppDateUtils.formatDate(now.toUtc());
-        if (StorageService.getStreakReminderLastSentDay() == dayKey) return true;
-
         final cached = StorageService.getCachedData();
-        if (cached == null) return true;
 
-        final todayCommits = cached.getContributionsForDate(DateTime.now().toUtc());
-        if (todayCommits > 0) return true;
+        if (StorageService.getStreakReminderEnabled() && cached != null) {
+          final t = StorageService.getStreakReminderTime();
+          final windowStart =
+              DateTime(now.year, now.month, now.day, t.hour, t.minute);
+          final windowEnd = windowStart.add(const Duration(minutes: 70));
 
-        await NotificationService.showStreakReminderNotification(
-          goalDays: StorageService.getStreakGoalDays(),
-          currentStreak: cached.currentStreak,
-        );
-        await StorageService.setStreakReminderLastSentDay(dayKey);
-        AppLog.info('Streak reminder sent');
+          final dayKey = AppDateUtils.formatDate(now);
+          final alreadySent = StorageService.getStreakReminderLastSentDay() == dayKey;
+          final todayCommits = cached.days
+              .where((d) => AppDateUtils.formatDate(d.date.toLocal()) == dayKey)
+              .fold<int>(0, (sum, d) => sum + d.contributionCount);
+
+          if (!alreadySent &&
+              todayCommits == 0 &&
+              !now.isBefore(windowStart) &&
+              !now.isAfter(windowEnd)) {
+            await NotificationService.showStreakReminderNotification(
+              goalDays: StorageService.getStreakGoalDays(),
+              currentStreak: cached.currentStreak,
+            );
+            await StorageService.setStreakReminderLastSentDay(dayKey);
+            AppLog.info('Streak reminder sent');
+          }
+        }
+
+        if (StorageService.getWeeklyDigestEnabled() && cached != null) {
+          final t = StorageService.getWeeklyDigestTime();
+          final windowStart =
+              DateTime(now.year, now.month, now.day, t.hour, t.minute);
+          final windowEnd = windowStart.add(const Duration(minutes: 110));
+
+          if (now.weekday == DateTime.sunday &&
+              !now.isBefore(windowStart) &&
+              !now.isAfter(windowEnd)) {
+            final weekKey = AppDateUtils.formatDate(now);
+            if (StorageService.getWeeklyDigestLastSentWeek() != weekKey) {
+              final today = DateTime(now.year, now.month, now.day);
+              final currentStart = today.subtract(const Duration(days: 6));
+              final prevStart = today.subtract(const Duration(days: 13));
+              final prevEnd = currentStart.subtract(const Duration(days: 1));
+
+              int current = 0;
+              int previous = 0;
+              for (final d in cached.days) {
+                final local = d.date.toLocal();
+                final dateOnly = DateTime(local.year, local.month, local.day);
+                if (!dateOnly.isBefore(currentStart) && !dateOnly.isAfter(today)) {
+                  current += d.contributionCount;
+                } else if (!dateOnly.isBefore(prevStart) &&
+                    !dateOnly.isAfter(prevEnd)) {
+                  previous += d.contributionCount;
+                }
+              }
+
+              final deltaPct = previous <= 0
+                  ? (current > 0 ? 100 : 0)
+                  : (((current - previous) * 100) / previous).round();
+              final sign = deltaPct >= 0 ? '+' : '';
+              final deltaLabel = '$sign$deltaPct%';
+              final topRepo =
+                  cached.repositories.isEmpty ? null : cached.repositories.first;
+
+              final title = 'Weekly Digest';
+              final body = topRepo == null
+                  ? 'This week: $current commits ($deltaLabel)'
+                  : 'This week: $current commits ($deltaLabel) • Top repo: ${topRepo.nameWithOwner}';
+
+              await NotificationService.showWeeklyDigestNotification(
+                title: title,
+                body: body,
+              );
+              await StorageService.setWeeklyDigestLastSentWeek(weekKey);
+              AppLog.info('Weekly digest sent');
+            }
+          }
+        }
         return true;
       }
 
       AppLog.info('Background update triggered by WorkManager');
+
+      if (!StorageService.getAutoUpdate() || !StorageService.hasAppliedWallpaper()) {
+        AppLog.info('Skipping background update - auto wallpaper not enabled/applied');
+        return true;
+      }
 
       // DEDUPLICATION: Check if update was recently completed by FCM or manual refresh
       final lastUpdate = StorageService.getEffectiveLastSync();
@@ -131,10 +190,13 @@ class BackgroundScheduler {
     }
 
     try {
+      final mode = StorageService.getUpdateScheduleMode();
+      final interval = StorageService.getUpdateIntervalMinutes();
+      final minutes = (mode == UpdateScheduleMode.interval ? interval : 60).clamp(15, 24 * 60);
       await Workmanager().registerPeriodicTask(
         _taskName,
         _taskName,
-        frequency: Duration(minutes: AppConstants.autoUpdateIntervalMinutes),
+        frequency: Duration(minutes: minutes),
         constraints: Constraints(
           networkType: NetworkType.connected,
           requiresBatteryNotLow: false, // Allow even on low battery
@@ -148,7 +210,7 @@ class BackgroundScheduler {
       );
 
       AppLog.info(
-          'Background updates scheduled (every ${AppConstants.autoUpdateIntervalMinutes} minutes)');
+          'Background updates scheduled (every $minutes minutes)');
     } catch (e, s) {
       AppLog.error('Failed to schedule background updates: $e', s);
     }
@@ -163,12 +225,6 @@ class BackgroundScheduler {
         _streakReminderTaskName,
         _streakReminderTaskName,
         frequency: Duration(minutes: AppConstants.autoUpdateIntervalMinutes),
-        constraints: Constraints(
-          networkType: NetworkType.not_required,
-          requiresBatteryNotLow: false,
-          requiresCharging: false,
-          requiresDeviceIdle: false,
-        ),
         existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
         backoffPolicy: BackoffPolicy.exponential,
         backoffPolicyDelay: const Duration(minutes: 15),

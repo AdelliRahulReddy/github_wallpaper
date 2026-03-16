@@ -12,8 +12,10 @@ import 'package:github_wallpaper/app_utils.dart';
 import 'package:github_wallpaper/app_state.dart';
 import 'package:github_wallpaper/ui_render.dart';
 import 'package:github_wallpaper/pages/settings_page.dart';
+import 'package:github_wallpaper/pages/wrapped_page.dart';
 import 'package:github_wallpaper/share_card.dart';
 import 'package:github_wallpaper/share_utils.dart';
+import 'package:github_wallpaper/theme_presets.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
@@ -52,7 +54,9 @@ class _HomePageState extends State<HomePage> {
       unawaited(() async {
         try {
           await StorageService.setFirstLoginGreetingPending(false);
-        } catch (_) {}
+        } catch (e, s) {
+          AppLog.error(e, s);
+        }
       }());
     }
   }
@@ -86,11 +90,13 @@ class _HomePageState extends State<HomePage> {
   }
 
   Color _heatmapColor(int level) {
-    final ext = Theme.of(context).extension<AppThemeExt>();
-    if (ext != null && level >= 0 && level < ext.heatmapLevels.length) {
-      return ext.heatmapLevels[level];
-    }
-    return AppThemeExt(isLight: true).heatmapLevels[level.clamp(0, 4)];
+    final scheme = Theme.of(context).colorScheme;
+    final cfg = StorageService.getWallpaperConfig();
+    final levels =
+        ThemePresets.levelsFor(cfg.themeId, isDarkMode: cfg.isDarkMode);
+    final i = level.clamp(0, 4);
+    if (i == 0) return scheme.surfaceContainerHighest;
+    return levels[i];
   }
 
   List<ContributionDay> _sortedDays(List<ContributionDay> days) {
@@ -155,7 +161,9 @@ class _HomePageState extends State<HomePage> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Text(
-                          _showFirstLoginGreeting ? AppStrings.welcome : AppStrings.welcomeBack,
+                          _showFirstLoginGreeting
+                              ? AppStrings.welcome
+                              : AppStrings.welcomeBack,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
@@ -247,9 +255,10 @@ class _HomePageState extends State<HomePage> {
                   if (StorageService.hasAuthError()) ...[
                     GestureDetector(
                       onTap: () async {
-                        final updated = await SettingsPage.showUpdateTokenDialog(context);
+                        final updated =
+                            await SettingsPage.showUpdateTokenDialog(context);
                         if (updated) {
-                           widget.onRefresh();
+                          widget.onRefresh();
                         }
                       },
                       child: Container(
@@ -258,11 +267,13 @@ class _HomePageState extends State<HomePage> {
                         decoration: BoxDecoration(
                           color: scheme.errorContainer,
                           borderRadius: AppTheme.brMedium,
-                          border: Border.all(color: scheme.error.withValues(alpha: 0.5)),
+                          border: Border.all(
+                              color: scheme.error.withValues(alpha: 0.5)),
                         ),
                         child: Row(
                           children: [
-                            Icon(Icons.warning_amber_rounded, color: scheme.onErrorContainer),
+                            Icon(Icons.warning_amber_rounded,
+                                color: scheme.onErrorContainer),
                             AppTheme.w12,
                             Expanded(
                               child: Column(
@@ -280,7 +291,8 @@ class _HomePageState extends State<HomePage> {
                                   Text(
                                     'Wallpaper updates are paused. Tap Settings to update your GitHub token.',
                                     style: TextStyle(
-                                      color: scheme.onErrorContainer.withValues(alpha: 0.8),
+                                      color: scheme.onErrorContainer
+                                          .withValues(alpha: 0.8),
                                       fontSize: AppTheme.fontCaption,
                                     ),
                                   ),
@@ -326,8 +338,7 @@ class _HomePageState extends State<HomePage> {
                         children: [
                           AppSectionHeader(
                             title: AppStrings.getStarted,
-                            subtitle:
-                                AppStrings.homeGetStartedSubtitle,
+                            subtitle: AppStrings.homeGetStartedSubtitle,
                           ),
                           AppTheme.h16,
                           SizedBox(
@@ -340,23 +351,32 @@ class _HomePageState extends State<HomePage> {
                         ],
                       ),
                     ),
-                  ] else ...[
-                    _buildOverview(
-                      data,
-                      trend7d: trend7d,
-                      trend30d: trend30d,
-                    ),
-                    AppTheme.h20,
-                    _buildTrendsSection(data),
-                    AppTheme.h20,
-                    _buildHeatmapSection(data),
-                    AppTheme.h20,
-                    _buildRepositoriesSection(data),
-                    AppTheme.h20,
-                    _buildLanguagesSection(data),
-                    AppTheme.h20,
-                    _buildActivityInsights(data),
-                  ].animate(interval: 50.ms).fade(duration: 400.ms, curve: Curves.easeOut).slideY(begin: 0.05, curve: Curves.easeOut),
+                  ] else
+                    ...[
+                      _buildOverview(
+                        data,
+                        trend7d: trend7d,
+                        trend30d: trend30d,
+                      ),
+                      AppTheme.h20,
+                      _WrappedBannerCard(
+                        data: data,
+                        username: username,
+                      ),
+                      AppTheme.h20,
+                      _buildTrendsSection(data),
+                      AppTheme.h20,
+                      _buildHeatmapSection(data),
+                      AppTheme.h20,
+                      _buildRepositoriesSection(data),
+                      AppTheme.h20,
+                      _buildLanguagesSection(data),
+                      AppTheme.h20,
+                      _buildActivityInsights(data),
+                    ]
+                        .animate(interval: 50.ms)
+                        .fade(duration: 400.ms, curve: Curves.easeOut)
+                        .slideY(begin: 0.05, curve: Curves.easeOut),
                 ],
               ),
             ),
@@ -374,7 +394,9 @@ class _HomePageState extends State<HomePage> {
     final scheme = Theme.of(context).colorScheme;
     final textScale = MediaQuery.textScalerOf(context).scale(1.0);
     final lastSync = StorageService.getEffectiveLastSync() ?? data.lastUpdated;
-    final updated = 'Last Synced ${PresentationFormatter.formatTimeAgoCompact(lastSync)}';
+    final updated =
+        'Last Synced ${PresentationFormatter.formatTimeAgoCompact(lastSync)}';
+    final goalDays = StorageService.getStreakGoalDays();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -394,7 +416,9 @@ class _HomePageState extends State<HomePage> {
                 ),
                 AppTheme.w8,
                 IconButton.filledTonal(
-                  onPressed: _isSharing ? null : () => _openShareSheet(data, trend7d, trend30d),
+                  onPressed: _isSharing
+                      ? null
+                      : () => _openShareSheet(data, trend7d, trend30d),
                   icon: const Icon(Icons.ios_share_rounded, size: 18),
                   visualDensity: VisualDensity.compact,
                 ),
@@ -438,6 +462,9 @@ class _HomePageState extends State<HomePage> {
                 MetricTile(
                   label: AppStrings.currentStreak,
                   value: '${data.currentStreak}d',
+                  helper: data.currentStreak >= goalDays
+                      ? '🎯 Goal reached!'
+                      : 'Goal: ${goalDays}d',
                   icon: Icons.local_fire_department_rounded,
                   iconColor: AppTheme.warningOrange,
                 ),
@@ -550,14 +577,14 @@ class _HomePageState extends State<HomePage> {
                         : () async {
                             try {
                               if (mounted) setState(() => _isSharing = true);
-                              final bytes =
-                                  await ShareUtils.capturePng(boundaryKey);
-                              final path = await ShareUtils.savePngBytes(bytes,
-                                  prefix: 'gitwall_stats');
                               final box = ctx.findRenderObject() as RenderBox?;
                               final origin = box == null
                                   ? null
                                   : box.localToGlobal(Offset.zero) & box.size;
+                              final bytes =
+                                  await ShareUtils.capturePng(boundaryKey);
+                              final path = await ShareUtils.savePngBytes(bytes,
+                                  prefix: 'gitwall_stats');
                               await ShareUtils.sharePngFile(
                                 path,
                                 text: 'My GitWall stats',
@@ -627,7 +654,7 @@ class _HomePageState extends State<HomePage> {
                                   : i == 3
                                       ? '${data.quartiles.q2 + 1}-${data.quartiles.q3}'
                                       : '${data.quartiles.q3 + 1}+';
-                      
+
                       return Padding(
                         padding: AppTheme.pOnlyR12,
                         child: Row(
@@ -752,8 +779,9 @@ class _HomePageState extends State<HomePage> {
                         fillColor: scheme.primary,
                         onIndexSelected: (index) {
                           final day = days[index];
-                          final label = DateFormat('EEE, d MMM')
-                              .format(day.date.toLocal());
+                          final label = DateFormat('EEE, d MMM').format(
+                              DateTime(
+                                  day.date.year, day.date.month, day.date.day));
                           showModalBottomSheet<void>(
                             context: context,
                             backgroundColor: scheme.surface,
@@ -827,7 +855,8 @@ class _HomePageState extends State<HomePage> {
       children: [
         AppSectionHeader(
           title: AppStrings.activeRepositories,
-          subtitle: '${data.activeRepositoriesCount} ${AppStrings.reposWithCommits}',
+          subtitle:
+              '${data.activeRepositoriesCount} ${AppStrings.reposWithCommits}',
         ),
         AppTheme.h12,
         AppCard(
@@ -844,59 +873,65 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ),
                 )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: repos.length,
-                  separatorBuilder: (_, __) => Divider(
-                    height: 1,
-                    color: scheme.outline.withValues(alpha: 0.55),
-                  ),
-                  itemBuilder: (context, index) {
-                    final r = repos[index];
-                    final lang = r.primaryLanguageName;
-                    return ListTile(
-                      dense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacing16,
-                        vertical: 6,
-                      ),
-                      title: Text(
-                        r.nameWithOwner,
-                        style: TextStyle(
-                          color: scheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: lang == null || lang.isEmpty
-                          ? null
-                          : Text(
-                              lang,
+              : Column(
+                  children: [
+                    for (int index = 0; index < repos.length; index++) ...[
+                      Builder(
+                        builder: (context) {
+                          final r = repos[index];
+                          final lang = r.primaryLanguageName;
+                          return ListTile(
+                            dense: true,
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: AppTheme.spacing16,
+                              vertical: 6,
+                            ),
+                            title: Text(
+                              r.nameWithOwner,
                               style: TextStyle(
-                                color: scheme.onSurface.withValues(alpha: 0.70),
-                                fontWeight: FontWeight.w600,
+                                color: scheme.onSurface,
+                                fontWeight: FontWeight.w700,
                               ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                      trailing: ConstrainedBox(
-                        constraints: const BoxConstraints(maxWidth: 110),
-                        child: Text(
-                          '${PresentationFormatter.formatCompactNumber(r.commitCount)} ${AppStrings.commits}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.end,
-                          style: TextStyle(
-                            color: scheme.onSurface.withValues(alpha: 0.70),
-                            fontWeight: FontWeight.w700,
-                            fontSize: AppTheme.fontBody,
-                          ),
-                        ),
+                            subtitle: lang == null || lang.isEmpty
+                                ? null
+                                : Text(
+                                    lang,
+                                    style: TextStyle(
+                                      color: scheme.onSurface
+                                          .withValues(alpha: 0.70),
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                            trailing: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 110),
+                              child: Text(
+                                '${PresentationFormatter.formatCompactNumber(r.commitCount)} ${AppStrings.commits}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  color:
+                                      scheme.onSurface.withValues(alpha: 0.70),
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: AppTheme.fontBody,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                    );
-                  },
+                      if (index != repos.length - 1)
+                        Divider(
+                          height: 1,
+                          color: scheme.outline.withValues(alpha: 0.55),
+                        ),
+                    ],
+                  ],
                 ),
         ),
       ],
@@ -930,11 +965,11 @@ class _HomePageState extends State<HomePage> {
                     for (final l in langs) ...[
                       _LanguageRow(
                         name: l.name,
-                        color: _parseHexColor(l.color) ?? scheme.primary,
+                        color: AppColorUtils.parseHexColor(l.color) ??
+                            scheme.primary,
                         percent: l.percent,
                       ),
-                      if (l != langs.last)
-                        AppTheme.h12,
+                      if (l != langs.last) AppTheme.h12,
                     ],
                   ],
                 ),
@@ -1175,7 +1210,8 @@ class _HomePageState extends State<HomePage> {
               style:
                   TextStyle(color: scheme.onSurface.withValues(alpha: 0.72))),
           AppTheme.h16,
-          FilledButton(onPressed: widget.onRefresh, child: Text(AppStrings.retry)),
+          FilledButton(
+              onPressed: widget.onRefresh, child: Text(AppStrings.retry)),
         ],
       ),
     );
@@ -1505,22 +1541,6 @@ class _SparklinePainter extends CustomPainter {
   }
 }
 
-Color? _parseHexColor(String? hex) {
-  if (hex == null) return null;
-  final cleaned = hex.trim();
-  if (cleaned.isEmpty) return null;
-  final normalized = cleaned.startsWith('#') ? cleaned.substring(1) : cleaned;
-  final value = int.tryParse(normalized, radix: 16);
-  if (value == null) return null;
-  if (normalized.length == 6) {
-    return Color(0xFF000000 | value);
-  }
-  if (normalized.length == 8) {
-    return Color(value);
-  }
-  return null;
-}
-
 class _ScrollableHeatmapGrid extends StatelessWidget {
   final List<ContributionDay> days;
   final Quartiles quartiles;
@@ -1538,14 +1558,14 @@ class _ScrollableHeatmapGrid extends StatelessWidget {
         ? days.sublist(days.length - AppConstants.dashboardHeatmapDays)
         : days;
     if (displayDays.isEmpty) {
-      return const Center(child: Text('No activity data'));
+      return const Center(child: Text(AppStrings.noActivityData));
     }
 
     // Group by calendar week: week start = Sunday (row 0), then Mon..Sat (rows 1..6).
     // Dart: weekday 1=Mon, 7=Sun → index 0=Sun is weekday % 7 (7→0, 1→1, ..., 6→6).
     final Map<String, List<ContributionDay?>> weekKeyToSlots = {};
     for (var day in displayDays) {
-      final d = day.date;
+      final d = DateTime(day.date.year, day.date.month, day.date.day);
       final weekStart = DateTime(d.year, d.month, d.day)
           .subtract(Duration(days: d.weekday % 7));
       final key =
@@ -1619,7 +1639,8 @@ class _HeatmapCell extends StatelessWidget {
           borderRadius: AppTheme.brSmall,
           onTap: () {
             HapticFeedback.selectionClick();
-            final friendlyDate = DateFormat('EEEE, d MMMM').format(day!.date.toLocal());
+            final friendlyDate = DateFormat('EEEE, d MMMM').format(
+                DateTime(day!.date.year, day!.date.month, day!.date.day));
             showModalBottomSheet<void>(
               context: context,
               backgroundColor: scheme.surface,
@@ -1638,7 +1659,8 @@ class _HeatmapCell extends StatelessWidget {
                         // Drag handle
                         Center(
                           child: Container(
-                            width: 36, height: 4,
+                            width: 36,
+                            height: 4,
                             decoration: BoxDecoration(
                               color: bsScheme.outline.withValues(alpha: 0.4),
                               borderRadius: AppTheme.brXXL,
@@ -1656,17 +1678,22 @@ class _HeatmapCell extends StatelessWidget {
                         ),
                         AppTheme.h12,
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 10),
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.15),
                             borderRadius: AppTheme.brMedium,
-                            border: Border.all(color: color.withValues(alpha: 0.35)),
+                            border: Border.all(
+                                color: color.withValues(alpha: 0.35)),
                           ),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Container(width: 12, height: 12,
-                                decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                              Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                      color: color, shape: BoxShape.circle)),
                               AppTheme.w8,
                               Text(
                                 '${day!.contributionCount} ${AppStrings.commits}',
@@ -1717,5 +1744,225 @@ class _HeatmapCell extends StatelessWidget {
   Color _getColorForLevel(int count, Quartiles quartiles) {
     final level = RenderUtils.getContributionLevel(count, quartiles: quartiles);
     return heatmapColor(level);
+  }
+}
+
+class _WrappedBannerCard extends StatelessWidget {
+  final CachedContributionData? data;
+  final String username;
+
+  const _WrappedBannerCard({
+    required this.data,
+    required this.username,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final d = data;
+    if (d == null) return const SizedBox.shrink();
+    final cs = Theme.of(context).colorScheme;
+    final year = DateTime.now().year;
+    final topLang = d.topLanguages.isNotEmpty ? d.topLanguages.first.name : '—';
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: AppTheme.brLarge,
+        onTap: () {
+          HapticFeedback.selectionClick();
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => WrappedPage(data: d),
+            ),
+          );
+        },
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: AppTheme.brLarge,
+            color: cs.outlineVariant.withValues(alpha: 0.55),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(1.25),
+            child: Container(
+              padding: AppTheme.pAll16,
+              decoration: BoxDecoration(
+                borderRadius: AppTheme.brLarge,
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.70),
+                border: Border.all(color: cs.outline.withValues(alpha: 0.24)),
+              ),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Opacity(
+                        opacity: 0.14,
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: AppTheme.brLarge,
+                            gradient: LinearGradient(
+                              begin: Alignment.topRight,
+                              end: Alignment.bottomLeft,
+                              colors: [
+                                Colors.white.withValues(alpha: 0.26),
+                                Colors.white.withValues(alpha: 0.00),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Row(
+                    children: [
+                      Stack(
+                        children: [
+                          Container(
+                            width: 46,
+                            height: 46,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: cs.surface.withValues(alpha: 0.55),
+                              border: Border.all(
+                                color: cs.outline.withValues(alpha: 0.30),
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: d.avatarUrl == null
+                                  ? Center(
+                                      child: Text(
+                                        username.isEmpty ? 'G' : username[0],
+                                        style: TextStyle(
+                                          color: cs.onSurface,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                      ),
+                                    )
+                                  : Image.network(
+                                      d.avatarUrl!,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (_, __, ___) => Center(
+                                        child: Text(
+                                          username.isEmpty ? 'G' : username[0],
+                                          style: TextStyle(
+                                            color: cs.onSurface,
+                                            fontWeight: FontWeight.w900,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+                          Positioned(
+                            right: -2,
+                            bottom: -2,
+                            child: Container(
+                              width: 20,
+                              height: 20,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: cs.surfaceContainerHighest,
+                                border: Border.all(
+                                  color: cs.outline.withValues(alpha: 0.35),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.auto_awesome_rounded,
+                                size: 13,
+                                color: cs.onSurface.withValues(alpha: 0.82),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      AppTheme.w12,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Wrapped $year',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: cs.onSurface,
+                                fontSize: AppTheme.fontLarge,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            AppTheme.h2,
+                            Text(
+                              'Year in review • $username',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: cs.onSurface.withValues(alpha: 0.70),
+                                fontSize: AppTheme.fontBody,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            AppTheme.h8,
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _WrappedPill(
+                                  text: '${d.currentStreak}d streak',
+                                ),
+                                _WrappedPill(
+                                  text:
+                                      '${PresentationFormatter.formatCompactNumber(d.totalContributions)} commits',
+                                ),
+                                _WrappedPill(
+                                  text: 'Top: $topLang',
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        Icons.chevron_right_rounded,
+                        color: cs.onSurface.withValues(alpha: 0.55),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _WrappedPill extends StatelessWidget {
+  final String text;
+
+  const _WrappedPill({
+    required this.text,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: cs.surface.withValues(alpha: 0.40),
+        border: Border.all(color: cs.outline.withValues(alpha: 0.30)),
+      ),
+      child: Text(
+        text,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: cs.onSurface,
+          fontSize: AppTheme.fontCaption,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
   }
 }

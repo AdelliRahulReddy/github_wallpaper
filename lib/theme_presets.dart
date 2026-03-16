@@ -8,12 +8,14 @@ class HeatmapTheme {
   final String label;
   final String emoji;
   final List<Color> levels; // 0=empty, 1..4=activity intensities
+  final bool isPro;
 
   const HeatmapTheme({
     required this.id,
     required this.label,
     required this.emoji,
     required this.levels,
+    this.isPro = false,
   });
 }
 
@@ -26,7 +28,7 @@ class ThemePresets {
       label: 'GitHub',
       emoji: '🟢',
       levels: [
-        Color(0xFF1A1A1A), // empty
+        Color(0xFF161B22), // empty
         Color(0xFF0E4429), // level 1
         Color(0xFF006D32), // level 2
         Color(0xFF26A641), // level 3
@@ -34,9 +36,34 @@ class ThemePresets {
       ],
     ),
     HeatmapTheme(
+      id: 'github_soft',
+      label: 'GitHub Soft',
+      emoji: '🟩',
+      levels: [
+        Color(0xFF161B22),
+        Color(0xFF144620),
+        Color(0xFF1F7A3A),
+        Color(0xFF2FBF71),
+        Color(0xFF7EE2A8),
+      ],
+    ),
+    HeatmapTheme(
+      id: 'mono',
+      label: 'Monochrome',
+      emoji: '⚪',
+      levels: [
+        Color(0xFF111316),
+        Color(0xFF2B2F36),
+        Color(0xFF4B5563),
+        Color(0xFF9CA3AF),
+        Color(0xFFE5E7EB),
+      ],
+    ),
+    HeatmapTheme(
       id: 'dracula',
       label: 'Dracula',
       emoji: '🧛',
+      isPro: true,
       levels: [
         Color(0xFF282A36),
         Color(0xFF44475A),
@@ -49,6 +76,7 @@ class ThemePresets {
       id: 'monokai',
       label: 'Monokai',
       emoji: '🔥',
+      isPro: true,
       levels: [
         Color(0xFF1C1C1C),
         Color(0xFF403929),
@@ -61,6 +89,7 @@ class ThemePresets {
       id: 'neon',
       label: 'Neon',
       emoji: '⚡',
+      isPro: true,
       levels: [
         Color(0xFF0A0A0F),
         Color(0xFF0D2952),
@@ -73,6 +102,7 @@ class ThemePresets {
       id: 'midnight',
       label: 'Midnight',
       emoji: '🌙',
+      isPro: true,
       levels: [
         Color(0xFF0E0E1A),
         Color(0xFF1A1A3E),
@@ -85,6 +115,7 @@ class ThemePresets {
       id: 'sunset',
       label: 'Sunset',
       emoji: '🌅',
+      isPro: true,
       levels: [
         Color(0xFF1A0A00),
         Color(0xFF5C1A00),
@@ -93,10 +124,50 @@ class ThemePresets {
         Color(0xFFFFBF69),
       ],
     ),
+    HeatmapTheme(
+      id: 'tokyo_night',
+      label: 'Tokyo Night',
+      emoji: '🌃',
+      isPro: true,
+      levels: [
+        Color(0xFF0B1020),
+        Color(0xFF1A2A4A),
+        Color(0xFF2F5D9B),
+        Color(0xFF7AA2F7),
+        Color(0xFFA9B1D6),
+      ],
+    ),
   ];
 
   static HeatmapTheme fromId(String? id) {
     if (id == null) return all.first;
     return all.firstWhere((t) => t.id == id, orElse: () => all.first);
+  }
+
+  static List<Color> levelsFor(String? id, {required bool isDarkMode}) {
+    final t = fromId(id);
+    if (isDarkMode) return t.levels;
+    return _toLightLevels(t.levels);
+  }
+
+  static List<Color> _toLightLevels(List<Color> base) {
+    if (base.length < 5) {
+      return const [
+        Color(0xFFEBEDF0),
+        Color(0xFF9BE9A8),
+        Color(0xFF40C463),
+        Color(0xFF30A14E),
+        Color(0xFF216E39),
+      ];
+    }
+    final res = <Color>[];
+    res.add(const Color(0xFFEBEDF0));
+    for (var i = 1; i <= 4; i++) {
+      final hsl = HSLColor.fromColor(base[i]);
+      final lightness = (0.92 - (i * 0.10)).clamp(0.45, 0.92).toDouble();
+      final saturation = (hsl.saturation * 0.85).clamp(0.0, 1.0).toDouble();
+      res.add(hsl.withLightness(lightness).withSaturation(saturation).toColor());
+    }
+    return res;
   }
 }

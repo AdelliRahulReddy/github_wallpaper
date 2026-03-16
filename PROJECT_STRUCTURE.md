@@ -18,6 +18,12 @@ These files are the "brain" and "skeleton" of the app. They handle logic, data, 
 | **`app_state.dart`** | **Current Memory.** <br>• Remembers which screen you are currently looking at. <br>• Tracks if a data refresh is currently in progress. <br>• Manages global banners (like the "Token Expired" warning). | **The Memory** |
 | **`background_scheduler.dart`** | **Automatic Sync.** <br>• Tells the phone: "Wake up every X hours to update the wallpaper." <br>• Handles tasks that run even when you aren't using the app. | **The Alarm Clock** |
 | **`app_exceptions.dart`** | **Error Handler.** <br>• Catches specifically when GitHub is down or your token is wrong. <br>• Translates "Code Errors" into "Human Messages" you can understand. | **The Warning Lights** |
+| **`theme_presets.dart`** | **Palette Library.** <br>• Defines heatmap color palettes (GitHub, Monochrome, Tokyo Night, etc.). <br>• Powers the palette picker in Customize. | **The Paint Rack** |
+| **`wallpaper_templates.dart`** | **Template Presets.** <br>• One-tap layout presets (scale/opacity/corners/quote defaults). <br>• Powers the Templates picker in Customize. | **The Style Pack** |
+| **`daily_quotes.dart`** | **Quote Engine.** <br>• Provides a deterministic “today’s quote” without network calls. | **The Fortune Cookie** |
+| **`share_card.dart`** | **Share Renderer (UI).** <br>• Builds the “stat card” layout that gets exported as an image. | **The Poster Designer** |
+| **`share_utils.dart`** | **Share Tools.** <br>• Captures widgets as PNG and opens the native share sheet. | **The Export Button** |
+| **`widget_service.dart`** | **Home Widget Bridge.** <br>• Pushes streak/today/total stats into the Android/iOS widget storage and triggers refresh. | **The Widget Messenger** |
 
 ---
 
@@ -33,6 +39,7 @@ These are the actual screens you see and interact with in the app.
 | **`customize_page.dart`** | **The Studio.** <br>• Live preview of how your wallpaper looks. <br>• Sliders for scale, position, and transparency. <br>• "Apply" button to save it to your phone. |
 | **`settings_page.dart`** | **Control Center.** <br>• Manage your tokens and account. <br>• Toggle Dark/Light mode manually. <br>• Links to support, privacy policy, and developer info. |
 | **`main_nav_page.dart`** | **Navigation.** <br>• Controls the bottom bar movement. <br>• Monitors authentication in the background to warn you if your token dies. |
+| **`wrapped_page.dart`** | **Wrapped (Year in Review).** <br>• Story-like pages for highlights: totals, streaks, peak day, top repo, top language. |
 
 ---
 

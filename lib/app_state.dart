@@ -38,19 +38,21 @@ class ContributionAnalyzer {
     // 1. Create a map for easy O(1) date lookup
     final dayMap = <String, int>{};
     for (var d in days) {
-      dayMap[AppDateUtils.formatDate(dateOf(d).toLocal())] = countOf(d);
+      final raw = dateOf(d).toUtc();
+      dayMap[AppDateUtils.formatDate(DateTime.utc(raw.year, raw.month, raw.day))] =
+          countOf(d);
     }
 
-    final localNow = now.toLocal();
-    final todayStr = AppDateUtils.formatDate(localNow);
+    final todayUtc = DateTime.utc(now.year, now.month, now.day);
+    final todayStr = AppDateUtils.formatDate(todayUtc);
 
     // 2. Identify Current Streak
     int currentStreak = 0;
-    DateTime checkDate = localNow;
+    DateTime checkDate = todayUtc;
     
     // If today is 0, we can still have a streak from yesterday (grace period)
     if ((dayMap[todayStr] ?? 0) <= 0) {
-      checkDate = localNow.subtract(const Duration(days: 1));
+      checkDate = todayUtc.subtract(const Duration(days: 1));
     }
 
     while (true) {
@@ -72,7 +74,8 @@ class ContributionAnalyzer {
     DateTime? prevDate;
 
     for (var d in sortedDays) {
-      final date = dateOf(d).toLocal();
+      final raw = dateOf(d).toUtc();
+      final date = DateTime.utc(raw.year, raw.month, raw.day);
       final count = countOf(d);
       
       if (count > 0) {
@@ -133,8 +136,8 @@ class ContributionAnalyzer {
       {required int window,
       required DateTime Function(dynamic) dateOf,
       required int Function(dynamic) countOf}) {
-    final now = DateTime.now().toLocal();
-    final today = DateTime(now.year, now.month, now.day);
+    final nowUtc = DateTime.now().toUtc();
+    final today = DateTime.utc(nowUtc.year, nowUtc.month, nowUtc.day);
     
     int current = 0;
     int previous = 0;
@@ -143,14 +146,13 @@ class ContributionAnalyzer {
     final previousStart = today.subtract(Duration(days: window * 2));
     
     for (var d in days) {
-      final date = dateOf(d);
+      final raw = dateOf(d).toUtc();
+      final date = DateTime.utc(raw.year, raw.month, raw.day);
       final count = countOf(d);
       
-      if (date.isAfter(currentStart) || date.isAtSameMomentAs(currentStart)) {
-        if (date.isBefore(today) || date.isAtSameMomentAs(today)) {
+      if (!date.isBefore(currentStart) && !date.isAfter(today)) {
           current += count;
-        }
-      } else if (date.isAfter(previousStart) || date.isAtSameMomentAs(previousStart)) {
+      } else if (!date.isBefore(previousStart) && date.isBefore(currentStart)) {
         previous += count;
       }
     }

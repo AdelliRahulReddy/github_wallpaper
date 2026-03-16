@@ -20,6 +20,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'app_exceptions.dart';
 import 'app_models.dart';
+import 'app_state.dart';
 import 'app_utils.dart';
 import 'firebase_options.dart';
 import 'ui_render.dart';
@@ -164,7 +165,8 @@ class StorageService {
 
       _memCache = CachedContributionData.fromJson(json);
       return _memCache;
-    } catch (_) {
+    } catch (e, s) {
+      AppLog.error(e, s);
       return null;
     }
   }
@@ -172,6 +174,14 @@ class StorageService {
   /// Clear in-memory cache to force reload from storage
   static void clearMemoryCache() {
     _memCache = null;
+  }
+
+  static Future<void> _safeSecureDelete(String key) async {
+    try {
+      await _ss.delete(key: key);
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
   }
 
   static Future<void> clearCache() async {
@@ -186,7 +196,9 @@ class StorageService {
       try {
         final file = File(path);
         if (await file.exists()) await file.delete();
-      } catch (_) {}
+      } catch (e, s) {
+        AppLog.error(e, s);
+      }
     }
 
     await Future.wait([
@@ -198,7 +210,7 @@ class StorageService {
       prefs.remove(AppConstants.keyWallpaperPath),
       prefs.remove(AppConstants.keyLastWallpaperTarget),
       prefs.remove(_kRef),
-      _ss.delete(key: AppConstants.keyCachedDataSensitive),
+      _safeSecureDelete(AppConstants.keyCachedDataSensitive),
     ]);
   }
 
@@ -218,6 +230,9 @@ class StorageService {
   static bool getCrashlyticsConsent() =>
       _s?.getBool(AppConstants.keyCrashlyticsConsent) ??
       false; // Default: false (GDPR)
+
+  static bool hasCrashlyticsConsentBeenSet() =>
+      _s?.containsKey(AppConstants.keyCrashlyticsConsent) ?? false;
 
   // Config
   static Future<void> saveWallpaperConfig(WallpaperConfig c) async =>
@@ -240,6 +255,50 @@ class StorageService {
   static bool getAutoUpdate() =>
       _s?.getBool(AppConstants.keyAutoUpdate) ??
       true; // Default enabled for first-run consistency with product behavior.
+
+  static Future<void> setUpdateScheduleMode(UpdateScheduleMode m) async =>
+      (await init()).setString(AppConstants.keyUpdateScheduleMode, m.name);
+
+  static UpdateScheduleMode getUpdateScheduleMode() {
+    final raw = _s?.getString(AppConstants.keyUpdateScheduleMode);
+    return UpdateScheduleMode.values
+        .firstWhere((e) => e.name == raw, orElse: () => UpdateScheduleMode.autoDaily);
+  }
+
+  static Future<void> setUpdateDailyTime({required int hour, required int minute}) async {
+    final h = hour.clamp(0, 23);
+    final m = minute.clamp(0, 59);
+    final p = await init();
+    await p.setInt(AppConstants.keyUpdateScheduleHour, h);
+    await p.setInt(AppConstants.keyUpdateScheduleMinute, m);
+  }
+
+  static TimeOfDay getUpdateDailyTime() {
+    final h = _s?.getInt(AppConstants.keyUpdateScheduleHour) ?? 9;
+    final m = _s?.getInt(AppConstants.keyUpdateScheduleMinute) ?? 0;
+    return TimeOfDay(hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+  }
+
+  static Future<void> setUpdateIntervalMinutes(int minutes) async {
+    final v = minutes.clamp(15, 24 * 60);
+    (await init()).setInt(AppConstants.keyUpdateScheduleIntervalMinutes, v);
+  }
+
+  static int getUpdateIntervalMinutes() =>
+      _s?.getInt(AppConstants.keyUpdateScheduleIntervalMinutes) ??
+      AppConstants.autoUpdateIntervalMinutes;
+
+  static Future<void> setUpdateScheduleLastDailyKey(String dayKey) async =>
+      (await init()).setString(AppConstants.keyUpdateScheduleLastDailyKey, dayKey);
+
+  static String? getUpdateScheduleLastDailyKey() =>
+      _s?.getString(AppConstants.keyUpdateScheduleLastDailyKey);
+
+  static Future<void> setSafePreviewEnabled(bool v) async =>
+      (await init()).setBool(AppConstants.keySafePreviewEnabled, v);
+
+  static bool getSafePreviewEnabled() =>
+      _s?.getBool(AppConstants.keySafePreviewEnabled) ?? true;
 
   static Future<void> setStreakGoalDays(int days) async {
     final v = days.clamp(1, 365);
@@ -275,6 +334,95 @@ class StorageService {
 
   static String? getStreakReminderLastSentDay() =>
       _s?.getString(AppConstants.keyStreakReminderLastSentDay);
+
+  static Future<void> setStreakSavedEnabled(bool enabled) async =>
+      (await init()).setBool(AppConstants.keyStreakSavedEnabled, enabled);
+
+  static bool getStreakSavedEnabled() =>
+      _s?.getBool(AppConstants.keyStreakSavedEnabled) ?? false;
+
+  static Future<void> setStreakSavedLastSentDay(String dayKey) async =>
+      (await init()).setString(AppConstants.keyStreakSavedLastSentDay, dayKey);
+
+  static String? getStreakSavedLastSentDay() =>
+      _s?.getString(AppConstants.keyStreakSavedLastSentDay);
+
+  static Future<void> setCelebrationsEnabled(bool enabled) async =>
+      (await init()).setBool(AppConstants.keyCelebrationsEnabled, enabled);
+
+  static bool getCelebrationsEnabled() =>
+      _s?.getBool(AppConstants.keyCelebrationsEnabled) ?? false;
+
+  static Future<void> setLastCelebratedStreakMilestone(int v) async =>
+      (await init()).setInt(AppConstants.keyCelebrationsLastStreakMilestone, v);
+
+  static int getLastCelebratedStreakMilestone() =>
+      _s?.getInt(AppConstants.keyCelebrationsLastStreakMilestone) ?? 0;
+
+  static Future<void> setLastCelebratedTotalMilestone(int v) async =>
+      (await init()).setInt(AppConstants.keyCelebrationsLastTotalMilestone, v);
+
+  static int getLastCelebratedTotalMilestone() =>
+      _s?.getInt(AppConstants.keyCelebrationsLastTotalMilestone) ?? 0;
+
+  static Future<void> setWeeklyDigestEnabled(bool enabled) async =>
+      (await init()).setBool(AppConstants.keyWeeklyDigestEnabled, enabled);
+
+  static bool getWeeklyDigestEnabled() =>
+      _s?.getBool(AppConstants.keyWeeklyDigestEnabled) ?? false;
+
+  static Future<void> setWeeklyDigestTime(
+      {required int hour, required int minute}) async {
+    final h = hour.clamp(0, 23);
+    final m = minute.clamp(0, 59);
+    final p = await init();
+    await p.setInt(AppConstants.keyWeeklyDigestHour, h);
+    await p.setInt(AppConstants.keyWeeklyDigestMinute, m);
+  }
+
+  static TimeOfDay getWeeklyDigestTime() {
+    final h = _s?.getInt(AppConstants.keyWeeklyDigestHour) ?? 20;
+    final m = _s?.getInt(AppConstants.keyWeeklyDigestMinute) ?? 30;
+    return TimeOfDay(hour: h.clamp(0, 23), minute: m.clamp(0, 59));
+  }
+
+  static Future<void> setWeeklyDigestLastSentWeek(String weekKey) async =>
+      (await init()).setString(AppConstants.keyWeeklyDigestLastSentWeek, weekKey);
+
+  static String? getWeeklyDigestLastSentWeek() =>
+      _s?.getString(AppConstants.keyWeeklyDigestLastSentWeek);
+
+  static Future<void> setEarlyAccessShown(bool v) async =>
+      (await init()).setBool(AppConstants.keyEarlyAccessShown, v);
+
+  static bool getEarlyAccessShown() =>
+      _s?.getBool(AppConstants.keyEarlyAccessShown) ?? false;
+
+  static Future<void> setEarlyAccessCelebratePending(bool v) async {
+    final p = await init();
+    v ? p.setBool(AppConstants.keyEarlyAccessCelebratePending, true) : p.remove(AppConstants.keyEarlyAccessCelebratePending);
+  }
+
+  static bool consumeEarlyAccessCelebratePending() {
+    final p = _s;
+    if (p == null) return false;
+    final v = p.getBool(AppConstants.keyEarlyAccessCelebratePending) ?? false;
+    if (v) {
+      p.remove(AppConstants.keyEarlyAccessCelebratePending);
+    }
+    return v;
+  }
+
+  static Future<void> setEarlyAccessCelebrationShown(bool v) async =>
+      (await init()).setBool(AppConstants.keyEarlyAccessCelebrationShown, v);
+
+  static bool getEarlyAccessCelebrationShown() =>
+      _s?.getBool(AppConstants.keyEarlyAccessCelebrationShown) ?? false;
+
+  static Future<void> setProEnabled(bool enabled) async =>
+      (await init()).setBool(AppConstants.keyProEnabled, enabled);
+
+  static bool getProEnabled() => _s?.getBool(AppConstants.keyProEnabled) ?? false;
 
 
   static Future<void> setOnboardingComplete(bool v) async =>
@@ -399,8 +547,16 @@ class StorageService {
   }
 
   static Future<void> logout() async {
-    await clearCache();
-    await deleteToken();
+    try {
+      await clearCache();
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
+    try {
+      await deleteToken();
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
     final prefs = await init();
     await Future.wait([
       prefs.remove(AppConstants.keyUsername),
@@ -412,6 +568,12 @@ class StorageService {
       prefs.remove(AppConstants.keyHasSeenDashboard),
       prefs.remove(AppConstants.keyFirstLoginGreetingPending),
       prefs.remove(AppConstants.keyAutoUpdate),
+      prefs.remove(AppConstants.keyUpdateScheduleMode),
+      prefs.remove(AppConstants.keyUpdateScheduleHour),
+      prefs.remove(AppConstants.keyUpdateScheduleMinute),
+      prefs.remove(AppConstants.keyUpdateScheduleIntervalMinutes),
+      prefs.remove(AppConstants.keyUpdateScheduleLastDailyKey),
+      prefs.remove(AppConstants.keySafePreviewEnabled),
       prefs.remove(AppConstants.keyHasAppliedWallpaper),
       prefs.remove(AppConstants.keyLastBackgroundSync),
       prefs.remove(_kRef),
@@ -420,7 +582,21 @@ class StorageService {
       prefs.remove(AppConstants.keyStreakReminderHour),
       prefs.remove(AppConstants.keyStreakReminderMinute),
       prefs.remove(AppConstants.keyStreakReminderLastSentDay),
+      prefs.remove(AppConstants.keyStreakSavedEnabled),
+      prefs.remove(AppConstants.keyStreakSavedLastSentDay),
+      prefs.remove(AppConstants.keyCelebrationsEnabled),
+      prefs.remove(AppConstants.keyCelebrationsLastStreakMilestone),
+      prefs.remove(AppConstants.keyCelebrationsLastTotalMilestone),
+      prefs.remove(AppConstants.keyWeeklyDigestEnabled),
+      prefs.remove(AppConstants.keyWeeklyDigestHour),
+      prefs.remove(AppConstants.keyWeeklyDigestMinute),
+      prefs.remove(AppConstants.keyWeeklyDigestLastSentWeek),
+      prefs.remove(AppConstants.keyEarlyAccessShown),
+      prefs.remove(AppConstants.keyEarlyAccessCelebratePending),
+      prefs.remove(AppConstants.keyEarlyAccessCelebrationShown),
+      prefs.remove(AppConstants.keyProEnabled),
     ]);
+    await _safeSecureDelete(AppConstants.keyToken);
   }
 }
 
@@ -435,7 +611,7 @@ class NotificationService {
   static Future<void> init() async {
     if (_initialized) return;
     const AndroidInitializationSettings initAndroid =
-        AndroidInitializationSettings('@mipmap/ic_launcher');
+        AndroidInitializationSettings('ic_stat_gitwall');
         
     // Darwin initialization settings are required for iOS/macOS, even though target is Android
     final DarwinInitializationSettings initDarwin = DarwinInitializationSettings(
@@ -458,12 +634,16 @@ class NotificationService {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
       await android?.requestNotificationsPermission();
-    } catch (_) {}
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
     try {
       final ios = _plugin.resolvePlatformSpecificImplementation<
           IOSFlutterLocalNotificationsPlugin>();
       await ios?.requestPermissions(alert: true, badge: true, sound: true);
-    } catch (_) {}
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
   }
 
   static Future<void> showAuthErrorNotification() async {
@@ -477,6 +657,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       color: Color(0xFF0D1117), // GitHub Dark BG
+      icon: 'ic_stat_gitwall',
     );
     
     const NotificationDetails platformDetails =
@@ -503,6 +684,7 @@ class NotificationService {
       channelDescription: 'Reminders to keep your GitHub streak alive',
       importance: Importance.high,
       priority: Priority.high,
+      icon: 'ic_stat_gitwall',
     );
 
     const NotificationDetails platformDetails =
@@ -511,10 +693,78 @@ class NotificationService {
     final title = 'Save your streak';
     final body = currentStreak >= goalDays
         ? 'You hit your goal streak. Keep it going with a commit today.'
-        : 'No commits yet today. Commit now to keep your ${currentStreak}‑day streak alive.';
+        : 'No commits yet today. Commit now to keep your $currentStreak‑day streak alive.';
 
     await _plugin.show(
       2001,
+      title,
+      body,
+      platformDetails,
+    );
+  }
+
+  static Future<void> showStreakSavedNotification({required int currentStreak}) async {
+    if (!_initialized) await init();
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'streak_saved_channel',
+      'Streak Saved',
+      channelDescription: 'Positive confirmations when you keep your streak alive',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      icon: 'ic_stat_gitwall',
+    );
+    const NotificationDetails platformDetails =
+        NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      2002,
+      'Streak saved',
+      'Nice. Your $currentStreak‑day streak stays alive.',
+      platformDetails,
+    );
+  }
+
+  static Future<void> showCelebrationNotification(
+      {required String title, required String body}) async {
+    if (!_initialized) await init();
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'celebrations_channel',
+      'Celebrations',
+      channelDescription: 'Milestones for streaks and contributions',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      icon: 'ic_stat_gitwall',
+    );
+    const NotificationDetails platformDetails =
+        NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      2003,
+      title,
+      body,
+      platformDetails,
+    );
+  }
+
+  static Future<void> showWeeklyDigestNotification(
+      {required String title, required String body}) async {
+    if (!_initialized) await init();
+
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'weekly_digest_channel',
+      'Weekly Digest',
+      channelDescription: 'Weekly summary of your GitHub activity',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+      icon: 'ic_stat_gitwall',
+    );
+    const NotificationDetails platformDetails =
+        NotificationDetails(android: androidDetails);
+
+    await _plugin.show(
+      2004,
       title,
       body,
       platformDetails,
@@ -525,6 +775,19 @@ class NotificationService {
 // GITHUB
 class GitHubService {
   static final http.Client _c = http.Client();
+
+  static Future<http.Response> _viewerReq(String token, Duration timeout) {
+    return _c
+        .post(
+          Uri.parse(AppConstants.apiUrl),
+          headers: {
+            'Authorization': 'Bearer $token',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({'query': 'query{viewer{login}}'}),
+        )
+        .timeout(timeout);
+  }
   static Future<CachedContributionData> getContributions(
       {required String username,
       required String token,
@@ -569,6 +832,7 @@ class GitHubService {
       await StorageService.setCachedData(parsed);
       await StorageService.recordSyncSuccess();
       unawaited(WidgetService.updateFromData(parsed));
+      unawaited(_postSyncNotifications(parsed));
 
       return parsed;
     } on SocketException {
@@ -695,16 +959,67 @@ class GitHubService {
   static Future<bool> validateToken(String t) async {
     if (isValidTokenFormat(t) != null) return false;
     try {
-      final r = await _c
-          .post(Uri.parse(AppConstants.apiUrl),
-              headers: {'Authorization': 'Bearer $t'},
-              body: jsonEncode({'query': 'query{viewer{login}}'}))
-          .timeout(const Duration(seconds: 8));
+      final r = await _viewerReq(t, const Duration(seconds: 8));
       return r.statusCode == 200 &&
           jsonDecode(r.body)['data']?['viewer']?['login'] != null;
-    } catch (_) {
+    } catch (e, s) {
+      AppLog.error(e, s);
       return false;
     }
+  }
+
+  static Future<void> _postSyncNotifications(CachedContributionData data) async {
+    try {
+      final nowUtc = DateTime.now().toUtc();
+      final dayKey = AppDateUtils.formatDate(nowUtc);
+
+      if (StorageService.getStreakSavedEnabled() &&
+          StorageService.getStreakReminderLastSentDay() == dayKey &&
+          data.todayCommits > 0 &&
+          StorageService.getStreakSavedLastSentDay() != dayKey) {
+        await NotificationService.showStreakSavedNotification(
+          currentStreak: data.currentStreak,
+        );
+        await StorageService.setStreakSavedLastSentDay(dayKey);
+      }
+
+      if (StorageService.getCelebrationsEnabled()) {
+        final streakMilestones = [7, 14, 30, 50, 100, 365];
+        final totalMilestones = [500, 1000, 2500, 5000, 10000];
+
+        final lastStreak = StorageService.getLastCelebratedStreakMilestone();
+        final hitStreak =
+            _greatestMilestoneAtOrBelow(data.currentStreak, streakMilestones);
+        if (hitStreak > lastStreak) {
+          await NotificationService.showCelebrationNotification(
+            title: '🔥 $hitStreak‑day streak',
+            body: 'Consistency looks good on you.',
+          );
+          await StorageService.setLastCelebratedStreakMilestone(hitStreak);
+        }
+
+        final lastTotal = StorageService.getLastCelebratedTotalMilestone();
+        final hitTotal =
+            _greatestMilestoneAtOrBelow(data.totalContributions, totalMilestones);
+        if (hitTotal > lastTotal) {
+          await NotificationService.showCelebrationNotification(
+            title: '🚀 ${PresentationFormatter.formatCompactNumber(hitTotal)} contributions',
+            body: 'Big numbers. Bigger momentum.',
+          );
+          await StorageService.setLastCelebratedTotalMilestone(hitTotal);
+        }
+      }
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
+  }
+
+  static int _greatestMilestoneAtOrBelow(int value, List<int> milestones) {
+    var best = 0;
+    for (final m in milestones) {
+      if (m <= value && m > best) best = m;
+    }
+    return best;
   }
 
   /// Lightweight background check specifically for token expiration detection.
@@ -713,11 +1028,7 @@ class GitHubService {
     final t = await StorageService.getToken();
     if (t == null) return;
     try {
-      final r = await _c
-          .post(Uri.parse(AppConstants.apiUrl),
-              headers: {'Authorization': 'Bearer $t'},
-              body: jsonEncode({'query': 'query{viewer{login}}'}))
-          .timeout(const Duration(seconds: 5));
+      final r = await _viewerReq(t, const Duration(seconds: 5));
           
       if (r.statusCode == 401 || r.statusCode == 403) {
         throw TokenExpiredException();
@@ -729,6 +1040,7 @@ class GitHubService {
     } catch (e) {
       if (e is TokenExpiredException) rethrow; // Pass it up
       // Ignore network errors or timeouts during silent check
+      AppLog.error(e);
     }
   }
 
@@ -815,6 +1127,33 @@ class WallpaperService {
     });
   }
 
+  static Future<String> generateWallpaperImage({
+    required CachedContributionData data,
+    required WallpaperConfig config,
+    WallpaperTarget target = WallpaperTarget.both,
+    bool forceGenerate = false,
+    ValueChanged<double>? onProgress,
+  }) async {
+    return await _l.synchronized(() async {
+      final hash = _hash(data, config, target);
+      final previousHash = StorageService.getLastWallpaperHash();
+      final previousPath = StorageService.getLastWallpaperPath();
+      final hasPreviousFile =
+          previousPath != null && await File(previousPath).exists();
+      final isUnchanged = hash == previousHash && hasPreviousFile;
+
+      onProgress?.call(0.35);
+      final wallpaperPath = (!forceGenerate && isUnchanged)
+          ? previousPath
+          : await _save(await _gen(data, config, target));
+
+      await StorageService.setLastWallpaperTarget(target);
+      await StorageService.saveWallpaperResult(hash, wallpaperPath);
+      onProgress?.call(1.0);
+      return wallpaperPath;
+    });
+  }
+
   static Future<void> _setAndroidWallpaper(
       File wallpaperFile, WallpaperTarget target) async {
     bool nativeSuccess = false;
@@ -850,6 +1189,19 @@ class WallpaperService {
     }
   }
 
+  static Future<bool> openLiveWallpaperPicker() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final ok = await _wallpaperChannel.invokeMethod<bool>(
+        'openLiveWallpaperPicker',
+      );
+      return ok == true;
+    } catch (e, s) {
+      AppLog.error(e, s);
+      return false;
+    }
+  }
+
   static Future<Uint8List> _gen(
       CachedContributionData d, WallpaperConfig c, WallpaperTarget t) async {
     final dm = StorageService.getDimensions();
@@ -859,7 +1211,7 @@ class WallpaperService {
 
     final ec = DeviceCompatibilityChecker.applyPlacement(base: c, target: t);
 
-    // Call directly on main isolate to avoid "UI actions on root isolate" error
+    await Future<void>.delayed(Duration.zero);
     return await generateWallpaperTask({
       'data': jsonEncode(d.toJson()),
       'config': jsonEncode(ec.toJson()),
@@ -910,6 +1262,9 @@ class WallpaperService {
       }
       final username = StorageService.getUsername();
       final token = await StorageService.getToken();
+      final scheduleMode = StorageService.getUpdateScheduleMode();
+      final dailyTime = StorageService.getUpdateDailyTime();
+      final intervalMinutes = StorageService.getUpdateIntervalMinutes();
       final dec = RefreshPolicy.shouldRefresh(
           isBackground: isBackground,
           isAndroid: Platform.isAndroid,
@@ -917,7 +1272,12 @@ class WallpaperService {
           hasPendingRefresh: StorageService.hasPendingWallpaperRefresh(),
           lastUpdate: StorageService.getEffectiveLastSync(),
           username: username,
-          token: token);
+          token: token,
+          scheduleMode: scheduleMode,
+          scheduleHour: dailyTime.hour,
+          scheduleMinute: dailyTime.minute,
+          scheduleIntervalMinutes: intervalMinutes,
+          lastDailyKey: StorageService.getUpdateScheduleLastDailyKey());
       if (!dec.shouldProceed) {
         final result = _resultForSkipReason(dec.skipReason);
         if (result == RefreshResult.noChanges) {
@@ -938,15 +1298,20 @@ class WallpaperService {
                 target: target)
             ? RefreshResult.success
             : RefreshResult.noChanges;
+      if (isBackground &&
+          scheduleMode == UpdateScheduleMode.autoDaily &&
+          (result == RefreshResult.success || result == RefreshResult.noChanges)) {
+        final localNow = DateTime.now();
+        await StorageService.setUpdateScheduleLastDailyKey(
+            AppDateUtils.formatDate(localNow));
+      }
       if (result.isSuccess) {
         // Clear auth error if there was one
         if (StorageService.hasAuthError()) {
           await StorageService.setHasAuthError(false);
         }
         await StorageService.consumePendingWallpaperRefresh();
-        if (isBackground) {
-          await StorageService.recordSyncSuccess();
-        }
+        await StorageService.recordSyncSuccess();
       }
       return result;
     } on NetworkException {
@@ -963,7 +1328,8 @@ class WallpaperService {
       return RefreshResult.authError;
     } on RateLimitException {
       return RefreshResult.throttled;
-    } catch (e) {
+    } catch (e, s) {
+      AppLog.error('Wallpaper refresh failed: $e', s);
       return RefreshResult.unknownError;
     }
   });
@@ -1032,7 +1398,9 @@ Future<void> _bgH(RemoteMessage m) async {
         if (msg != null) {
           BackgroundIsolateBinaryMessenger.ensureInitialized(msg);
         }
-      } catch (_) {}
+      } catch (e, s) {
+        AppLog.error(e, s);
+      }
 
       await Firebase.initializeApp(
           options: DefaultFirebaseOptions.currentPlatform);
@@ -1041,19 +1409,18 @@ Future<void> _bgH(RemoteMessage m) async {
         if (FirebaseCrashlytics.instance.isCrashlyticsCollectionEnabled) {
           // Crashlytics might be ready
         }
-      } catch (_) {}
+      } catch (e, s) {
+        AppLog.error(e, s);
+      }
 
       await StorageService.init();
       if (StorageService.getAutoUpdate() &&
           StorageService.hasAppliedWallpaper()) {
-        // Try immediate refresh in background
-        try {
-          await WallpaperService.refreshWallpaper(isBackground: true);
-        } catch (e) {
-          // If immediate refresh fails (e.g. background restriction), fallback to pending flag
+        final result = await WallpaperService.refreshWallpaper(isBackground: true);
+        if (result == RefreshResult.networkError ||
+            result == RefreshResult.unknownError ||
+            result == RefreshResult.throttled) {
           await StorageService.setPendingWallpaperRefresh(true);
-          AppLog.error(
-              'Immediate background refresh failed, set pending flag: $e');
         }
       }
     }
@@ -1085,7 +1452,9 @@ class FcmService {
   static Future<void> dispose() async {
     try {
       await _onMessageSub?.cancel();
-    } catch (_) {}
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
     _onMessageSub = null;
     _initialized = false;
   }
@@ -1129,7 +1498,9 @@ class AppConfig {
           _sig = sig;
         }
       });
-    } catch (_) {}
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
   }
 }
 

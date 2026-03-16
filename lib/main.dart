@@ -21,7 +21,9 @@ void _recordErrorIfConsented(Object error, StackTrace stack,
     final sanitizedMsg = SensitiveDataSanitizer.sanitize(error.toString());
     FirebaseCrashlytics.instance
         .recordError(Exception(sanitizedMsg), stack, fatal: fatal);
-  } catch (_) {}
+  } catch (e, s) {
+    AppLog.error(e, s);
+  }
 }
 
 void _recordFlutterErrorIfConsented(FlutterErrorDetails details) {
@@ -37,7 +39,9 @@ void _recordFlutterErrorIfConsented(FlutterErrorDetails details) {
         context: details.context,
       ),
     );
-  } catch (_) {}
+  } catch (e, s) {
+    AppLog.error(e, s);
+  }
 }
 
 void main() {
@@ -139,7 +143,9 @@ class _AppInitializerState extends State<AppInitializer> {
     try {
       final info = await PackageInfo.fromPlatform();
       if (mounted) setState(() => _appVersion = info.version);
-    } catch (_) {}
+    } catch (e, s) {
+      AppLog.error(e, s);
+    }
   }
 
   Future<void> _runPendingRefresh(int runId) async {

@@ -1,10 +1,10 @@
-﻿import 'dart:ui' as ui;
+import 'dart:ui' as ui;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'app_exceptions.dart';
 import 'app_models.dart';
+import 'app_state.dart';
 import 'app_utils.dart';
 import 'app_theme.dart';
 import 'theme_presets.dart';
@@ -17,7 +17,7 @@ class MonthHeatmapRenderer {
 
   static void clearCaches() => _cellsCache.clear();
   static void _pruneCache() {
-    if (_cellsCache.length > 12) {
+    while (_cellsCache.length > 12) {
       final keys = _cellsCache.keys.toList()..sort();
       _cellsCache.remove(keys.first);
     }
@@ -65,11 +65,16 @@ class MonthHeatmapRenderer {
     final baseGridH = (rows * baseCellSize) - baseSpacing;
 
     final qTxt = config.customQuote;
+    final stats = _buildQuickStats(data, config);
+    final showStats = config.showQuickStatsBar && stats.isNotEmpty;
     
     // Measure Quote First (Fix for Problem 5)
     final qGap = qTxt.isEmpty ? 0.0 : (baseSpacing * 4).clamp(baseSpacing, baseBox * 1.5);
     final qCol = (config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText)
             .withValues(alpha: config.quoteOpacity);
+    final baseStatsGap =
+        showStats ? (baseSpacing * 2).clamp(baseSpacing, baseBox * 1.0) : 0.0;
+    final baseStatsBarH = showStats ? _statsBarHeightBase(stats.length) : 0.0;
     
     // We need an initial grid width to measure against, but we don't know scale yet.
     // So we iterate: 
@@ -78,7 +83,13 @@ class MonthHeatmapRenderer {
     // 3. Measure text with that width
     // 4. Recalculate total height and scale if needed
     
-    final baseTotalHNoQuote = baseHeaderFont + (baseSpacing * 3) + baseLabelFont + (baseSpacing * 2) + baseGridH;
+    final baseTotalHNoQuote = baseHeaderFont +
+        (baseSpacing * 3) +
+        baseLabelFont +
+        (baseSpacing * 2) +
+        baseGridH +
+        baseStatsGap +
+        baseStatsBarH;
     final widthScale = ((avW * 0.95) / baseGridW).clamp(0.1, 10.0).toDouble();
     
     // Initial scale guess (ignoring quote height for a moment)
@@ -105,7 +116,8 @@ class MonthHeatmapRenderer {
     }
 
     // Now calculate true height requirement
-    final totalHRequired = (baseTotalHNoQuote * scale) + (qTxt.isEmpty ? 0 : (qGap + qH));
+    final totalHRequired =
+        (baseTotalHNoQuote * scale) + (qTxt.isEmpty ? 0 : (qGap + qH));
     final heightScale = ((avH * 0.95) / (totalHRequired / scale)).clamp(0.1, 10.0).toDouble();
     
     if (config.autoFitWidth) {
@@ -170,7 +182,18 @@ class MonthHeatmapRenderer {
     // QuotePainter already created above
 
     final legH = showLegend ? (boxSz * 1.5) : 0.0;
-    final totH = headerFontSize + headGap + lbH + lbGap + gridH + qGap + qH + legH;
+    final statsGap = baseStatsGap * scale;
+    final statsBarH = baseStatsBarH * scale;
+    final totH = headerFontSize +
+        headGap +
+        lbH +
+        lbGap +
+        gridH +
+        statsGap +
+        statsBarH +
+        qGap +
+        qH +
+        legH;
     final yHead = (padT + ((avH - totH) * config.verticalPosition)).clamp(padT,
         size.height - padB - totH < padT ? padT : size.height - padB - totH);
     final yLb = yHead + headerFontSize + headGap;
@@ -213,14 +236,12 @@ class MonthHeatmapRenderer {
           ..style = PaintingStyle.stroke
           ..strokeWidth = (spc / 1.5).clamp(1.0, boxSz * 0.2)
           ..color = tEx.heatmapHighlight;
+    final themeLevels =
+        ThemePresets.levelsFor(config.themeId, isDarkMode: config.isDarkMode);
     final rad = Radius.circular(config.cornerRadius * scale);
     final n = (todayUtc ?? DateTime.now().toUtc()).toUtc();
     final today = DateTime.utc(n.year, n.month, n.day);
-    final txtCol =
-        (config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText)
-            .withValues(alpha: 0.9);
-    final cntSty = TextStyle(
-        color: txtCol, fontSize: boxSz * 0.45, fontWeight: FontWeight.bold);
+    final cntBaseSize = boxSz * 0.45;
 
     final textCache = <int, TextPainter>{};
 
@@ -229,8 +250,9 @@ class MonthHeatmapRenderer {
       final cnt = data.getContributionsForDate(c.date);
       final lvl =
           RenderUtils.getContributionLevel(cnt, quartiles: data.quartiles);
-      final themeLevels = ThemePresets.fromId(config.themeId).levels;
-      fillP.color = (themeLevels.length > lvl ? themeLevels[lvl] : themeLevels[0])
+      final cellColor =
+          themeLevels.length > lvl ? themeLevels[lvl] : themeLevels[0];
+      fillP.color = cellColor
           .withValues(alpha: config.opacity);
 
       final r = RRect.fromRectAndRadius(
@@ -244,19 +266,35 @@ class MonthHeatmapRenderer {
         canvas.drawRRect(r, bordP);
       }
 
-      if (boxSz >= 12.0 && cnt > 0) {
-        var tp = textCache[cnt];
+      final showCount = boxSz >= 12.0 && cnt > 0;
+      if (showCount) {
+        final lum = cellColor.computeLuminance();
+        final isLightCell = lum > 0.55;
+        final cacheKey = (cnt << 1) | (isLightCell ? 1 : 0);
+        var tp = textCache[cacheKey];
         if (tp == null) {
+          final txtCol = isLightCell
+              ? Colors.black.withValues(alpha: 0.86)
+              : Colors.white.withValues(alpha: 0.92);
+          final shCol = isLightCell
+              ? Colors.white.withValues(alpha: 0.25)
+              : Colors.black.withValues(alpha: 0.28);
+          final cntSty = TextStyle(
+            color: txtCol,
+            fontSize: cntBaseSize,
+            fontWeight: FontWeight.w900,
+            height: 1.0,
+          );
           tp = TextPainter(
               text: TextSpan(
                   text: '$cnt',
                   style: cntSty.copyWith(
-                      shadows: [Shadow(color: Colors.black26, blurRadius: 2)])),
+                      shadows: [Shadow(color: shCol, blurRadius: 2)])),
               textAlign: TextAlign.center,
               textDirection: TextDirection.ltr,
               maxLines: 1)
             ..layout(maxWidth: boxSz);
-          textCache[cnt] = tp;
+          textCache[cacheKey] = tp;
         }
         tp.paint(
             canvas,
@@ -270,7 +308,22 @@ class MonthHeatmapRenderer {
       tp.dispose();
     }
 
-    double nextY = yGrid + gridH + qGap + qH;
+    double nextY = yGrid + gridH;
+
+    if (showStats) {
+      nextY += statsGap;
+      _drawQuickStatsBar(
+        canvas: canvas,
+        x: xStart,
+        y: nextY,
+        width: gridW,
+        scale: scale,
+        config: config,
+        data: data,
+        items: stats,
+      );
+      nextY += statsBarH;
+    }
 
     // Legend
     if (showLegend) {
@@ -292,9 +345,9 @@ class MonthHeatmapRenderer {
           legSpc;
 
       for (int i = 0; i < 5; i++) {
-        fillP.color = (tEx.heatmapLevels.length > i
-                ? tEx.heatmapLevels[i]
-                : tEx.heatmapLevels[0])
+        final legColor =
+            themeLevels.length > i ? themeLevels[i] : themeLevels[0];
+        fillP.color = legColor
             .withValues(alpha: config.opacity);
         canvas.drawRRect(
             RRect.fromRectAndRadius(
@@ -312,16 +365,132 @@ class MonthHeatmapRenderer {
     // Quote
     if (qP != null) {
       qP.paint(canvas,
-          Offset(xStart + (gridW - qP.width) / 2, nextY + (spc * 1.5)));
+          Offset(xStart + (gridW - qP.width) / 2, nextY + (spc * 1.5) + qGap));
       qP.dispose();
     }
   }
+
+  static List<_QuickStat> _buildQuickStats(
+      CachedContributionData data, WallpaperConfig config) {
+    final items = <_QuickStat>[];
+    if (config.statCurrentStreak) {
+      items.add(_QuickStat(
+          label: AppStrings.statCurrentShort, value: '${data.currentStreak}d'));
+    }
+    if (config.statLongestStreak) {
+      items.add(_QuickStat(
+          label: AppStrings.statBestShort, value: '${data.longestStreak}d'));
+    }
+    if (config.statTotalCommits) {
+      items.add(_QuickStat(
+          label: AppStrings.statTotalShort,
+          value: PresentationFormatter.formatCompactNumber(
+              data.totalContributions)));
+    }
+    if (config.statTopLanguage) {
+      final top = data.topLanguages.isNotEmpty ? data.topLanguages.first.name : '—';
+      items.add(_QuickStat(label: AppStrings.statTopShort, value: top));
+    }
+    return items;
+  }
+
+  static double _statsBarHeightBase(int count) {
+    if (count <= 0) return 0.0;
+    const padV = 6.0;
+    const valueFont = 11.0;
+    final itemH = (valueFont * 1.20) + 2.0;
+    return (padV * 2) + itemH;
+  }
+
+  static void _drawQuickStatsBar({
+    required Canvas canvas,
+    required double x,
+    required double y,
+    required double width,
+    required double scale,
+    required WallpaperConfig config,
+    required CachedContributionData data,
+    required List<_QuickStat> items,
+  }) {
+    if (items.isEmpty) return;
+    final pad = 7.0 * scale;
+    final r = 12.0 * scale;
+    final barH = _statsBarHeightBase(items.length) * scale;
+    final bg = Paint()
+      ..style = PaintingStyle.fill
+      ..color = (config.isDarkMode ? AppTheme.darkBg : AppTheme.lightBg)
+          .withValues(alpha: config.isDarkMode ? 0.42 : 0.62);
+    final border = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (1.0 * scale).clamp(0.8, 2.0)
+      ..color = (config.isDarkMode ? Colors.white : Colors.black)
+          .withValues(alpha: config.isDarkMode ? 0.12 : 0.10);
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(x, y, width, barH),
+      Radius.circular(r),
+    );
+    canvas.drawRRect(rect, bg);
+    canvas.drawRRect(rect, border);
+
+    final innerW = width - (pad * 2);
+    final count = items.length.clamp(1, 6);
+    final segW = innerW / count;
+    final valueFont =
+        ((11.0 * scale) * (count >= 4 ? 0.92 : 1.0)).clamp(9.0, 16.0);
+    final labelFont =
+        ((8.5 * scale) * (count >= 4 ? 0.90 : 1.0)).clamp(7.0, 12.0);
+    final inlineLabelStyle = TextStyle(
+      color: (config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText)
+          .withValues(alpha: 0.56),
+      fontSize: labelFont,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 0.2,
+    );
+    final valueStyle = TextStyle(
+      color: (config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText)
+          .withValues(alpha: 0.92),
+      fontSize: valueFont,
+      fontWeight: FontWeight.w900,
+      letterSpacing: -0.2,
+      height: 1.0,
+    );
+
+    final maxW = (segW - (6.0 * scale)).clamp(12.0, segW);
+
+    for (int i = 0; i < items.length; i++) {
+      final ix = x + pad + (i * segW);
+      final textP = TextPainter(
+        text: TextSpan(
+          children: [
+            TextSpan(text: items[i].value, style: valueStyle),
+            TextSpan(text: ' ${items[i].label}', style: inlineLabelStyle),
+          ],
+        ),
+        textAlign: TextAlign.center,
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+        ellipsis: '…',
+      )..layout(maxWidth: maxW);
+      textP.paint(
+        canvas,
+        Offset(ix + (segW - textP.width) / 2, y + (barH - textP.height) / 2),
+      );
+      textP.dispose();
+    }
+  }
+
 }
 
 class _Cell {
   final DateTime date;
   final int idx;
   _Cell(this.date, this.idx);
+}
+
+class _QuickStat {
+  final String label;
+  final String value;
+  const _QuickStat({required this.label, required this.value});
 }
 
 // ══════════════════════════════════════════════════════════════════════════
@@ -365,6 +534,7 @@ class AppSectionHeader extends StatelessWidget {
   @override
   Widget build(BuildContext c) {
     final s = Theme.of(c).colorScheme;
+    final tt = Theme.of(c).textTheme;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -373,19 +543,13 @@ class AppSectionHeader extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title,
-                  style: GoogleFonts.plusJakartaSans(
-                      color: s.onSurface,
-                      fontSize: AppTheme.fontTitle,
-                      fontWeight: FontWeight.w700,
-                      height: AppTheme.heightTight)),
+                  style: tt.titleLarge?.copyWith(color: s.onSurface)),
               if (subtitle != null) ...[
                 AppTheme.h8,
                 Text(subtitle!,
-                    style: GoogleFonts.plusJakartaSans(
-                        color: s.onSurface.withValues(alpha: 0.7),
-                        fontSize: AppTheme.fontBody,
-                        fontWeight: FontWeight.w500,
-                        height: AppTheme.heightRelaxed)),
+                    style: tt.bodySmall?.copyWith(
+                      color: s.onSurface.withValues(alpha: 0.7),
+                    )),
               ],
             ],
           ),
@@ -419,6 +583,7 @@ class MetricTile extends StatelessWidget {
   @override
   Widget build(BuildContext c) {
     final s = Theme.of(c).colorScheme;
+    final tt = Theme.of(c).textTheme;
     final col = iconColor ?? s.primary;
     final textScale = MediaQuery.textScalerOf(c).scale(1.0);
 
@@ -454,30 +619,25 @@ class MetricTile extends StatelessWidget {
                     Text(value,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: GoogleFonts.plusJakartaSans(
-                            color: s.onSurface,
-                            fontSize: AppTheme.fontHeadline,
-                            fontWeight: FontWeight.w800,
-                            height: AppTheme.heightTight)),
+                        style: tt.headlineLarge?.copyWith(
+                          color: s.onSurface,
+                          height: 1.0,
+                        )),
                     if (showHelper) ...[
                       AppTheme.h4,
                       Text(helper!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                              color: col,
-                              fontSize: AppTheme.fontCaption,
-                              fontWeight: FontWeight.w700)),
+                          style: tt.labelSmall?.copyWith(color: col)),
                     ],
                     if (showLabel) ...[
                       AppTheme.h4,
                       Text(label,
                           maxLines: isCompact ? 1 : 2,
                           overflow: TextOverflow.ellipsis,
-                          style: GoogleFonts.plusJakartaSans(
-                              color: s.onSurface.withValues(alpha: 0.7),
-                              fontSize: AppTheme.fontBody,
-                              fontWeight: FontWeight.w600)),
+                          style: tt.bodySmall?.copyWith(
+                            color: s.onSurface.withValues(alpha: 0.7),
+                          )),
                     ],
                   ],
                 );
@@ -511,6 +671,7 @@ class HeroMetricCard extends StatelessWidget {
   @override
   Widget build(BuildContext c) {
     final s = Theme.of(c).colorScheme;
+    final tt = Theme.of(c).textTheme;
     final col = color ?? s.primary;
     final isDark = Theme.of(c).brightness == Brightness.dark;
 
@@ -538,20 +699,16 @@ class HeroMetricCard extends StatelessWidget {
                 children: [
                   Text(
                     title.toUpperCase(),
-                    style: GoogleFonts.plusJakartaSans(
+                    style: tt.labelSmall?.copyWith(
                       color: col.withValues(alpha: 0.8),
-                      fontSize: AppTheme.fontCaption,
-                      fontWeight: FontWeight.w800,
                       letterSpacing: 1.2,
                     ),
                   ),
                   AppTheme.h8,
                   Text(
                     value,
-                    style: GoogleFonts.plusJakartaSans(
+                    style: tt.displayLarge?.copyWith(
                       color: s.onSurface,
-                      fontSize: 36,
-                      fontWeight: FontWeight.w900,
                       height: 1.0,
                     ),
                   ),
@@ -559,10 +716,8 @@ class HeroMetricCard extends StatelessWidget {
                     AppTheme.h4,
                     Text(
                       subtitle!,
-                      style: GoogleFonts.plusJakartaSans(
+                      style: tt.bodySmall?.copyWith(
                         color: s.onSurface.withValues(alpha: 0.6),
-                        fontSize: AppTheme.fontBody,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],

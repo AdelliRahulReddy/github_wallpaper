@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -219,28 +219,101 @@ class AppTheme {
     // 3. Typography Configuration (Plus Jakarta Sans)
     final textTheme =
         GoogleFonts.plusJakartaSansTextTheme(baseTheme.textTheme).copyWith(
+      displayLarge: TextStyle(
+        fontSize: 34,
+        fontWeight: FontWeight.w900,
+        height: 1.05,
+        letterSpacing: -1.0,
+        color: colorScheme.onSurface,
+      ),
+      displayMedium: TextStyle(
+        fontSize: 30,
+        fontWeight: FontWeight.w900,
+        height: 1.06,
+        letterSpacing: -0.8,
+        color: colorScheme.onSurface,
+      ),
+      displaySmall: TextStyle(
+        fontSize: 26,
+        fontWeight: FontWeight.w900,
+        height: 1.08,
+        letterSpacing: -0.6,
+        color: colorScheme.onSurface,
+      ),
+      headlineLarge: TextStyle(
+        fontSize: 24,
+        fontWeight: FontWeight.w900,
+        height: heightTight,
+        letterSpacing: -0.6,
+        color: colorScheme.onSurface,
+      ),
+      headlineMedium: TextStyle(
+        fontSize: 20,
+        fontWeight: FontWeight.w900,
+        height: heightTight,
+        letterSpacing: -0.4,
+        color: colorScheme.onSurface,
+      ),
+      headlineSmall: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w900,
+        height: heightTight,
+        letterSpacing: -0.2,
+        color: colorScheme.onSurface,
+      ),
+      titleLarge: TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.w800,
+        height: heightTight,
+        color: colorScheme.onSurface,
+      ),
+      titleMedium: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w800,
+        height: 1.2,
+        color: colorScheme.onSurface,
+      ),
+      titleSmall: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w800,
+        height: 1.2,
+        color: colorScheme.onSurface,
+      ),
+      bodyLarge: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w600,
+        height: heightRelaxed,
+        color: colorScheme.onSurface,
+      ),
       bodyMedium: TextStyle(
-        fontSize: fontBase,
+        fontSize: 13,
+        fontWeight: FontWeight.w600,
         height: heightRelaxed,
         color: colorScheme.onSurface,
       ),
       bodySmall: TextStyle(
-        fontSize: fontSmall,
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
         height: heightRelaxed,
-        color: colorScheme.onSurface.withValues(alpha: 0.8),
+        color: colorScheme.onSurface.withValues(alpha: 0.78),
       ),
-      titleLarge: TextStyle(
-        fontSize: fontTitle,
-        fontWeight: FontWeight.w700,
-        height: heightTight,
+      labelLarge: TextStyle(
+        fontSize: 14,
+        fontWeight: FontWeight.w900,
+        height: 1.1,
         color: colorScheme.onSurface,
       ),
-      headlineMedium: TextStyle(
-        fontSize: fontHeadline,
+      labelMedium: TextStyle(
+        fontSize: 12,
         fontWeight: FontWeight.w800,
-        height: heightTight,
-        letterSpacing: -0.5,
-        color: colorScheme.onSurface,
+        height: 1.1,
+        color: colorScheme.onSurface.withValues(alpha: 0.85),
+      ),
+      labelSmall: TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w800,
+        height: 1.1,
+        color: colorScheme.onSurface.withValues(alpha: 0.75),
       ),
     );
 
@@ -267,10 +340,7 @@ class AppTheme {
         backgroundColor: colorScheme.surface,
         indicatorColor: colorScheme.primary.withValues(alpha: 0.12),
         labelTextStyle: WidgetStateProperty.all(
-          GoogleFonts.plusJakartaSans(
-            fontWeight: FontWeight.w600,
-            fontSize: fontSmall,
-          ),
+          textTheme.labelSmall,
         ),
       ),
 
@@ -315,7 +385,7 @@ class AppTheme {
           elevation: 4,
           shadowColor: colorScheme.primary.withValues(alpha: 0.3),
           padding: const EdgeInsets.symmetric(horizontal: spacing24, vertical: spacing16),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: fontLarge),
+          textStyle: textTheme.labelLarge,
         ),
       ),
 

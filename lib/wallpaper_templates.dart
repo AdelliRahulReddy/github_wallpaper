@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'app_models.dart';
-import 'theme_presets.dart';
 
 @immutable
 class WallpaperTemplate {
@@ -8,6 +7,7 @@ class WallpaperTemplate {
   final String label;
   final String emoji;
   final String description;
+  final bool isPro;
   final WallpaperConfig Function(WallpaperConfig base) apply;
 
   const WallpaperTemplate({
@@ -15,6 +15,7 @@ class WallpaperTemplate {
     required this.label,
     required this.emoji,
     required this.description,
+    this.isPro = false,
     required this.apply,
   });
 }
@@ -26,6 +27,7 @@ class WallpaperTemplates {
       label: 'Minimal Dark',
       emoji: '⬛',
       description: 'Clean grid, subtle corners, no quote.',
+      isPro: false,
       apply: _minimalDark,
     ),
     WallpaperTemplate(
@@ -33,6 +35,7 @@ class WallpaperTemplates {
       label: 'Code Centric',
       emoji: '💻',
       description: 'Tight layout, strong contrast, small quote.',
+      isPro: true,
       apply: _codeCentric,
     ),
     WallpaperTemplate(
@@ -40,6 +43,7 @@ class WallpaperTemplates {
       label: 'Large Quote',
       emoji: '📝',
       description: 'Bigger quote, softer grid, centered.',
+      isPro: true,
       apply: _largeQuote,
     ),
     WallpaperTemplate(
@@ -47,6 +51,7 @@ class WallpaperTemplates {
       label: 'Dracula Pop',
       emoji: '🧛',
       description: 'High-impact palette with slightly rounded tiles.',
+      isPro: true,
       apply: _draculaPop,
     ),
     WallpaperTemplate(
@@ -54,6 +59,7 @@ class WallpaperTemplates {
       label: 'Monochrome',
       emoji: '⚪',
       description: 'Muted look for a premium minimal aesthetic.',
+      isPro: true,
       apply: _monochrome,
     ),
     WallpaperTemplate(
@@ -61,6 +67,7 @@ class WallpaperTemplates {
       label: 'Neon Night',
       emoji: '⚡',
       description: 'Bright palette with crisp tiles.',
+      isPro: true,
       apply: _neonNight,
     ),
   ];
@@ -72,7 +79,6 @@ class WallpaperTemplates {
 
   static WallpaperConfig _minimalDark(WallpaperConfig base) {
     return base.copyWith(
-      isDarkMode: true,
       autoFitWidth: true,
       opacity: 1.0,
       cornerRadius: 1.5,
@@ -81,13 +87,11 @@ class WallpaperTemplates {
       quoteOpacity: 0.9,
       verticalPosition: 0.5,
       horizontalPosition: 0.5,
-      themeId: ThemePresets.defaultId,
     );
   }
 
   static WallpaperConfig _codeCentric(WallpaperConfig base) {
     return base.copyWith(
-      isDarkMode: true,
       autoFitWidth: true,
       opacity: 0.95,
       cornerRadius: 2.0,
@@ -95,13 +99,11 @@ class WallpaperTemplates {
       quoteOpacity: 0.85,
       verticalPosition: 0.48,
       horizontalPosition: 0.5,
-      themeId: 'midnight',
     );
   }
 
   static WallpaperConfig _largeQuote(WallpaperConfig base) {
     return base.copyWith(
-      isDarkMode: true,
       autoFitWidth: true,
       opacity: 0.9,
       cornerRadius: 3.0,
@@ -109,13 +111,11 @@ class WallpaperTemplates {
       quoteOpacity: 0.95,
       verticalPosition: 0.52,
       horizontalPosition: 0.5,
-      themeId: 'sunset',
     );
   }
 
   static WallpaperConfig _draculaPop(WallpaperConfig base) {
     return base.copyWith(
-      isDarkMode: true,
       autoFitWidth: true,
       opacity: 1.0,
       cornerRadius: 3.5,
@@ -129,7 +129,6 @@ class WallpaperTemplates {
 
   static WallpaperConfig _monochrome(WallpaperConfig base) {
     return base.copyWith(
-      isDarkMode: true,
       autoFitWidth: true,
       opacity: 0.85,
       cornerRadius: 2.0,
@@ -137,13 +136,12 @@ class WallpaperTemplates {
       quoteOpacity: 0.8,
       verticalPosition: 0.5,
       horizontalPosition: 0.5,
-      themeId: 'github',
+      themeId: 'mono',
     );
   }
 
   static WallpaperConfig _neonNight(WallpaperConfig base) {
     return base.copyWith(
-      isDarkMode: true,
       autoFitWidth: true,
       opacity: 1.0,
       cornerRadius: 1.0,

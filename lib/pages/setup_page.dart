@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:github_wallpaper/app_services.dart';
 import 'package:github_wallpaper/app_theme.dart';
@@ -14,40 +14,26 @@ class SetupPage extends StatefulWidget {
 }
 
 class _SetupPageState extends State<SetupPage> {
-  static final Uri _tokenCreationUri = Uri.parse(
+  static final Uri _tokenUri = Uri.parse(
       'https://github.com/settings/tokens/new?scopes=read:user&description=GitWall');
+
   final _usernameController = TextEditingController();
   final _tokenController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
   bool _isLoading = false;
   bool _tokenVisible = false;
+  bool _instructionsExpanded = false;
   String? _errorMessage;
+  String _loadingStatus = AppStrings.statusInitializing;
 
-  Future<void> _openTokenCreationPage() async {
-    try {
-      final ok = await launchUrl(
-        _tokenCreationUri,
-        mode: LaunchMode.externalApplication,
-      );
-      if (!ok && mounted) {
-        ErrorHandler.handle(
-          context,
-          Exception('launchUrl returned false'),
-          userMessage:
-              'Unable to open GitHub token page. Please open it in a browser.',
-        );
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ErrorHandler.handle(
-        context,
-        e,
-        userMessage:
-            'Unable to open GitHub token page. Please open it in a browser.',
-      );
-    }
-  }
+  // Progressive loading messages
+  static const _loadingSteps = [
+    AppStrings.statusInitializing,
+    AppStrings.statusLoadingResources,
+    AppStrings.statusSettingUp,
+    AppStrings.statusAlmostReady,
+  ];
 
   @override
   void dispose() {
@@ -56,31 +42,55 @@ class _SetupPageState extends State<SetupPage> {
     super.dispose();
   }
 
+  Future<void> _openTokenPage() async {
+    try {
+      final ok =
+          await launchUrl(_tokenUri, mode: LaunchMode.externalApplication);
+      if (!ok && mounted) {
+        ErrorHandler.handle(context, Exception('launchUrl returned false'),
+            userMessage:
+                'Unable to open GitHub. Please visit github.com/settings/tokens');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ErrorHandler.handle(context, e,
+          userMessage:
+              'Unable to open GitHub. Please visit github.com/settings/tokens');
+    }
+  }
+
   Future<void> _completeSetup() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() {
       _isLoading = true;
       _errorMessage = null;
+      _loadingStatus = _loadingSteps[0];
     });
 
     final username = _usernameController.text.trim();
     final token = _tokenController.text.trim();
 
     try {
+      // Step 1 — Verify credentials against GitHub API
+      _updateStatus(_loadingSteps[1]);
       await GitHubService.getContributions(
           username: username, token: token, forceRefresh: true);
 
+      // Step 2 — Persist credentials
+      _updateStatus(_loadingSteps[2]);
       await StorageService.setUsername(username);
       await StorageService.setToken(token);
       await StorageService.setHasAuthError(false);
 
-      // Show consent dialogs before completing onboarding
-      if (!mounted) return;
-      await _showConsentDialogs();
-
+      // Step 3 — Finalise onboarding
+      _updateStatus(_loadingSteps[3]);
       await StorageService.setOnboardingComplete(true);
       await StorageService.setFirstLoginGreetingPending(true);
+      if (!StorageService.getEarlyAccessShown()) {
+        await StorageService.setEarlyAccessShown(true);
+        await StorageService.setEarlyAccessCelebratePending(true);
+      }
 
       if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
@@ -92,69 +102,13 @@ class _SetupPageState extends State<SetupPage> {
       setState(() {
         _errorMessage = ErrorHandler.getUserFriendlyMessage(e);
         _isLoading = false;
+        _loadingStatus = _loadingSteps[0];
       });
     }
   }
 
-  Future<void> _showConsentDialogs() async {
-    // Crashlytics Consent Dialog
-    final crashlyticsConsent = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Help Improve GitWall'),
-            content: const Text(
-              'Allow anonymous crash reporting to help us fix bugs faster?\n\n'
-              '• All data is anonymized\n'
-              '• Tokens are automatically redacted\n'
-              '• You can disable anytime in Settings',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('No Thanks'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Allow'),
-              ),
-            ],
-          ),
-        ) ??
-        false; // Privacy-safe default
-
-    await StorageService.setCrashlyticsConsent(crashlyticsConsent);
-
-    // Capture context before second async operation
-    if (!mounted) return;
-
-    // Private Repos Consent Dialog
-    final privateReposConsent = await showDialog<bool>(
-          context: context,
-          barrierDismissible: false,
-          builder: (dialogContext) => AlertDialog(
-            title: const Text('Private Repository Stats'),
-            content: const Text(
-              'Include private repositories in your dashboard?\n\n'
-              '• Repository names cached locally (encrypted)\n'
-              '• Stored in Android Keystore/iOS Keychain\n'
-              '• You can disable anytime in Settings',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(dialogContext, false),
-                child: const Text('Public Only'),
-              ),
-              FilledButton(
-                onPressed: () => Navigator.pop(dialogContext, true),
-                child: const Text('Include Private'),
-              ),
-            ],
-          ),
-        ) ??
-        true; // Default to true
-
-    await StorageService.setIncludePrivateRepos(privateReposConsent);
+  void _updateStatus(String status) {
+    if (mounted) setState(() => _loadingStatus = status);
   }
 
   @override
@@ -167,19 +121,17 @@ class _SetupPageState extends State<SetupPage> {
       backgroundColor: cs.surfaceContainerHighest,
       body: Stack(
         children: [
-          // Softer Ambient Tints
+          // ── Ambient glows ───────────────────────────────────
           _GlowBlob(
-            color: cs.primary.withValues(alpha: 0.08),
-            top: -100,
-            right: -100,
-            size: 400,
-          ),
+              color: cs.primary.withValues(alpha: 0.07),
+              top: -100,
+              right: -100,
+              size: 400),
           _GlowBlob(
-            color: AppTheme.successGreen.withValues(alpha: 0.04),
-            bottom: -50,
-            left: -100,
-            size: 350,
-          ),
+              color: AppTheme.accentViolet.withValues(alpha: 0.04),
+              bottom: -50,
+              left: -100,
+              size: 350),
 
           SafeArea(
             child: SingleChildScrollView(
@@ -187,249 +139,38 @@ class _SetupPageState extends State<SetupPage> {
               child: Form(
                 key: _formKey,
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
                     SizedBox(
-                      height: textScale > 1.2
-                          ? AppTheme.spacing40
-                          : AppTheme.spacing60,
-                    ),
+                        height: textScale > 1.2
+                            ? AppTheme.spacing40
+                            : AppTheme.spacing60),
 
-                    // Clean Header
-                    Center(
-                      child: Column(
-                        children: [
-                          Container(
-                            padding: AppTheme.pAll20,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: cs.surface.withValues(alpha: 0.85),
-                              border: Border.all(
-                                color: cs.outline.withValues(alpha: 0.4),
-                              ),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: cs.shadow.withValues(alpha: 0.08),
-                                  blurRadius: 40,
-                                  spreadRadius: 5,
-                                )
-                              ],
-                            ),
-                            child: Icon(Icons.hub_outlined,
-                                color: cs.primary, size: 48),
-                          ).animate().scale(
-                              duration: 600.ms, curve: Curves.easeOutBack),
-                          AppTheme.h24,
-                          Text(
-                            AppStrings.connectAccount,
-                            textAlign: TextAlign.center,
-                            style: (textTheme.headlineSmall ??
-                                    const TextStyle(
-                                        fontSize: AppTheme.fontHeadline))
-                                .copyWith(
-                              fontWeight: FontWeight.w900,
-                              color: cs.onSurface,
-                              height: 1.1,
-                              letterSpacing: -0.6,
-                            ),
-                          ).animate().fadeIn().slideY(begin: 0.2),
-                          AppTheme.h8,
-                          Text(
-                            'Import your GitHub statistics',
-                            textAlign: TextAlign.center,
-                            style: (textTheme.bodyMedium ??
-                                    const TextStyle(
-                                        fontSize: AppTheme.fontBase))
-                                .copyWith(
-                              color: cs.onSurface.withValues(alpha: 0.75),
-                              fontWeight: FontWeight.w600,
-                              height: 1.3,
-                            ),
-                          ).animate().fadeIn(delay: 200.ms),
-                        ],
-                      ),
-                    ),
+                    // ── Header ────────────────────────────────
+                    _buildHeader(cs, textTheme),
+
+                    AppTheme.h24,
+
+                    // ── Trust pills ───────────────────────────
+                    _buildTrustPills(cs),
 
                     AppTheme.h48,
 
-                    // Refined Light Glass Card
-                    Container(
-                      decoration: BoxDecoration(
-                        color: cs.surface,
-                        borderRadius: AppTheme.brXXL,
-                        border: Border.all(
-                          color: cs.outline.withValues(alpha: 0.5),
-                          width: 1.5,
-                        ),
-                        boxShadow:
-                            AppTheme.shadow(cs.shadow, opacity: 0.08, blur: 30),
-                      ),
-                      padding: AppTheme.pAll24,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          _buildProField(
-                            label: 'GITHUB USERNAME',
-                            controller: _usernameController,
-                            hint: 'octocat',
-                            icon: Icons.alternate_email_rounded,
-                            validator: isValidUsernameFormat,
-                          ),
-                          AppTheme.h32,
-                          _buildProField(
-                            label: 'ACCESS TOKEN',
-                            controller: _tokenController,
-                            hint: 'ghp_...',
-                            icon: Icons.vpn_key_outlined,
-                            obscure: !_tokenVisible,
-                            validator: isValidTokenFormat,
-                            suffix: IconButton(
-                              icon: Icon(
-                                  _tokenVisible
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  color: cs.onSurface.withValues(alpha: 0.45),
-                                  size: 20),
-                              onPressed: () => setState(
-                                  () => _tokenVisible = !_tokenVisible),
-                            ),
-                          ),
-                          AppTheme.h20,
-                          Container(
-                            width: double.infinity,
-                            padding: AppTheme.pAll16,
-                            decoration: BoxDecoration(
-                              color: cs.surfaceContainerHighest
-                                  .withValues(alpha: 0.65),
-                              borderRadius: AppTheme.brLarge,
-                              border: Border.all(
-                                color: cs.outline.withValues(alpha: 0.35),
-                              ),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'How to get a GitHub token',
-                                  style: (textTheme.titleSmall ??
-                                          const TextStyle(
-                                              fontSize: AppTheme.fontSmall))
-                                      .copyWith(
-                                    color: cs.onSurface,
-                                    fontWeight: FontWeight.w800,
-                                    letterSpacing: -0.2,
-                                    height: 1.2,
-                                  ),
-                                ),
-                                AppTheme.h8,
-                                Text(
-                                  '1) GitHub Settings → Developer settings → Personal access tokens → Tokens (classic)\n'
-                                  '2) Generate new token (classic)\n'
-                                  '3) Scope: read:user (required); add repo only if you want private repo stats\n'
-                                  '4) Generate, copy it once, and paste it here',
-                                  style: (textTheme.bodySmall ??
-                                          const TextStyle(
-                                              fontSize: AppTheme.fontCaption))
-                                      .copyWith(
-                                    color: cs.onSurface.withValues(alpha: 0.78),
-                                    fontWeight: FontWeight.w600,
-                                    height: 1.45,
-                                  ),
-                                ),
-                                AppTheme.h12,
-                                Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: TextButton(
-                                    onPressed: _isLoading
-                                        ? null
-                                        : _openTokenCreationPage,
-                                    child: Text(
-                                      '${AppStrings.needToken}${AppStrings.createHere}',
-                                      style: TextStyle(
-                                        color: cs.primary,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                        .animate()
-                        .fadeIn(delay: 400.ms)
-                        .slideY(begin: 0.1, curve: Curves.easeOutQuad),
-
-                    AppTheme.h40,
-
-                    // Dynamic Error
-                    if (_errorMessage != null)
-                      Container(
-                        margin: AppTheme.pOnlyB24,
-                        padding: AppTheme.pAll16,
-                        decoration: BoxDecoration(
-                          color: AppTheme.errorRed.withValues(alpha: 0.05),
-                          borderRadius: AppTheme.brLarge,
-                          border: Border.all(
-                              color: AppTheme.errorRed.withValues(alpha: 0.1)),
-                        ),
-                        child: Row(
-                          children: [
-                            const Icon(Icons.error_outline_rounded,
-                                color: AppTheme.errorRed, size: 20),
-                            AppTheme.w12,
-                            Expanded(
-                              child: Text(_errorMessage!,
-                                  style: TextStyle(
-                                      color: AppTheme.errorRed,
-                                      fontSize: AppTheme.fontSmall,
-                                      fontWeight: FontWeight.w600)),
-                            ),
-                          ],
-                        ),
-                      ).animate().shake(),
-
-                    // Primary Action
-                    SizedBox(
-                      width: double.infinity,
-                      height: AppTheme.spacing48 + AppTheme.spacing8, // 56
-                      child: FilledButton(
-                        onPressed: _isLoading ? null : _completeSetup,
-                        child: _isLoading
-                            ? SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 3,
-                                  color: cs.onPrimary,
-                                ))
-                            : const Text('Initialize Workspace'),
-                      ),
-                    ).animate().fadeIn(delay: 600.ms),
+                    // ── Form card ─────────────────────────────
+                    _buildFormCard(cs, textTheme),
 
                     AppTheme.h32,
 
-                    // Footer security info
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.shield_outlined,
-                            color: cs.outline.withValues(alpha: 0.6),
-                            size: AppTheme.fontLarge),
-                        AppTheme.w8,
-                        Text(
-                          'Secure local-only authentication',
-                          style: (textTheme.bodySmall ??
-                                  const TextStyle(
-                                      fontSize: AppTheme.fontCaption))
-                              .copyWith(
-                            color: cs.onSurface.withValues(alpha: 0.65),
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ).animate().fadeIn(delay: 800.ms),
+                    // ── Error ─────────────────────────────────
+                    if (_errorMessage != null) _buildError(),
+
+                    // ── CTA ───────────────────────────────────
+                    _buildCta(cs),
+
+                    AppTheme.h24,
+
+                    // ── Security footer ───────────────────────
+                    _buildSecurityFooter(cs, textTheme),
 
                     AppTheme.h40,
                   ],
@@ -442,6 +183,337 @@ class _SetupPageState extends State<SetupPage> {
     );
   }
 
+  // ── HEADER ────────────────────────────────────────────────
+  Widget _buildHeader(ColorScheme cs, TextTheme textTheme) {
+    return Column(
+      children: [
+        Container(
+          padding: AppTheme.pAll20,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: cs.surface.withValues(alpha: 0.90),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.40)),
+            boxShadow: [
+              BoxShadow(
+                color: cs.shadow.withValues(alpha: 0.08),
+                blurRadius: 40,
+                spreadRadius: 5,
+              )
+            ],
+          ),
+          child: Icon(Icons.hub_outlined, color: cs.primary, size: 44),
+        ).animate().scale(duration: 600.ms, curve: Curves.easeOutBack),
+        AppTheme.h20,
+        Text(
+          AppStrings.connectAccount,
+          textAlign: TextAlign.center,
+          style: (textTheme.displaySmall ?? const TextStyle(fontSize: 26))
+              .copyWith(
+            color: cs.onSurface,
+            letterSpacing: -1.0,
+          ),
+        ).animate().fadeIn(delay: 150.ms).slideY(begin: 0.15),
+        AppTheme.h8,
+        Text(
+          AppStrings.setupSubtitle,
+          textAlign: TextAlign.center,
+          style: TextStyle(
+            fontSize: AppTheme.fontBase,
+            fontWeight: FontWeight.w500,
+            color: cs.onSurface.withValues(alpha: 0.65),
+            height: 1.4,
+          ),
+        ).animate().fadeIn(delay: 250.ms),
+      ],
+    );
+  }
+
+  // ── TRUST PILLS ───────────────────────────────────────────
+  Widget _buildTrustPills(ColorScheme cs) {
+    final pills = [
+      _TrustPill(
+        icon: Icons.lock_rounded,
+        title: 'Keystore encrypted',
+        color: AppTheme.accentViolet,
+      ),
+      _TrustPill(
+        icon: Icons.cloud_off_rounded,
+        title: 'Never sent to server',
+        color: AppTheme.primaryBlue,
+      ),
+      _TrustPill(
+        icon: Icons.phone_android_rounded,
+        title: 'Local only',
+        color: AppTheme.successGreen,
+      ),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      alignment: WrapAlignment.center,
+      children: pills.asMap().entries.map((e) {
+        final i = e.key;
+        final p = e.value;
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: cs.surface.withValues(alpha: 0.75),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: cs.outline.withValues(alpha: 0.30)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(p.icon, size: 13, color: p.color),
+              AppTheme.w6,
+              Text(
+                p.title,
+                style: TextStyle(
+                  fontSize: AppTheme.fontCaption,
+                  fontWeight: FontWeight.w800,
+                  color: cs.onSurface.withValues(alpha: 0.80),
+                ),
+              ),
+            ],
+          ),
+        )
+            .animate(delay: (300 + i * 60).ms)
+            .fadeIn(duration: 300.ms)
+            .slideY(begin: 0.08);
+      }).toList(),
+    );
+  }
+
+  // ── FORM CARD ─────────────────────────────────────────────
+  Widget _buildFormCard(ColorScheme cs, TextTheme textTheme) {
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: AppTheme.brXXL,
+        border:
+            Border.all(color: cs.outline.withValues(alpha: 0.45), width: 1.5),
+        boxShadow: AppTheme.shadow(cs.shadow, opacity: 0.08, blur: 30),
+      ),
+      padding: AppTheme.pAll24,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildProField(
+            label: 'GITHUB USERNAME',
+            controller: _usernameController,
+            hint: 'octocat',
+            icon: Icons.alternate_email_rounded,
+            validator: isValidUsernameFormat,
+          ),
+
+          AppTheme.h28,
+
+          _buildProField(
+            label: 'PERSONAL ACCESS TOKEN',
+            controller: _tokenController,
+            hint: 'ghp_••••••••••••••••',
+            icon: Icons.vpn_key_outlined,
+            obscure: !_tokenVisible,
+            validator: isValidTokenFormat,
+            suffix: IconButton(
+              icon: Icon(
+                _tokenVisible
+                    ? Icons.visibility_off_outlined
+                    : Icons.visibility_outlined,
+                color: cs.onSurface.withValues(alpha: 0.45),
+                size: 20,
+              ),
+              onPressed: () => setState(() => _tokenVisible = !_tokenVisible),
+            ),
+          ),
+
+          AppTheme.h20,
+
+          // ── Collapsible token instructions ────────────────
+          GestureDetector(
+            onTap: () =>
+                setState(() => _instructionsExpanded = !_instructionsExpanded),
+            child: Container(
+              width: double.infinity,
+              padding: AppTheme.pAll16,
+              decoration: BoxDecoration(
+                color: cs.surfaceContainerHighest.withValues(alpha: 0.60),
+                borderRadius: AppTheme.brLarge,
+                border: Border.all(color: cs.outline.withValues(alpha: 0.30)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header row — always visible
+                  Row(
+                    children: [
+                      Icon(Icons.help_outline_rounded,
+                          size: 16,
+                          color: cs.onSurface.withValues(alpha: 0.55)),
+                      AppTheme.w8,
+                      Expanded(
+                        child: Text(
+                          'How to get a token',
+                          style: TextStyle(
+                            fontSize: AppTheme.fontBase,
+                            fontWeight: FontWeight.w800,
+                            color: cs.onSurface.withValues(alpha: 0.80),
+                          ),
+                        ),
+                      ),
+                      Icon(
+                        _instructionsExpanded
+                            ? Icons.keyboard_arrow_up_rounded
+                            : Icons.keyboard_arrow_down_rounded,
+                        size: 18,
+                        color: cs.onSurface.withValues(alpha: 0.45),
+                      ),
+                    ],
+                  ),
+
+                  // Expanded content
+                  if (_instructionsExpanded) ...[
+                    AppTheme.h12,
+                    Text(
+                      '1. GitHub → Settings → Developer settings\n'
+                      '2. Personal access tokens → Tokens (classic)\n'
+                      '3. Generate new token → scope: read:user\n'
+                      '4. Copy once and paste above',
+                      style: TextStyle(
+                        fontSize: AppTheme.fontCaption,
+                        fontWeight: FontWeight.w600,
+                        color: cs.onSurface.withValues(alpha: 0.72),
+                        height: 1.55,
+                      ),
+                    ),
+                    AppTheme.h12,
+                    TextButton.icon(
+                      onPressed: _isLoading ? null : _openTokenPage,
+                      icon: Icon(Icons.open_in_new_rounded,
+                          size: 14, color: cs.primary),
+                      label: Text(
+                        '${AppStrings.needToken}${AppStrings.createHere}',
+                        style: TextStyle(
+                          color: cs.primary,
+                          fontWeight: FontWeight.w800,
+                          fontSize: AppTheme.fontBase,
+                        ),
+                      ),
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    )
+        .animate()
+        .fadeIn(delay: 400.ms)
+        .slideY(begin: 0.10, curve: Curves.easeOutQuad);
+  }
+
+  // ── ERROR ─────────────────────────────────────────────────
+  Widget _buildError() {
+    return Padding(
+      padding: AppTheme.pOnlyB24,
+      child: Container(
+        padding: AppTheme.pAll16,
+        decoration: BoxDecoration(
+          color: AppTheme.errorRed.withValues(alpha: 0.06),
+          borderRadius: AppTheme.brLarge,
+          border: Border.all(color: AppTheme.errorRed.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline_rounded,
+                color: AppTheme.errorRed, size: 20),
+            AppTheme.w12,
+            Expanded(
+              child: Text(
+                _errorMessage!,
+                style: const TextStyle(
+                  color: AppTheme.errorRed,
+                  fontSize: AppTheme.fontSmall,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ).animate().shake(hz: 4, offset: const Offset(4, 0)),
+    );
+  }
+
+  // ── CTA BUTTON ────────────────────────────────────────────
+  Widget _buildCta(ColorScheme cs) {
+    return SizedBox(
+      width: double.infinity,
+      height: AppTheme.spacing48 + AppTheme.spacing8,
+      child: FilledButton(
+        onPressed: _isLoading ? null : _completeSetup,
+        child: _isLoading
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: cs.onPrimary,
+                    ),
+                  ),
+                  AppTheme.w12,
+                  Text(
+                    _loadingStatus,
+                    style: TextStyle(
+                      color: cs.onPrimary,
+                      fontWeight: FontWeight.w700,
+                      fontSize: AppTheme.fontBase,
+                    ),
+                  ),
+                ],
+              )
+            : const Text(AppStrings.setupCta),
+      ),
+    ).animate().fadeIn(delay: 600.ms);
+  }
+
+  // ── SECURITY FOOTER ───────────────────────────────────────
+  Widget _buildSecurityFooter(ColorScheme cs, TextTheme textTheme) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(Icons.shield_outlined,
+            color: cs.outline.withValues(alpha: 0.55),
+            size: AppTheme.fontLarge),
+        AppTheme.w8,
+        Flexible(
+          child: Text(
+            AppStrings.setupSecurityNote,
+            textAlign: TextAlign.center,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: AppTheme.fontCaption,
+              fontWeight: FontWeight.w600,
+              color: cs.onSurface.withValues(alpha: 0.55),
+            ),
+          ),
+        ),
+      ],
+    ).animate().fadeIn(delay: 800.ms);
+  }
+
+  // ── FORM FIELD ────────────────────────────────────────────
   Widget _buildProField({
     required String label,
     required TextEditingController controller,
@@ -452,37 +524,35 @@ class _SetupPageState extends State<SetupPage> {
     String? Function(String?)? validator,
   }) {
     final cs = context.colors;
-    final textTheme = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: (textTheme.labelMedium ??
-                  const TextStyle(fontSize: AppTheme.fontSmall))
-              .copyWith(
-            color: cs.onSurface.withValues(alpha: 0.7),
+          style: TextStyle(
+            fontSize: AppTheme.fontCaption,
             fontWeight: FontWeight.w800,
-            letterSpacing: 1.2,
-            height: 1.2,
+            color: cs.onSurface.withValues(alpha: 0.65),
+            letterSpacing: 1.3,
           ),
         ),
-        AppTheme.h12,
+        const SizedBox(height: 10),
         TextFormField(
           controller: controller,
           obscureText: obscure,
           validator: validator,
           style: TextStyle(
-              color: cs.onSurface,
-              fontSize: AppTheme.fontLarge,
-              fontWeight: FontWeight.w700,
-              height: 1.25),
+            color: cs.onSurface,
+            fontSize: AppTheme.fontLarge,
+            fontWeight: FontWeight.w700,
+            height: 1.25,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-              color: cs.onSurface.withValues(alpha: 0.55),
+              color: cs.onSurface.withValues(alpha: 0.40),
               fontSize: AppTheme.fontMedium,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
             prefixIcon: Icon(icon, size: 20),
             suffixIcon: suffix,
@@ -493,18 +563,29 @@ class _SetupPageState extends State<SetupPage> {
   }
 }
 
+// ── TRUST PILL DATA ───────────────────────────────────────────
+class _TrustPill {
+  final IconData icon;
+  final String title;
+  final Color color;
+  const _TrustPill(
+      {required this.icon, required this.title, required this.color});
+}
+
+// ── GLOW BLOB ─────────────────────────────────────────────────
 class _GlowBlob extends StatelessWidget {
   final Color color;
   final double? top, bottom, left, right;
   final double size;
 
-  const _GlowBlob(
-      {required this.color,
-      this.top,
-      this.bottom,
-      this.left,
-      this.right,
-      required this.size});
+  const _GlowBlob({
+    required this.color,
+    this.top,
+    this.bottom,
+    this.left,
+    this.right,
+    required this.size,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -513,24 +594,18 @@ class _GlowBlob extends StatelessWidget {
       bottom: bottom,
       left: left,
       right: right,
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: color,
-              blurRadius: size / 2,
-              spreadRadius: size / 4,
-            )
-          ],
+      child: IgnorePointer(
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [color, color.withValues(alpha: 0.0)],
+            ),
+          ),
         ),
-      ).animate(onPlay: (c) => c.repeat(reverse: true)).move(
-          begin: const Offset(-20, -20),
-          end: const Offset(20, 20),
-          duration: 5.seconds,
-          curve: Curves.easeInOut),
+      ),
     );
   }
 }

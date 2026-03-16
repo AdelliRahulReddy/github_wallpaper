@@ -1,6 +1,8 @@
 package com.rahulreddy.githubwallpaper
 
 import android.app.WallpaperManager
+import android.content.ComponentName
+import android.content.Intent
 import android.graphics.BitmapFactory
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -89,6 +91,19 @@ class MainActivity : FlutterActivity() {
             result.success(true)
           } catch (e: Exception) {
             result.error("SET_WALLPAPER_FAILED", "${e.javaClass.simpleName}: ${e.message}", null)
+          }
+        }
+        "openLiveWallpaperPicker" -> {
+          try {
+            val intent = Intent(WallpaperManager.ACTION_CHANGE_LIVE_WALLPAPER)
+            intent.putExtra(
+              WallpaperManager.EXTRA_LIVE_WALLPAPER_COMPONENT,
+              ComponentName(this, GitWallLiveWallpaperService::class.java),
+            )
+            startActivity(intent)
+            result.success(true)
+          } catch (e: Exception) {
+            result.error("LIVE_WALLPAPER_FAILED", "${e.javaClass.simpleName}: ${e.message}", null)
           }
         }
         else -> result.notImplemented()
