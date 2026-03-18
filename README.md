@@ -4,7 +4,7 @@ Display your GitHub contributions as a stunning, auto-updating wallpaper on your
 
 ---
 
-## ✨ Features
+## ✨ Features:
 
 - **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
 - **🔄 Silent Sync** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
