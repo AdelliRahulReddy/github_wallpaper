@@ -15,7 +15,7 @@ Display your GitHub contributions as a stunning, auto-updating wallpaper on your
 - **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
 - **⚠️ Token Expiration Alerts (v1.2)** – Proactively detects expired or revoked GitHub tokens. Shows a warning banner on the dashboard, sends a background notification, and lets you update your token directly from Settings — no logout required.
 
-## 🚀 Getting Started
+### 🚀 Getting Started
 
 ### Prerequisites
 
