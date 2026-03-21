@@ -1,7 +1,7 @@
 name: github_wallpaper
 description: "GitWall - Display your GitHub contributions as an auto-updating wallpaper"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.5.0
@@ -44,24 +44,31 @@ dependencies:
   flutter_local_notifications: ^17.1.2 # Local notifications for background alerts
   share_plus: ^10.0.2                 # Share exported images
   home_widget: ^0.7.0                 # Home screen widgets (Android/iOS)
+  provider: ^6.1.2                    # State management (ChangeNotifier)
+  flutter_appauth: ^12.0.0            # GitHub OAuth (PKCE)
+  google_generative_ai: ^0.4.6        # Gemini AI integration
 
   # ══════════════════════════════════════════════════════════════════════════
   # UI/UX ENHANCEMENTS
   # ══════════════════════════════════════════════════════════════════════════
-  google_fonts: ^6.2.1                 # Premium typography
-  flutter_animate: ^4.5.2              # Smooth animations & transitions
   smooth_page_indicator: ^1.2.0+3      # Page dots for onboarding
+  fl_chart: ^0.68.0
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # MONETIZATION
+  # ══════════════════════════════════════════════════════════════════════════
+  purchases_flutter: ^8.0.0
+  purchases_ui_flutter: ^8.0.0
 
   # ══════════════════════════════════════════════════════════════════════════
   # MATERIAL DESIGN & FIREBASE
   # ══════════════════════════════════════════════════════════════════════════
   cupertino_icons: ^1.0.8
   firebase_core: ^4.4.0
-  firebase_messaging: ^16.1.1
-  firebase_app_check: ^0.4.1+4
+  cloud_firestore: ^6.1.2
+  firebase_auth: ^6.0.0
   firebase_crashlytics: ^5.0.7
   device_info_plus: ^12.3.0
-  confetti: ^0.8.0
   sensors_plus: ^7.0.0
 
 dev_dependencies:
