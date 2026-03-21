@@ -3,6 +3,7 @@ import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
@@ -55,6 +56,7 @@ void _recordFlutterErrorIfConsented(FlutterErrorDetails details) {
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    await Firebase.initializeApp();
 
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
