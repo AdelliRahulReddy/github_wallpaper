@@ -57,6 +57,7 @@ void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
     await Firebase.initializeApp();
+    await StorageService.initialize();
 
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
