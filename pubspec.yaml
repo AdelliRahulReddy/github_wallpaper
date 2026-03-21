@@ -42,7 +42,7 @@ dependencies:
   crypto: ^3.0.6                      # Stable hashing (e.g., SHA-256)
   workmanager: ^0.9.0                 # 🔔 Background task scheduling (upgraded for Flutter compatibility)
   flutter_local_notifications: ^17.1.2 # Local notifications for background alerts
-  share_plus: ^10.0.2                 # Share exported images
+  share_plus: ^9.0.0                  # Share exported images
   home_widget: ^0.7.0                 # Home screen widgets (Android/iOS)
   provider: ^6.1.2                    # State management (ChangeNotifier)
   flutter_appauth: ^12.0.0            # GitHub OAuth (PKCE)
