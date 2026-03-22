@@ -42,11 +42,12 @@ class AppConfig {
   // 2. Use 'gitwall://oauth/callback' as the Authorization callback URL.
   // 3. Paste your Client ID and Client Secret below.
   // NOTE: Do not commit these credentials to version control.
-  static const String githubClientId = 'YOUR_GITHUB_CLIENT_ID_HERE';
+  static const String githubClientId = 'YOv23liLsYG4d5Xiv10H6';
 
   static const String redirectUri = 'gitwall://oauth/callback';
 
-  static const String githubClientSecret = 'YOUR_GITHUB_CLIENT_SECRET_HERE';
+  static const String githubClientSecret =
+      '4a271d9c1b20fc012f3ff90a0bcc3593ffea8b73';
   static const String geminiApiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
     defaultValue: '',
@@ -60,13 +61,15 @@ class AppConfig {
     if (id.isEmpty || id.startsWith('YOUR_')) {
       throw GitHubException(
         'Missing GitHub OAuth Configuration',
-        details: 'Please set your GITHUB_CLIENT_ID in lib/config/environment_config.dart',
+        details:
+            'Please set your GITHUB_CLIENT_ID in lib/config/environment_config.dart',
       );
     }
     if (secret.isEmpty || secret.startsWith('YOUR_')) {
       throw GitHubException(
         'Missing GitHub OAuth Configuration',
-        details: 'Please set your GITHUB_CLIENT_SECRET in lib/config/environment_config.dart. '
+        details:
+            'Please set your GITHUB_CLIENT_SECRET in lib/config/environment_config.dart. '
             'This is required for token exchange.',
       );
     }
