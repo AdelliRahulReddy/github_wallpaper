@@ -39,12 +39,13 @@ class AppConfig {
 
   // TODO: Replace with your own GitHub OAuth App credentials for local development.
   // 1. Create a GitHub OAuth App: https://github.com/settings/developers
-  // 2. Use 'gitwall://oauth/callback' as the Authorization callback URL.
+  // 2. Use 'com.rahulreddy.githubwallpaper://login-callback' as the Authorization callback URL.
   // 3. Paste your Client ID and Client Secret below.
   // NOTE: Do not commit these credentials to version control.
   static const String githubClientId = 'YOv23liLsYG4d5Xiv10H6';
 
-  static const String redirectUri = 'gitwall://oauth/callback';
+  static const String redirectUri =
+      'com.rahulreddy.githubwallpaper://login-callback';
 
   static const String githubClientSecret =
       '4a271d9c1b20fc012f3ff90a0bcc3593ffea8b73';
