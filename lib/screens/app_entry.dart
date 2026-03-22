@@ -195,48 +195,59 @@ class _AppInitializerState extends State<AppInitializer> {
 
   Future<void> _startInitialization() async {
     final runId = ++_initRunId;
-    app_config.AppConfig.validateOAuthConfig();
-    final success = await BootstrapService.boot(
-      onProgress: (p) {
-        if (!mounted || runId != _initRunId) return;
-        setState(() => _initProgress = p);
-      },
-      onError: (e) {
-        if (!mounted || runId != _initRunId) return;
-        setState(() => _error = e);
-      },
-    );
+    try {
+      app_config.AppConfig.validateOAuthConfig();
+      final success = await BootstrapService.boot(
+        onProgress: (p) {
+          if (!mounted || runId != _initRunId) return;
+          setState(() => _initProgress = p);
+        },
+        onError: (e) {
+          if (!mounted || runId != _initRunId) return;
+          setState(() => _error = e);
+        },
+      );
 
-    if (!mounted || runId != _initRunId) return;
+      if (!mounted || runId != _initRunId) return;
 
-    if (success) {
-      await SubscriptionService.initialize();
-      await context.read<ProState>().refresh();
-      await StorageService.setProEnabled(context.read<ProState>().isProOrTrial);
-      await StorageService.recordAppSessionStart();
+      if (success) {
+        await SubscriptionService.initialize();
+        await context.read<ProState>().refresh();
+        await StorageService.setProEnabled(
+            context.read<ProState>().isProOrTrial);
+        await StorageService.recordAppSessionStart();
 
-      final loggedIn = await StorageService.hasAuthenticatedSession();
-      final pendingRefresh =
-          loggedIn && StorageService.hasPendingWallpaperRefresh();
+        final loggedIn = await StorageService.hasAuthenticatedSession();
+        final pendingRefresh =
+            loggedIn && StorageService.hasPendingWallpaperRefresh();
 
-      setState(() {
-        _isLoggedIn = loggedIn;
-        _isInitialized = true;
-      });
+        setState(() {
+          _isLoggedIn = loggedIn;
+          _isInitialized = true;
+        });
 
-      // Initialize WorkManager for guaranteed background updates
-      await BackgroundScheduler.initialize();
+        // Initialize WorkManager for guaranteed background updates
+        await BackgroundScheduler.initialize();
 
-      // Schedule periodic updates if auto-update is enabled
-      if (StorageService.getAutoUpdate()) {
-        await BackgroundScheduler.scheduleUpdates();
+        // Schedule periodic updates if auto-update is enabled
+        if (StorageService.getAutoUpdate()) {
+          await BackgroundScheduler.scheduleUpdates();
+        }
+        if (StorageService.getStreakReminderEnabled()) {
+          await BackgroundScheduler.scheduleStreakReminders();
+        }
+
+        if (pendingRefresh) {
+          unawaited(_runPendingRefresh(runId));
+        }
       }
-      if (StorageService.getStreakReminderEnabled()) {
-        await BackgroundScheduler.scheduleStreakReminders();
-      }
-
-      if (pendingRefresh) {
-        unawaited(_runPendingRefresh(runId));
+    } catch (e, s) {
+      // The global error handler already logs and reports to Crashlytics.
+      // We just need to update the UI state to show the error.
+      if (mounted && runId == _initRunId) {
+        setState(() {
+          _error = e.toString();
+        });
       }
     }
   }
