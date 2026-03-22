@@ -37,18 +37,16 @@ class AppConfig {
     return '';
   }
 
-  static const String githubClientId = String.fromEnvironment(
-    'GITHUB_CLIENT_ID',
-    defaultValue: '',
-  );
-  static const String redirectUri = String.fromEnvironment(
-    'GITHUB_REDIRECT_URI',
-    defaultValue: 'gitwall://oauth/callback',
-  );
-  static const String githubClientSecret = String.fromEnvironment(
-    'GITHUB_CLIENT_SECRET',
-    defaultValue: '',
-  );
+  // TODO: Replace with your own GitHub OAuth App credentials for local development.
+  // 1. Create a GitHub OAuth App: https://github.com/settings/developers
+  // 2. Use 'gitwall://oauth/callback' as the Authorization callback URL.
+  // 3. Paste your Client ID and Client Secret below.
+  // NOTE: Do not commit these credentials to version control.
+  static const String githubClientId = 'YOUR_GITHUB_CLIENT_ID_HERE';
+
+  static const String redirectUri = 'gitwall://oauth/callback';
+
+  static const String githubClientSecret = 'YOUR_GITHUB_CLIENT_SECRET_HERE';
   static const String geminiApiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
     defaultValue: '',
@@ -59,16 +57,16 @@ class AppConfig {
     const secret = githubClientSecret;
     const loadedRedirectUri = redirectUri;
 
-    if (id.isEmpty) {
+    if (id.isEmpty || id.startsWith('YOUR_')) {
       throw GitHubException(
         'Missing GitHub OAuth Configuration',
-        details: 'GITHUB_CLIENT_ID environment variable is not set.',
+        details: 'Please set your GITHUB_CLIENT_ID in lib/config/environment_config.dart',
       );
     }
-    if (secret.isEmpty) {
+    if (secret.isEmpty || secret.startsWith('YOUR_')) {
       throw GitHubException(
         'Missing GitHub OAuth Configuration',
-        details: 'GITHUB_CLIENT_SECRET environment variable is not set. '
+        details: 'Please set your GITHUB_CLIENT_SECRET in lib/config/environment_config.dart. '
             'This is required for token exchange.',
       );
     }
