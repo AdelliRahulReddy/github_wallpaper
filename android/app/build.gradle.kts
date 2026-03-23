@@ -42,6 +42,7 @@ android {
         targetSdk = 36
         versionCode = flutter.versionCode ?: 1
         versionName = flutter.versionName
+        manifestPlaceholders["appAuthRedirectScheme"] = "gitwall"
     }
 
     signingConfigs {

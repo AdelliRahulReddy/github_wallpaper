@@ -1,6 +1,6 @@
 # ============================================================================
 # GitWall - Production ProGuard Rules
-# Focus: Stability, FCM, Platform Channels
+# Focus: Stability, WorkManager, Platform Channels
 # Compatible with Flutter 3.38.x + R8
 # ============================================================================
 
@@ -49,21 +49,6 @@
 # AndroidX Core
 -keep class androidx.core.** { *; }
 -dontwarn androidx.**
-
-# ──────────────────────────────────────────────────────────────────────────
-# 5. FIREBASE CLOUD MESSAGING (FCM)
-# ──────────────────────────────────────────────────────────────────────────
-
-# Keep FCM and Messaging
--keep class com.google.firebase.messaging.** { *; }
--keep class com.google.firebase.iid.** { *; }
-
-# Keep Background Handler entry point
--keep class * extends com.google.firebase.messaging.FirebaseMessagingService { *; }
-
-# Keep classes for data-only messages to ensure they aren't stripped
--keep class com.google.firebase.messaging.RemoteMessage { *; }
--keep class com.google.firebase.messaging.RemoteMessage$Builder { *; }
 
 # ──────────────────────────────────────────────────────────────────────────
 # 6. HTTP / NETWORKING

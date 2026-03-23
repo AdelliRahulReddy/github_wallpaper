@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/app_models.dart';
-import 'package:github_wallpaper/app_services.dart';
-import 'package:github_wallpaper/app_theme.dart';
-import 'package:github_wallpaper/pages/customize_page.dart';
+import 'package:github_wallpaper/data/models/app_models.dart';
+import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
+import 'package:github_wallpaper/core/theme/app_theme.dart';
+import 'package:github_wallpaper/features/wallpaper/screens/customize/customize_screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {

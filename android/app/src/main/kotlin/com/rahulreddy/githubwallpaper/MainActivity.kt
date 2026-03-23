@@ -1,8 +1,10 @@
 package com.rahulreddy.githubwallpaper
 
+import android.provider.Settings
 import android.app.WallpaperManager
 import android.content.ComponentName
 import android.content.Intent
+import android.os.Build
 import android.graphics.BitmapFactory
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
@@ -104,6 +106,33 @@ class MainActivity : FlutterActivity() {
             result.success(true)
           } catch (e: Exception) {
             result.error("LIVE_WALLPAPER_FAILED", "${e.javaClass.simpleName}: ${e.message}", null)
+          }
+        }
+        else -> result.notImplemented()
+      }
+    }
+
+    MethodChannel(
+      flutterEngine.dartExecutor.binaryMessenger,
+      "github_wallpaper/system",
+    ).setMethodCallHandler { call, result ->
+      when (call.method) {
+        "openNotificationSettings" -> {
+          try {
+            val intent =
+              if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                  putExtra(Settings.EXTRA_APP_PACKAGE, packageName)
+                }
+              } else {
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                  data = android.net.Uri.parse("package:$packageName")
+                }
+              }
+            startActivity(intent)
+            result.success(true)
+          } catch (e: Exception) {
+            result.error("OPEN_NOTIFICATION_SETTINGS_FAILED", "${e.javaClass.simpleName}: ${e.message}", null)
           }
         }
         else -> result.notImplemented()

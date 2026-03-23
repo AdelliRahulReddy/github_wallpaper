@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/app_services.dart';
-import 'package:github_wallpaper/app_state.dart';
+import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
+import 'package:github_wallpaper/shared/state/app_state.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
@@ -14,7 +14,8 @@ void main() {
         .setMockMethodCallHandler(channel, (MethodCall methodCall) async {
       switch (methodCall.method) {
         case 'write':
-          mockStorage[methodCall.arguments['key']] = methodCall.arguments['value'];
+          mockStorage[methodCall.arguments['key']] =
+              methodCall.arguments['value'];
           return null;
         case 'read':
           return mockStorage[methodCall.arguments['key']];
@@ -55,22 +56,37 @@ void main() {
     test('StorageService handles logout correctly', () async {
       await StorageService.setUsername('testuser');
       await StorageService.setToken('ghp_testToken12345');
-      
+
       await StorageService.logout();
-      
+
       expect(StorageService.getUsername(), isNull);
       expect(await StorageService.hasToken(), isFalse);
     });
 
+    test('StorageService session gate requires onboarding, token, and username',
+        () async {
+      await StorageService.setOnboardingComplete(true);
+      expect(await StorageService.hasAuthenticatedSession(), isFalse);
+
+      await StorageService.setToken('ghp_testToken12345');
+      expect(await StorageService.hasAuthenticatedSession(), isFalse);
+
+      await StorageService.setUsername('testuser');
+      expect(await StorageService.hasAuthenticatedSession(), isTrue);
+
+      await StorageService.setOnboardingComplete(false);
+      expect(await StorageService.hasAuthenticatedSession(), isFalse);
+    });
+
     test('PresentationFormatter handles formatTimeSince correctly', () {
-       final now = DateTime.now();
-       expect(PresentationFormatter.formatTimeSince(now), 'Just now');
-       
-       final minAgo = now.subtract(const Duration(minutes: 5));
-       expect(PresentationFormatter.formatTimeSince(minAgo), '5 min ago (UTC)');
-       
-       final hourAgo = now.subtract(const Duration(hours: 2));
-       expect(PresentationFormatter.formatTimeSince(hourAgo), '2 hr ago (UTC)');
+      final now = DateTime.now();
+      expect(PresentationFormatter.formatTimeSince(now), 'Just now');
+
+      final minAgo = now.subtract(const Duration(minutes: 5));
+      expect(PresentationFormatter.formatTimeSince(minAgo), '5 min ago');
+
+      final hourAgo = now.subtract(const Duration(hours: 2));
+      expect(PresentationFormatter.formatTimeSince(hourAgo), '2 hr ago');
     });
   });
 }

@@ -12,7 +12,20 @@
           "package_name": "com.rahulreddy.githubwallpaper"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "826591895293-6t88u5eplien7q61vachmmr0f5p8rsc7.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.rahulreddy.githubwallpaper",
+            "certificate_hash": "a98818da6cfb094d3547b9a1080f95c0581ae375"
+          }
+        },
+        {
+          "client_id": "826591895293-a6u5mif791lsiirmm9uhvk7omamarui0.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyDD1CVX-40IF7Ac68yMoZ2-ySPaILEjlS0"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "826591895293-a6u5mif791lsiirmm9uhvk7omamarui0.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "826591895293-lm6q5ebehmrdi6l4nfiqrm7h8qvit51h.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.githubWallpaper"
+              }
+            }
+          ]
         }
       }
     }

@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GitWall Admin</title>
+    <meta
+      name="description"
+      content="GitWall web admin for app config, access control, broadcasts, and incident visibility."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Space+Grotesk:wght@400;500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="./styles.css?v=20260323-1" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">GitWall Control Surface</p>
+          <h1>Web Admin</h1>
+        </div>
+        <div class="topbar-actions">
+          <span class="pill" id="auth-state-pill">Signed out</span>
+          <div class="live-status">
+            <span class="pill pill-neutral" id="realtime-state-pill">Realtime standby</span>
+            <span class="live-helper" id="realtime-helper">Waiting for admin session.</span>
+          </div>
+          <button class="ghost-button hidden" id="sign-out-button" type="button">
+            Sign out
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <section class="hero-panel">
+          <div class="hero-copy">
+            <p class="eyebrow">Realtime Web Control</p>
+            <h2>Manage GitWall live without app-store updates.</h2>
+            <p>
+              This admin talks to Firebase in real time, persists your session,
+              and updates app controls, access, broadcasts, and diagnostics without page refreshes.
+            </p>
+          </div>
+
+          <div class="auth-card">
+            <div id="auth-signed-out">
+              <h3>Sign in with Google</h3>
+              <p class="muted">
+                This admin uses Firebase Authentication with your Google account,
+                then opens live Firestore listeners for the control surface.
+              </p>
+              <div class="stack">
+                <button class="primary-button" id="start-sign-in" type="button">
+                  Continue With Google
+                </button>
+              </div>
+              <p class="helper" id="auth-helper">
+                Sign in once with your approved Google admin account and this dashboard will restore the session automatically.
+              </p>
+            </div>
+
+            <div id="auth-signed-in" class="hidden">
+              <p class="eyebrow">Session</p>
+              <h3 id="session-name">Admin</h3>
+              <p class="muted" id="session-email">Signed in</p>
+              <p class="helper" id="session-mode">Live mode</p>
+            </div>
+          </div>
+        </section>
+
+        <section class="notice hidden" id="status-banner"></section>
+
+        <section class="dashboard hidden" id="dashboard">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow">Overview</p>
+              <h2>Live system status</h2>
+              <p class="helper">Realtime Firestore listeners keep this control panel updated automatically.</p>
+            </div>
+          </div>
+
+          <div class="summary-grid" id="summary-grid"></div>
+
+          <section class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Broadcast</p>
+                <h3>Custom Notification</h3>
+              </div>
+              <button class="primary-button" id="send-broadcast-button" type="button">
+                Send
+              </button>
+            </div>
+            <div class="form-grid">
+              <label class="field">
+                <span>Title</span>
+                <input id="broadcast-title" type="text" maxlength="80" placeholder="GitWall update" />
+              </label>
+              <label class="field field-full">
+                <span>Message</span>
+                <textarea id="broadcast-body" rows="4" maxlength="240" placeholder="Write the notification that should reach all users instantly."></textarea>
+              </label>
+            </div>
+            <p class="helper">
+              Sends an instant push notification to all app users subscribed to the GitWall broadcast topic.
+            </p>
+          </section>
+
+          <section class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Delivery</p>
+                <h3>Broadcast Status</h3>
+              </div>
+            </div>
+            <div class="list-stack" id="broadcast-feed"></div>
+            <p class="helper">
+              Pending means the request started, Accepted means Firebase Cloud Messaging accepted it, and the counters show actual app receipts and opens reported back by devices.
+            </p>
+          </section>
+
+          <section class="panel panel-wide">
+            <div class="panel-head">
+              <div>
+                <p class="eyebrow">Config</p>
+                <h3>App Config</h3>
+              </div>
+              <button
+                class="primary-button"
+                data-save-doc="app_config"
+                type="button"
+              >
+                Save
+              </button>
+            </div>
+            <div class="form-grid" id="app-config-fields"></div>
+          </section>
+
+          <div class="card-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Support</p>
+                  <h3>Users & Coupon Access</h3>
+                </div>
+              </div>
+              <p class="helper">
+                RevenueCat is now the only authority for paid subscriptions. This dashboard stays focused on user records,
+                coupon access visibility, and legacy Firestore cleanup signals.
+              </p>
+
+              <div class="toolbar">
+                <div class="stack-inline filter-group" id="membership-filters">
+                  <button class="secondary-button is-active" data-user-filter="all" type="button">All</button>
+                  <button class="secondary-button" data-user-filter="expiring" type="button">Expiring This Month</button>
+                  <button class="secondary-button" data-user-filter="expired" type="button">Expired</button>
+                  <button class="secondary-button" data-user-filter="coupon" type="button">Coupon Access</button>
+                </div>
+                <label class="field toolbar-search">
+                  <span>Search</span>
+                  <input id="membership-search" type="text" placeholder="Search email or username" />
+                </label>
+              </div>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Access</th>
+                      <th>Created</th>
+                      <th>Coupon Expiry</th>
+                      <th>Source</th>
+                    </tr>
+                  </thead>
+                  <tbody id="membership-users-table"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Coupons</p>
+                  <h3>Coupon Codes</h3>
+                </div>
+              </div>
+
+              <form class="inline-form coupon-form" id="coupon-form">
+                <label class="field">
+                  <span>Code</span>
+                  <input id="coupon-code" type="text" placeholder="GITWALL-EARLY-ABCD" />
+                </label>
+                <label class="field">
+                  <span>Duration days</span>
+                  <input id="coupon-duration-days" type="number" min="1" step="1" value="180" />
+                </label>
+                <label class="field">
+                  <span>Username hint</span>
+                  <input id="coupon-username-hint" type="text" placeholder="octocat" />
+                </label>
+                <label class="field field-toggle compact">
+                  <span>Enabled</span>
+                  <input id="coupon-enabled" type="checkbox" checked />
+                </label>
+                <label class="field field-toggle compact">
+                  <span>Invalidated</span>
+                  <input id="coupon-invalidated" type="checkbox" />
+                </label>
+                <label class="field field-full">
+                  <span>Notes</span>
+                  <textarea id="coupon-notes" rows="3" placeholder="Press access, partner reward, or internal campaign notes"></textarea>
+                </label>
+                <div class="stack-inline field-full">
+                  <button class="primary-button" id="save-coupon" type="submit">
+                    Save coupon
+                  </button>
+                  <button class="ghost-button" id="reset-coupon-form" type="button">
+                    Clear
+                  </button>
+                </div>
+              </form>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Status</th>
+                      <th>Duration</th>
+                      <th>Used By</th>
+                      <th>Updated</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="coupon-table"></tbody>
+                </table>
+              </div>
+            </section>
+          </div>
+
+          <div class="card-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Access</p>
+                  <h3>Admin Whitelist</h3>
+                </div>
+              </div>
+
+              <form class="inline-form" id="admin-form">
+                <label class="field">
+                  <span>Email</span>
+                  <input id="admin-email" type="email" placeholder="owner@example.com" />
+                </label>
+                <label class="field">
+                  <span>Role</span>
+                  <input id="admin-role" type="text" placeholder="owner" />
+                </label>
+                <label class="field field-toggle compact">
+                  <span>Enabled</span>
+                  <input id="admin-enabled" type="checkbox" checked />
+                </label>
+                <label class="field field-full">
+                  <span>Notes</span>
+                  <textarea id="admin-notes" rows="3"></textarea>
+                </label>
+                <div class="stack-inline">
+                  <button class="primary-button" id="save-admin" type="submit">
+                    Save admin
+                  </button>
+                  <button
+                    class="secondary-button"
+                    id="reset-admin-form"
+                    type="button"
+                  >
+                    Clear
+                  </button>
+                </div>
+              </form>
+
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Email</th>
+                      <th>Role</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="admins-table"></tbody>
+                </table>
+              </div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Signals</p>
+                  <h3>Metrics Snapshot</h3>
+                </div>
+              </div>
+              <div class="metric-grid" id="metrics-grid"></div>
+            </section>
+          </div>
+
+          <div class="card-grid">
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Incidents</p>
+                  <h3>Crash Reports</h3>
+                </div>
+              </div>
+              <div class="list-stack" id="crash-report-list"></div>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head">
+                <div>
+                  <p class="eyebrow">Diagnostics</p>
+                  <h3>App Logs</h3>
+                </div>
+              </div>
+              <div class="list-stack" id="log-list"></div>
+            </section>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script type="module" src="./app.js?v=20260323-2"></script>
+  </body>
+</html>

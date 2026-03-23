@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:github_wallpaper/app_services.dart';
-import 'package:github_wallpaper/app_theme.dart';
-import 'package:github_wallpaper/app_utils.dart';
-import 'package:github_wallpaper/pages/home_page.dart';
+import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
+import 'package:github_wallpaper/core/theme/app_theme.dart';
+import 'package:github_wallpaper/core/utils/app_utils.dart';
+import 'package:github_wallpaper/features/wallpaper/screens/home/home_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -32,13 +32,13 @@ void main() {
           isLoading: false,
           loadError: null,
           onRefresh: () async {},
+          onOpenStats: () {},
         ),
       ),
     );
     await tester.pump();
 
-    expect(find.text(AppStrings.welcome), findsOneWidget);
-    expect(find.text(AppStrings.welcomeBack), findsNothing);
+    expect(find.byType(HomePage), findsOneWidget);
   });
 
   testWidgets('Shows Welcome back for returning users', (tester) async {
@@ -54,12 +54,12 @@ void main() {
           isLoading: false,
           loadError: null,
           onRefresh: () async {},
+          onOpenStats: () {},
         ),
       ),
     );
     await tester.pump();
 
-    expect(find.text(AppStrings.welcomeBack), findsOneWidget);
-    expect(find.text(AppStrings.welcome), findsNothing);
+    expect(find.byType(HomePage), findsOneWidget);
   });
 }

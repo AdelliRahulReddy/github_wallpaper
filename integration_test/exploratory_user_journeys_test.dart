@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-import 'package:github_wallpaper/app_models.dart';
-import 'package:github_wallpaper/app_services.dart';
-import 'package:github_wallpaper/main.dart';
+import 'package:github_wallpaper/data/models/app_models.dart';
+import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
+import 'package:github_wallpaper/core/app/app_entry.dart';
 
 CachedContributionData _seedContributionData({
   required String username,

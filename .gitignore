@@ -21,7 +21,7 @@ migrate_working_dir/
 # The .vscode folder contains launch configuration and tasks you configure in
 # VS Code which you may wish to be included in version control, so this line
 # is commented out by default.
-#.vscode/
+.vscode/
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -67,3 +67,12 @@ repomix*
 analysis*.txt
 audit.txt
 *.log
+.agent/
+.trae/
+setx
+
+
+# Local secrets / dart-defines (keep private)
+dart_defines.json
+dart_defines.*.json
+.aider*

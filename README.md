@@ -1,91 +1,93 @@
-# 🎨 GitWall
+# GitWall
 
-Display your GitHub contributions as a stunning, auto-updating wallpaper on your phone. Turn your hard work into art.
+GitWall turns a GitHub contribution graph into a phone wallpaper and a compact personal dashboard. The app fetches GitHub activity, caches it locally, renders wallpaper-safe heatmaps, and gives the user Home, Stats, Customize, Wrapped, and Settings flows around that data.
 
----
+## Features
 
-## ✨ Features
+- GitHub OAuth sign-in with local session restore
+- Auto-refreshing contribution sync with background scheduling
+- Heatmap wallpaper generation for home, lock, or both screens
+- Theme presets, templates, quotes, sizing, opacity, and placement controls
+- Home dashboard for today, streaks, goals, quick insights, and achievements
+- Stats screen for year heatmaps, trends, languages, repositories, and breakdowns
+- Wrapped-style recap and share/export flows
+- Local notifications for reminders, celebrations, and sync-related events
+- Local caching and offline-friendly startup behavior
 
-- **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
-- **🔄 Silent Sync** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
-- **🎨 Deep Customization** – Adjust scale, opacity, positioning, corner radius, and add custom motivational quotes.
-- **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
-- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch contribution stats.
-- **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent modern look.
-- **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
-- **⚠️ Token Expiration Alerts (v1.2)** – Proactively detects expired or revoked GitHub tokens. Shows a warning banner on the dashboard, sends a background notification, and lets you update your token directly from Settings — no logout required
-
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
-- **Flutter SDK**: `^3.5.0`
-- **Device**: Android (Support for Home & Lock screen wallpapers)
-- **GitHub Token**: Personal Access Token with `read:user` scope
+- Flutter SDK `^3.5.0`
+- Android device/emulator for wallpaper features
+- GitHub OAuth app with callback `gitwall://oauth/callback`
+- Firebase project configured for the app
 
 ### Quick Setup
 
-1. **Clone the repository:**
+1. Clone the repository.
    ```bash
    git clone https://github.com/AdelliRahulReddy/github_wallpaper.git
    cd github_wallpaper
    ```
-
-2. **Install dependencies:**
+2. Install dependencies.
    ```bash
    flutter pub get
    ```
-
-3. **Firebase Configuration:**
-   - Link your project using `flutterfire configure`.
-   - Ensure `firebase_options.dart` is correctly generated.
-
-4. **Run the app:**
+3. Configure Firebase for the project.
+   - Run `flutterfire configure` if needed.
+   - Ensure `lib/core/constants/firebase_options.dart` matches your Firebase project.
+4. Configure GitHub OAuth.
+   - Detailed steps are in [docs/GITHUB_OAUTH_SETUP.md](docs/GITHUB_OAUTH_SETUP.md).
+5. Run the app.
    ```bash
    flutter run
    ```
 
-# 🔐 GitHub Token Setup
+## Tech Stack
 
-To fetch your contribution data, GitWall requires a GitHub Personal Access Token (PAT).
+- Flutter + Dart for the app UI and app logic
+- GitHub GraphQL API for contribution data
+- Firebase for auth/session support, config, telemetry, and backend functions
+- `flutter_secure_storage` and `shared_preferences` for local persistence
+- WorkManager for background refresh scheduling
+- `flutter_local_notifications` for reminders and milestone notifications
+- Android wallpaper APIs for wallpaper apply flow
+- Home Widget integration for companion widget updates
 
-1. Navigate to **Settings** → **Developer settings** → **Personal access tokens** → **Tokens (classic)**.
-2. Click **Generate new token (classic)**.
-3. Select the `read:user` scope.
-4. Copy the generated token and paste it into the app during setup.
-
-> [!TIP]
-> [Generate a token automatically](https://github.com/settings/tokens/new?scopes=read:user&description=GitWall) with the required scope pre-selected.
-
-> [!NOTE]
-> If your token expires, the app will show a warning banner on the Dashboard. Go to **Settings → Update GitHub Token** to replace it without losing your preferences.
-
-## 🛠️ Tech Stack
-
-- **Framework**: [Flutter](https://flutter.dev) (Dart) - *UI Layer*
-- **Native Bridge**: Kotlin (Android WallpaperManager API)
-- **Background Jobs**: [WorkManager](https://pub.dev/packages/workmanager)
-- **Push Messaging**: [Firebase Cloud Messaging](https://firebase.google.com/docs/cloud-messaging)
-- **Local Notifications**: [flutter_local_notifications](https://pub.dev/packages/flutter_local_notifications)
-- **API**: [GitHub GraphQL API v4](https://docs.github.com/en/graphql)
-- **Persistence**: 
-  - `flutter_secure_storage` (Encrypted tokens)
-  - `shared_preferences` (App state & metadata)
-- **Theming**: Custom Theme Engine (Single Source of Truth)
-
-## 📁 Project Structure
+## Project Structure
 
 ```text
-lib/
-├── main.dart              # App entry & service initialization
-├── app_utils.dart         # Design tokens, AppStrings, & Constants
-├── app_services.dart      # GitHub API, storage, wallpaper & notification logic
-├── ui_render.dart         # Custom painters & wallpaper generators
-├── app_models.dart        # Type-safe immutable data models
-├── app_state.dart         # Logic for streaks & trend calculations
-└── pages/                 # UI pages (Dashboard, Customize, Settings)
+github_wallpaper/
+├── assets/                     # Images, icons, and bundled assets
+├── docs/                       # Product, setup, audit, and maintenance notes
+├── functions/                  # Firebase Cloud Functions
+├── lib/
+│   ├── core/                   # App bootstrap, constants, theme, errors, utilities
+│   ├── data/                   # Models, storage, remote services, repositories
+│   ├── features/               # User-facing screens and feature-specific UI
+│   ├── shared/                 # Cross-feature services, state, and widgets
+│   └── main.dart               # Flutter entrypoint
+├── test/                       # Unit and widget tests
+└── web/                        # Web shell assets
 ```
 
-## 📜 License
+## Lib Map
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+For a file-by-file explanation of the current `lib/` folder, see [docs/screens.md](docs/screens.md).
+
+## Main Product Areas
+
+- `lib/core/app/app_entry.dart`: app startup and route gating
+- `lib/core/app/main_nav_screen.dart`: logged-in 4-tab shell
+- `lib/features/wallpaper/screens/home/`: dashboard experience
+- `lib/features/wallpaper/screens/stats/`: deeper analytics
+- `lib/features/wallpaper/screens/customize/`: wallpaper preview and customization
+- `lib/features/wallpaper/screens/wrapped/`: recap/share flow
+- `lib/features/settings/screens/`: profile, notifications, support, and sync preferences
+- `lib/shared/services/wallpaper_service.dart`: wallpaper generation and apply pipeline
+- `lib/data/repositories/github_service.dart`: GitHub fetch and sync logic
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](LICENSE).

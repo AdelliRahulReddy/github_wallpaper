@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/app_utils.dart';
+import 'package:github_wallpaper/core/utils/app_utils.dart';
 
 void main() {
   group('AppStrings Sanity Tests', () {
@@ -25,7 +25,7 @@ void main() {
     test('error messages are defined', () {
       expect(AppStrings.errorGeneric, isNotEmpty);
       expect(AppStrings.errorNetwork, isNotEmpty);
-      expect(AppStrings.errorInvalidToken, isNotEmpty);
+      expect(AppStrings.errorAccessDenied, isNotEmpty);
     });
 
     test('newly centralized keys exist', () {

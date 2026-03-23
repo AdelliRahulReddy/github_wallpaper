@@ -49,5 +49,16 @@
 		<false/>
 		<key>UIViewControllerBasedStatusBarAppearance</key>
 		<false/>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>gitwall-oauth</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>gitwall</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

@@ -1,10 +1,11 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/app_models.dart';
-import 'package:github_wallpaper/app_state.dart';
+import 'package:github_wallpaper/data/models/app_models.dart';
+import 'package:github_wallpaper/shared/state/app_state.dart';
+import 'package:github_wallpaper/core/utils/app_utils.dart';
 
 void main() {
   group('ContributionAnalyzer Streaks & Today', () {
-    test('identifies Today correctly in UTC', () {
+    test('identifies Today correctly in local timezone', () {
       final days = [
         ContributionDay(date: DateTime.utc(2026, 2, 13), contributionCount: 5),
         ContributionDay(date: DateTime.utc(2026, 2, 14), contributionCount: 10),
@@ -17,8 +18,8 @@ void main() {
         nowUtc: DateTime.utc(2026, 2, 13, 23, 0),
       );
 
-      expect(results['todayContributions'], 5);
-      expect(results['currentStreak'], 1);
+      expect(results['todayContributions'], 10);
+      expect(results['currentStreak'], 2);
     });
 
     test('streak breaks correctly on missed day', () {
@@ -57,6 +58,15 @@ void main() {
 
       // Streak should still be 2 because 13th has contributions (grace period)
       expect(results['currentStreak'], 2);
+    });
+
+    test('parses GitHub day keys as UTC then converts to local', () {
+      final parsed = AppDateUtils.parseDate('2026-02-14');
+      final expected = DateTime.utc(2026, 2, 14).toLocal();
+      expect(parsed, isNotNull);
+      expect(parsed!.year, expected.year);
+      expect(parsed.month, expected.month);
+      expect(parsed.day, expected.day);
     });
   });
 }
