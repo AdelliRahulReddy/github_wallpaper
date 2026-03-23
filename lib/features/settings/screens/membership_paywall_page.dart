@@ -1,4 +1,3 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
@@ -1232,7 +1231,7 @@ class _MembershipPaywallPageState extends State<MembershipPaywallPage>
               left: 0,
               right: 0,
               bottom: 0,
-              child: _buildStickyCtaBar(package!, trialLabel, scheme, isDark),
+              child: _buildStickyCtaBar(package, trialLabel, scheme, isDark),
             ),
         ],
       ),

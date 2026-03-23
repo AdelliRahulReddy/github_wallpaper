@@ -2,19 +2,18 @@
 
 GitWall turns a GitHub contribution graph into a phone wallpaper and a compact personal dashboard. The app fetches GitHub activity, caches it locally, renders wallpaper-safe heatmaps, and gives the user Home, Stats, Customize, Wrapped, and Settings flows around that data.
 
-## Features
+## ✨ Features:
 
-- GitHub OAuth sign-in with local session restore
-- Auto-refreshing contribution sync with background scheduling
-- Heatmap wallpaper generation for home, lock, or both screens
-- Theme presets, templates, quotes, sizing, opacity, and placement controls
-- Home dashboard for today, streaks, goals, quick insights, and achievements
-- Stats screen for year heatmaps, trends, languages, repositories, and breakdowns
-- Wrapped-style recap and share/export flows
-- Local notifications for reminders, celebrations, and sync-related events
-- Local caching and offline-friendly startup behavior
+- **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
+- **🔄 Silent Sync** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
+- **🎨 Deep Customization** – Adjust scale, opacity, positioning, corner radius, and add custom motivational quotes.
+- **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
+- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch contribution stats.
+- **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent modern look.
+- **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
+- **⚠️ Token Expiration Alerts (v1.2)** – Proactively detects expired or revoked GitHub tokens. Shows a warning banner on the dashboard, sends a background notification, and lets you update your token directly from Settings — no logout required.
 
-## Getting Started
+### 🚀 Getting Started
 
 ### Prerequisites
 
