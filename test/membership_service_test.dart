@@ -1,8 +1,76 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/data/models/membership_models.dart';
-import 'package:github_wallpaper/shared/services/membership_service.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/membership/models/membership_models.dart';
+import 'package:github_wallpaper/features/membership/services/membership_service.dart';
+import 'package:github_wallpaper/features/membership/services/revenuecat_service.dart';
+import 'package:purchases_flutter/purchases_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+CustomerInfo _buildCustomerInfo({
+  EntitlementInfo? entitlement,
+  String? managementUrl,
+}) {
+  final allEntitlements = <String, EntitlementInfo>{};
+  final activeEntitlements = <String, EntitlementInfo>{};
+  if (entitlement != null) {
+    allEntitlements[RevenueCatService.entitlementId] = entitlement;
+    if (entitlement.isActive) {
+      activeEntitlements[RevenueCatService.entitlementId] = entitlement;
+    }
+  }
+
+  return CustomerInfo(
+    EntitlementInfos(
+      allEntitlements,
+      activeEntitlements,
+      verification:
+          entitlement?.verification ?? VerificationResult.notRequested,
+    ),
+    entitlement == null
+        ? const {}
+        : {'gitwall_pro_monthly': entitlement.latestPurchaseDate},
+    entitlement?.isActive == true ? ['gitwall_pro_monthly'] : const [],
+    entitlement == null ? const [] : ['gitwall_pro_monthly'],
+    const <StoreTransaction>[],
+    '2026-01-01T00:00:00Z',
+    'app-user-123',
+    entitlement?.expirationDate == null
+        ? const {}
+        : {'gitwall_pro_monthly': entitlement!.expirationDate},
+    '2026-03-24T00:00:00Z',
+    latestExpirationDate: entitlement?.expirationDate,
+    managementURL: managementUrl,
+  );
+}
+
+EntitlementInfo _buildProEntitlement({
+  bool isActive = true,
+  VerificationResult verification = VerificationResult.verified,
+  PeriodType periodType = PeriodType.normal,
+  String? expirationDate = '2026-04-24T00:00:00Z',
+}) {
+  return EntitlementInfo(
+    RevenueCatService.entitlementId,
+    isActive,
+    isActive,
+    '2026-03-24T00:00:00Z',
+    '2026-03-24T00:00:00Z',
+    'gitwall_pro_monthly',
+    false,
+    store: Store.playStore,
+    periodType: periodType,
+    expirationDate: expirationDate,
+    verification: verification,
+  );
+}
 
 void main() {
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    await StorageService.init();
+    await StorageService.clearCachedMembershipInfo();
+  });
+
   group('MembershipService.buildInitialMembership', () {
     test('creates free membership for new users', () {
       final info = MembershipService.buildInitialMembership(
@@ -101,6 +169,68 @@ void main() {
       );
 
       expect(shouldRevalidate, isTrue);
+    });
+  });
+
+  group('RevenueCat membership merging', () {
+    test('purchase customer info unlocks pro immediately', () async {
+      final customerInfo = _buildCustomerInfo(
+        entitlement: _buildProEntitlement(),
+      );
+
+      final info = await MembershipService.refresh(
+        force: true,
+        revenueCatCustomerInfo: customerInfo,
+      );
+
+      expect(info.plan, MembershipPlan.pro);
+      expect(info.hasProAccess, isTrue);
+      expect(StorageService.getCachedMembershipInfo()?.hasProAccess, isTrue);
+    });
+
+    test('failed RevenueCat verification does not unlock pro', () async {
+      final customerInfo = _buildCustomerInfo(
+        entitlement: _buildProEntitlement(
+          verification: VerificationResult.failed,
+        ),
+      );
+
+      final info = await MembershipService.refresh(
+        force: true,
+        revenueCatCustomerInfo: customerInfo,
+      );
+
+      expect(info.plan, MembershipPlan.free);
+      expect(info.hasProAccess, isFalse);
+    });
+
+    test('restore validation rejects accounts without an active pro purchase',
+        () {
+      final customerInfo = _buildCustomerInfo();
+
+      expect(
+        () => RevenueCatService.validateCustomerInfoForProAccess(
+          customerInfo,
+          isRestore: true,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('purchase validation rejects invalid receipts', () {
+      final customerInfo = _buildCustomerInfo(
+        entitlement: _buildProEntitlement(
+          verification: VerificationResult.failed,
+        ),
+      );
+
+      expect(
+        () => RevenueCatService.validateCustomerInfoForProAccess(
+          customerInfo,
+          isRestore: false,
+        ),
+        throwsA(isA<StateError>()),
+      );
     });
   });
 }

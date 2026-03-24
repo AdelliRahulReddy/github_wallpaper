@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
-import 'package:github_wallpaper/features/auth/screens/onboarding_screen.dart';
+import 'package:github_wallpaper/features/auth/pages/onboarding_page.dart';
 
 void main() {
   testWidgets('Onboarding flow does not overflow on small widths',
@@ -25,26 +25,36 @@ void main() {
           home: const OnboardingPage(),
         ),
       );
-    await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 800));
       while (tester.takeException() != null) {}
 
-      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
-    await tester.pump(const Duration(milliseconds: 800));
+      await tester.fling(
+        find.byType(PageView),
+        const Offset(-400, 0),
+        1200,
+        warnIfMissed: false,
+      );
+      await tester.pump(const Duration(milliseconds: 800));
       while (tester.takeException() != null) {}
 
       await tester.tap(find.text(AppStrings.onboardingCtaSlide2));
-    await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 800));
       while (tester.takeException() != null) {}
 
-      await tester.fling(find.byType(PageView), const Offset(-400, 0), 1200);
-    await tester.pump(const Duration(milliseconds: 800));
+      await tester.fling(
+        find.byType(PageView),
+        const Offset(-400, 0),
+        1200,
+        warnIfMissed: false,
+      );
+      await tester.pump(const Duration(milliseconds: 800));
       while (tester.takeException() != null) {}
     } finally {
       FlutterError.onError = oldHandler;
     }
 
-    final overflowErrors = errors.where((e) =>
-        e.exceptionAsString().contains('A RenderFlex overflowed by'));
+    final overflowErrors = errors.where(
+        (e) => e.exceptionAsString().contains('A RenderFlex overflowed by'));
     expect(overflowErrors, isEmpty);
   });
 }

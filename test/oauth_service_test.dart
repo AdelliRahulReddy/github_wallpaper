@@ -1,7 +1,7 @@
-import 'package:flutter_test/flutter_test.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:github_wallpaper/core/errors/app_exceptions.dart';
-import 'package:github_wallpaper/data/datasources/remote/oauth_service.dart';
+import 'package:github_wallpaper/features/auth/services/oauth_service.dart';
 
 void main() {
   group('OAuthSession.fromExchangePayload', () {
@@ -87,3 +87,4 @@ void main() {
     });
   });
 }
+

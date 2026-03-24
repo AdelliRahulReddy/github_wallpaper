@@ -1,6 +1,6 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/shared/services/background_scheduler.dart';
-import 'package:github_wallpaper/shared/services/refresh_result.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:github_wallpaper/app/services/background_scheduler.dart';
+import 'package:github_wallpaper/app/services/refresh_result.dart';
 
 void main() {
   group('BackgroundScheduler Logic Tests', () {
@@ -15,3 +15,4 @@ void main() {
     });
   });
 }
+

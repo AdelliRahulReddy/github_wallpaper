@@ -3,6 +3,10 @@ import 'package:github_wallpaper/core/errors/app_exceptions.dart';
 class AppConfig {
   static const String firebaseProjectId = 'gitwall-d63cc';
   static const String firebaseFunctionsRegion = 'us-central1';
+  static const String playStoreSubscriptionsUrl = String.fromEnvironment(
+    'PLAY_STORE_SUBSCRIPTIONS_URL',
+    defaultValue: 'https://play.google.com/store/account/subscriptions',
+  );
   static const String githubClientId = String.fromEnvironment(
     'GITHUB_CLIENT_ID',
     defaultValue: 'Ov23liLsYG4d5Xiv10H6',
@@ -47,6 +51,15 @@ class AppConfig {
     'SUPPORT_US_URL',
     defaultValue: 'https://buymeacoffee.com/',
   );
+
+  static Uri playStoreListingUri(String packageName) => Uri.https(
+        'play.google.com',
+        '/store/apps/details',
+        {'id': packageName},
+      );
+
+  static Uri get playStoreSubscriptionsUri =>
+      Uri.parse(playStoreSubscriptionsUrl);
 
   static void validateOAuthConfig({String? registeredRedirectUri}) {
     const id = githubClientId;

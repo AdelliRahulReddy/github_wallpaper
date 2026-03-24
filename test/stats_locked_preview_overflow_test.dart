@@ -1,8 +1,8 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
-import 'package:github_wallpaper/data/models/app_models.dart';
-import 'package:github_wallpaper/features/wallpaper/widgets/stats/stats_sections.dart';
+import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/features/contributions/widgets/stats_sections.dart';
 
 void main() {
   testWidgets('Locked most active days preview does not overflow on mobile',
@@ -65,3 +65,4 @@ void main() {
     );
   });
 }
+

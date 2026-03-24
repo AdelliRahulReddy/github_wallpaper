@@ -4,9 +4,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-import 'package:github_wallpaper/data/models/app_models.dart';
-import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
-import 'package:github_wallpaper/core/app/app_entry.dart';
+import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/app/app_entry.dart';
 
 CachedContributionData _seedContributionData({
   required String username,
@@ -47,6 +47,17 @@ Future<void> _tryScreenshot(
   } catch (_) {}
 }
 
+Future<void> _tapVisible(
+  WidgetTester tester,
+  Finder finder, {
+  Duration settleFor = const Duration(seconds: 2),
+}) async {
+  final target = finder.hitTestable().first;
+  await tester.ensureVisible(target);
+  await tester.tap(target, warnIfMissed: false);
+  await tester.pumpAndSettle(settleFor);
+}
+
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -58,6 +69,7 @@ void main() {
       (WidgetTester tester) async {
     await StorageService.init();
     await StorageService.logout();
+    await StorageService.setOnboardingComplete(false);
 
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle(const Duration(seconds: 8));
@@ -65,16 +77,16 @@ void main() {
     await _pumpUntilFound(tester, find.text('Skip'));
     await _tryScreenshot(binding, '01_onboarding');
 
-    await tester.tap(find.text('Skip').hitTestable(), warnIfMissed: false);
-    await tester.pumpAndSettle(const Duration(seconds: 3));
+    await _tapVisible(
+      tester,
+      find.text('Skip'),
+      settleFor: const Duration(seconds: 3),
+    );
 
-    await _pumpUntilFound(tester, find.text('Initialize Workspace'));
+    await _pumpUntilFound(tester, find.text('Continue with GitHub'));
     await _tryScreenshot(binding, '02_setup_empty');
 
-    final initButton = find.text('Initialize Workspace');
-    await tester.ensureVisible(initButton);
-    await tester.tap(initButton.hitTestable(), warnIfMissed: false);
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await _tapVisible(tester, find.text('Continue with GitHub'));
     await _tryScreenshot(binding, '03_setup_validation_errors');
   });
 
@@ -85,6 +97,7 @@ void main() {
 
     const username = 'octocat';
     await StorageService.setUsername(username);
+    await StorageService.setToken('ghp_integration_smoke_token');
     await StorageService.setOnboardingComplete(true);
     await StorageService.setAutoUpdate(false);
     await StorageService.setPendingWallpaperRefresh(false);
@@ -97,37 +110,34 @@ void main() {
     await tester.pumpWidget(const MyApp());
     await tester.pumpAndSettle(const Duration(seconds: 8));
 
-    await _pumpUntilFound(tester, find.text('Dashboard'));
+    await _pumpUntilFound(tester, find.text('Home'));
     await _tryScreenshot(binding, '10_main_dashboard');
 
-    await tester.tap(find.text('Customize'));
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await _tapVisible(tester, find.text('Customize'));
     await _tryScreenshot(binding, '11_customize');
 
-    await tester.tap(find.text('Settings'));
-    await tester.pumpAndSettle(const Duration(seconds: 2));
+    await _tapVisible(tester, find.text('Settings'));
     await _tryScreenshot(binding, '12_settings');
 
     final autoUpdateSwitch = find.byType(Switch).first;
     if (autoUpdateSwitch.evaluate().isNotEmpty) {
-      await tester.ensureVisible(autoUpdateSwitch);
-      await tester.tap(autoUpdateSwitch, warnIfMissed: false);
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await _tapVisible(tester, autoUpdateSwitch);
       await _tryScreenshot(binding, '13_settings_auto_update_toggled');
     }
 
     final logoutButton = find.text('Logout');
-    await tester.ensureVisible(logoutButton);
-    await tester.tap(logoutButton.hitTestable(), warnIfMissed: false);
-    await tester.pumpAndSettle(const Duration(seconds: 1));
+    await _tapVisible(
+      tester,
+      logoutButton,
+      settleFor: const Duration(seconds: 1),
+    );
 
     final confirm = find.widgetWithText(TextButton, 'Logout');
     if (confirm.evaluate().isNotEmpty) {
-      await tester.tap(confirm);
-      await tester.pumpAndSettle(const Duration(seconds: 2));
+      await _tapVisible(tester, confirm);
     }
 
-    await _pumpUntilFound(tester, find.text('Skip'));
-    await _tryScreenshot(binding, '14_post_logout_onboarding');
+    await _pumpUntilFound(tester, find.text('Continue with GitHub'));
+    await _tryScreenshot(binding, '14_post_logout_setup');
   });
 }

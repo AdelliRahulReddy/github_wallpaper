@@ -1,5 +1,5 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/shared/services/daily_quotes.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:github_wallpaper/features/contributions/services/daily_quotes.dart';
 
 void main() {
   group('DailyQuoteService bucket mapping', () {
@@ -48,3 +48,4 @@ void main() {
     });
   });
 }
+

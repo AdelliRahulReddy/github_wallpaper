@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/gitwall_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
@@ -25,9 +26,10 @@
             android:ellipsize="end" />
 
         <TextView
+            android:id="@+id/gitwall_widget_badge"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="GitWall"
+            android:text="OPEN"
             android:textStyle="bold"
             android:textSize="12sp"
             android:textColor="@android:color/white"
@@ -89,5 +91,17 @@
                 android:textColor="@android:color/white" />
         </LinearLayout>
     </LinearLayout>
+
+    <TextView
+        android:id="@+id/gitwall_widget_status"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="Connect GitHub to start syncing your contribution widget."
+        android:textSize="11sp"
+        android:textColor="@android:color/white"
+        android:alpha="0.85"
+        android:maxLines="2"
+        android:ellipsize="end" />
 
 </LinearLayout>

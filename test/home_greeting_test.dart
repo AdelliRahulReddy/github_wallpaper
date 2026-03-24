@@ -1,10 +1,10 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
-import 'package:github_wallpaper/features/wallpaper/screens/home/home_page.dart';
+import 'package:github_wallpaper/features/contributions/pages/home_page.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -63,3 +63,4 @@ void main() {
     expect(find.byType(HomePage), findsOneWidget);
   });
 }
+

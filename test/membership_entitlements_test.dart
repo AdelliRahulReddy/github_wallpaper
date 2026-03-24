@@ -1,7 +1,8 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
-import 'package:github_wallpaper/data/models/membership_models.dart';
-import 'package:github_wallpaper/shared/services/membership_entitlements.dart';
+﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/membership/models/membership_models.dart';
+import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
+import 'package:github_wallpaper/features/wallpaper/models/wallpaper_config.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -9,6 +10,8 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await StorageService.init();
     await StorageService.clearCachedMembershipInfo();
+    await StorageService.setAppUserId(null);
+    await StorageService.setLastWallpaperTarget(WallpaperTarget.lock);
   });
 
   test('free users only get basic themes and branded shares', () async {
@@ -37,4 +40,17 @@ void main() {
     expect(MembershipEntitlements.availableThemes().length, greaterThan(3));
     expect(MembershipEntitlements.isThemeUnlocked('dracula'), isTrue);
   });
+
+  test('persists the app-owned user id', () async {
+    await StorageService.setAppUserId('github:123456');
+
+    expect(StorageService.getAppUserId(), 'github:123456');
+  });
+
+  test('preserves home wallpaper target in storage', () async {
+    await StorageService.setLastWallpaperTarget(WallpaperTarget.home);
+
+    expect(StorageService.getLastWallpaperTarget(), WallpaperTarget.home);
+  });
 }
+

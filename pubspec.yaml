@@ -1,7 +1,7 @@
 name: github_wallpaper
 description: "GitWall - Display your GitHub contributions as an auto-updating wallpaper"
 publish_to: 'none'
-version: 1.0.0+3
+version: 1.0.0+4
 
 environment:
   sdk: ^3.5.0
@@ -66,6 +66,7 @@ dependencies:
   device_info_plus: ^10.1.0
   sensors_plus: ^5.0.1
   purchases_flutter: ^9.13.2
+  flutter_native_splash: ^2.4.2        # Native splash screen
 
 dev_dependencies:
   flutter_test:
@@ -76,7 +77,6 @@ dev_dependencies:
 
   flutter_lints: ^5.0.0
   flutter_launcher_icons: ^0.14.3
-  flutter_native_splash: ^2.4.2        # Native splash screen
 
 # ══════════════════════════════════════════════════════════════════════════
 # APP ICON CONFIGURATION

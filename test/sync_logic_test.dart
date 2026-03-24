@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
-import 'package:github_wallpaper/shared/state/app_state.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
 
@@ -56,11 +56,17 @@ void main() {
     test('StorageService handles logout correctly', () async {
       await StorageService.setUsername('testuser');
       await StorageService.setToken('ghp_testToken12345');
+      await StorageService.setHasAuthError(true);
+      await StorageService.setSyncSuccessNotificationsEnabled(true);
+      await StorageService.setSyncSuccessLastSentDay('2026-03-24');
 
       await StorageService.logout();
 
       expect(StorageService.getUsername(), isNull);
       expect(await StorageService.hasToken(), isFalse);
+      expect(StorageService.hasAuthError(), isFalse);
+      expect(StorageService.getSyncSuccessNotificationsEnabled(), isFalse);
+      expect(StorageService.getSyncSuccessLastSentDay(), isNull);
     });
 
     test('StorageService session gate requires onboarding, token, and username',

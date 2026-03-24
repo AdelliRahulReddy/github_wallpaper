@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/data/models/app_models.dart';
-import 'package:github_wallpaper/features/wallpaper/screens/customize/customize_screen.dart';
-import 'package:github_wallpaper/features/settings/screens/settings_screen.dart';
-import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
-import 'package:github_wallpaper/shared/state/app_state.dart';
-import 'package:github_wallpaper/shared/state/membership_state.dart';
-import 'package:github_wallpaper/data/models/membership_models.dart';
+import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/features/contributions/pages/stats_page.dart';
+import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
+import 'package:github_wallpaper/features/settings/controllers/settings_controller.dart';
+import 'package:github_wallpaper/features/settings/controllers/theme_controller.dart';
+import 'package:github_wallpaper/features/settings/pages/settings_page.dart';
+import 'package:github_wallpaper/features/wallpaper/pages/customize_page.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/membership/models/membership_models.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:provider/provider.dart';
@@ -89,9 +91,9 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => SettingsPreferencesState()),
-          ChangeNotifierProvider(create: (_) => ThemeModeState()),
-          ChangeNotifierProvider(create: (_) => MembershipState()),
+          ChangeNotifierProvider(create: (_) => SettingsController()),
+          ChangeNotifierProvider(create: (_) => ThemeController()),
+          ChangeNotifierProvider(create: (_) => MembershipController()),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme(),
@@ -121,7 +123,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => MembershipState(),
+        create: (_) => MembershipController(),
         child: MaterialApp(
           theme: AppTheme.lightTheme(),
           home: Scaffold(
@@ -147,14 +149,14 @@ void main() {
       plan: MembershipPlan.free,
     );
     await StorageService.setCachedMembershipInfo(membershipInfo);
-    final membershipState = MembershipState()
+    final membershipState = MembershipController()
       ..setMembershipInfo(membershipInfo);
 
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => SettingsPreferencesState()),
-          ChangeNotifierProvider(create: (_) => ThemeModeState()),
+          ChangeNotifierProvider(create: (_) => SettingsController()),
+          ChangeNotifierProvider(create: (_) => ThemeController()),
           ChangeNotifierProvider.value(value: membershipState),
         ],
         child: MaterialApp(
@@ -185,9 +187,9 @@ void main() {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
-          ChangeNotifierProvider(create: (_) => SettingsPreferencesState()),
-          ChangeNotifierProvider(create: (_) => ThemeModeState()),
-          ChangeNotifierProvider(create: (_) => MembershipState()),
+          ChangeNotifierProvider(create: (_) => SettingsController()),
+          ChangeNotifierProvider(create: (_) => ThemeController()),
+          ChangeNotifierProvider(create: (_) => MembershipController()),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme(),
@@ -203,5 +205,40 @@ void main() {
     expect(find.text('Redeem Coupon'), findsOneWidget);
     expect(find.text('Restore Purchase'), findsOneWidget);
     expect(find.textContaining('Free plan active'), findsOneWidget);
+  });
+
+  testWidgets('Stats unlocks Pro sections in real time after membership update',
+      (tester) async {
+    await setupStorage();
+    await StorageService.setCachedMembershipInfo(
+      MembershipInfo.free(),
+    );
+    final membershipState = MembershipController()
+      ..setMembershipInfo(MembershipInfo.free());
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider.value(
+        value: membershipState,
+        child: MaterialApp(
+          theme: AppTheme.lightTheme(),
+          home: StatsPage(
+            data: buildData(),
+            isLoading: false,
+            loadError: null,
+            onRefresh: () async {},
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.expand_more_rounded), findsNothing);
+
+    membershipState.setMembershipInfo(
+      const MembershipInfo(plan: MembershipPlan.pro),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byIcon(Icons.expand_more_rounded), findsOneWidget);
   });
 }

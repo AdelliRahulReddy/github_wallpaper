@@ -1,13 +1,13 @@
-import 'dart:ui' as ui;
+﻿import 'dart:ui' as ui;
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/core/errors/app_exceptions.dart';
-import 'package:github_wallpaper/data/models/app_models.dart';
-import 'package:github_wallpaper/shared/state/app_state.dart';
+import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
-import 'package:github_wallpaper/data/models/theme_presets.dart';
+import 'package:github_wallpaper/features/wallpaper/models/theme_presets.dart';
 
 class MonthHeatmapRenderer {
   static final _lT = AppThemeExt(isLight: true),
@@ -597,3 +597,4 @@ Future<Uint8List> generateWallpaperTask(Map<String, dynamic> args) async {
     p.dispose();
   }
 }
+

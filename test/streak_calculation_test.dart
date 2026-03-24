@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/data/models/app_models.dart';
-import 'package:github_wallpaper/shared/state/app_state.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
+import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 
 void main() {
   group('ContributionAnalyzer Streaks & Today', () {
@@ -43,7 +43,7 @@ void main() {
     });
 
     test('grace period (yesterday) maintains streak', () {
-       final days = [
+      final days = [
         ContributionDay(date: DateTime.utc(2026, 2, 12), contributionCount: 5),
         ContributionDay(date: DateTime.utc(2026, 2, 13), contributionCount: 5),
         // No contributions on Feb 14 (Yet)
@@ -67,6 +67,16 @@ void main() {
       expect(parsed!.year, expected.year);
       expect(parsed.month, expected.month);
       expect(parsed.day, expected.day);
+    });
+
+    test('rejects malformed contribution dates', () {
+      expect(
+        () => ContributionDay.fromJson({
+          'date': 'not-a-date',
+          'contributionCount': 3,
+        }),
+        throwsA(isA<FormatException>()),
+      );
     });
   });
 }

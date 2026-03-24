@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
-import 'package:github_wallpaper/features/auth/screens/onboarding_screen.dart';
-import 'package:github_wallpaper/features/auth/screens/setup_screen.dart';
+import 'package:github_wallpaper/features/auth/pages/onboarding_page.dart';
+import 'package:github_wallpaper/features/auth/pages/setup_page.dart';
 
 Future<void> _pumpAtSize(
   WidgetTester tester, {
@@ -62,4 +62,3 @@ void main() {
     }
   });
 }
-

@@ -1,12 +1,12 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
-import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
-import 'package:github_wallpaper/data/models/app_models.dart';
-import 'package:github_wallpaper/data/models/membership_models.dart';
-import 'package:github_wallpaper/features/wallpaper/screens/customize/customize_screen.dart';
-import 'package:github_wallpaper/shared/state/membership_state.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/features/membership/models/membership_models.dart';
+import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
+import 'package:github_wallpaper/features/wallpaper/pages/customize_page.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -83,7 +83,7 @@ void main() {
 
   testWidgets('Customize shows locked live quote action for free users',
       (tester) async {
-    final membershipState = MembershipState()
+    final membershipState = MembershipController()
       ..setMembershipInfo(MembershipInfo.free());
 
     await tester.pumpWidget(
@@ -115,7 +115,7 @@ void main() {
 
   testWidgets('Customize shows live quote action for pro users',
       (tester) async {
-    final membershipState = MembershipState()
+    final membershipState = MembershipController()
       ..setMembershipInfo(
         MembershipInfo(
           plan: MembershipPlan.pro,
@@ -148,3 +148,4 @@ void main() {
     expect(find.text('Generate Live Quote'), findsOneWidget);
   });
 }
+

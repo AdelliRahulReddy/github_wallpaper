@@ -1,11 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
-import 'package:github_wallpaper/data/datasources/local/storage_service.dart';
-import 'package:github_wallpaper/data/models/app_models.dart';
-import 'package:github_wallpaper/shared/state/app_state.dart';
-import 'package:github_wallpaper/shared/widgets/share_card.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
+import 'package:github_wallpaper/features/contributions/widgets/share_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -101,10 +101,14 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 300));
 
+    FlutterError.onError = oldOnError;
+
     expect(find.text('Heatmap'), findsOneWidget);
     expect(
       errors.where((error) => error.contains('A RenderFlex overflowed by')),
       isEmpty,
+      reason: errors.join('\n'),
     );
   });
 }
+
