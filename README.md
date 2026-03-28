@@ -24,7 +24,7 @@ GitWall turns a GitHub contribution graph into a phone wallpaper and a compact p
 
 ### Quick Setup
 
-1. Clone the repository.
+1. Clone the repository
    ```bash
    git clone https://github.com/AdelliRahulReddy/github_wallpaper.git
    cd github_wallpaper
