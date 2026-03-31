@@ -37,7 +37,7 @@ GitWall turns a GitHub contribution graph into a phone wallpaper and a compact p
    - Run `flutterfire configure` if needed.
    - Ensure `lib/core/constants/firebase_options.dart` matches your Firebase project.
 4. Configure GitHub OAuth.
-   - Detailed steps are in [docs/GITHUB_OAUTH_SETUP.md](docs/GITHUB_OAUTH_SETUP.md).
+   - Detailed steps are in [docs/GITHUB_OAUTH_SETUP.md](docs/GITHUB_OAUTH_SETUP.md)
 5. Run the app.
    ```bash
    flutter run
