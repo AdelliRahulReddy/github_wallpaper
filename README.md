@@ -7,7 +7,7 @@ GitWall turns a GitHub contribution graph into a phone wallpaper and a compact p
 - **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
 - **🔄 Silent Sync** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
 - **🎨 Deep Customization** – Adjust scale, opacity, positioning, corner radius, and add custom motivational quotes.
-- **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
+- **📊 Advanced Insights* – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
 - **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch contribution stats.
 - **💎 Premium Design** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent modern look.
 - **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
