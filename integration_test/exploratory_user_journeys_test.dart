@@ -65,7 +65,7 @@ void main() {
     await binding.convertFlutterSurfaceToImage();
   });
 
-  testWidgets('Journey: onboarding → setup (validation smoke)',
+  testWidgets('Journey: onboarding two-screen flow smoke',
       (WidgetTester tester) async {
     await StorageService.init();
     await StorageService.logout();
@@ -83,11 +83,8 @@ void main() {
       settleFor: const Duration(seconds: 3),
     );
 
-    await _pumpUntilFound(tester, find.text('Continue with GitHub'));
-    await _tryScreenshot(binding, '02_setup_empty');
-
-    await _tapVisible(tester, find.text('Continue with GitHub'));
-    await _tryScreenshot(binding, '03_setup_validation_errors');
+    await _pumpUntilFound(tester, find.text('Connect GitHub'));
+    await _tryScreenshot(binding, '02_onboarding_connect');
   });
 
   testWidgets('Journey: main tabs → settings toggle → logout',
@@ -137,7 +134,7 @@ void main() {
       await _tapVisible(tester, confirm);
     }
 
-    await _pumpUntilFound(tester, find.text('Continue with GitHub'));
-    await _tryScreenshot(binding, '14_post_logout_setup');
+    await _pumpUntilFound(tester, find.text('Connect GitHub'));
+    await _tryScreenshot(binding, '14_post_logout_onboarding');
   });
 }

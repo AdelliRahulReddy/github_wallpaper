@@ -30,16 +30,12 @@ void main() {
       expect(uri.host, isNotEmpty);
     });
 
-    test('centralizes Play Store URLs', () {
+    test('centralizes the Play Store listing URL', () {
       final listing = AppConfig.playStoreListingUri('com.example.gitwall');
 
       expect(
         listing.toString(),
         'https://play.google.com/store/apps/details?id=com.example.gitwall',
-      );
-      expect(
-        AppConfig.playStoreSubscriptionsUri.toString(),
-        'https://play.google.com/store/account/subscriptions',
       );
     });
   });

@@ -8,19 +8,24 @@ import 'package:flutter_appauth/flutter_appauth.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:github_wallpaper/core/errors/app_exceptions.dart';
-import 'package:github_wallpaper/core/constants/environment_config.dart' as app_config;
+import 'package:github_wallpaper/core/constants/environment_config.dart'
+    as app_config;
 
 class OAuthSession {
   final String accessToken;
   final String username;
   final String? email;
   final String firebaseCustomToken;
+  final String internalUserId;
+  final String? githubProviderId;
 
   const OAuthSession({
     required this.accessToken,
     required this.username,
     required this.email,
     required this.firebaseCustomToken,
+    required this.internalUserId,
+    required this.githubProviderId,
   });
 
   factory OAuthSession.fromExchangePayload(Map<String, dynamic> payload) {
@@ -29,6 +34,8 @@ class OAuthSession {
     final firebaseCustomToken =
         payload['firebaseCustomToken']?.toString().trim() ?? '';
     final rawEmail = payload['email']?.toString().trim();
+    final internalUserId = payload['internalUserId']?.toString().trim() ?? '';
+    final githubProviderId = payload['githubProviderId']?.toString().trim();
 
     if (accessToken.isEmpty) {
       throw GitHubException('GitHub token missing from exchange response');
@@ -41,12 +48,21 @@ class OAuthSession {
         'Firebase custom token missing from exchange response',
       );
     }
+    if (internalUserId.isEmpty) {
+      throw GitHubException(
+        'Canonical GitWall user id missing from exchange response',
+      );
+    }
 
     return OAuthSession(
       accessToken: accessToken,
       username: username,
       email: (rawEmail == null || rawEmail.isEmpty) ? null : rawEmail,
       firebaseCustomToken: firebaseCustomToken,
+      internalUserId: internalUserId,
+      githubProviderId: (githubProviderId == null || githubProviderId.isEmpty)
+          ? null
+          : githubProviderId,
     );
   }
 }
@@ -55,11 +71,16 @@ class OAuthService {
   static const _authEndpoint = 'https://github.com/login/oauth/authorize';
   static const _tokenEndpoint = 'https://github.com/login/oauth/access_token';
   static const _exchangeTimeout = Duration(seconds: 20);
+  static const _warmupTtl = Duration(minutes: 5);
   static final FlutterAppAuth _appAuth = FlutterAppAuth();
+  static Future<void>? _exchangeWarmup;
+  static DateTime? _exchangeReadyAt;
 
   static Future<OAuthSession> signInWithGitHub() async {
     app_config.AppConfig.validateOAuthConfig();
-    await _verifyExchangeEndpointReady();
+    if (!_hasFreshExchangeWarmup) {
+      unawaited(prewarmExchangeEndpoint().catchError((_) {}));
+    }
 
     const githubClientId = app_config.AppConfig.githubClientId;
     const redirectUri = app_config.AppConfig.redirectUri;
@@ -116,6 +137,7 @@ class OAuthService {
     );
 
     final session = _parseExchangeResponse(response);
+    _exchangeReadyAt = DateTime.now();
     try {
       await FirebaseAuth.instance.signInWithCustomToken(
         session.firebaseCustomToken,
@@ -127,6 +149,34 @@ class OAuthService {
       );
     }
     return session;
+  }
+
+  static Future<void> prewarmExchangeEndpoint({bool force = false}) {
+    if (!force && _hasFreshExchangeWarmup) {
+      return Future<void>.value();
+    }
+
+    final inFlight = _exchangeWarmup;
+    if (!force && inFlight != null) {
+      return inFlight;
+    }
+
+    late final Future<void> future;
+    future = _verifyExchangeEndpointReady().then((_) {
+      _exchangeReadyAt = DateTime.now();
+    }).whenComplete(() {
+      if (identical(_exchangeWarmup, future)) {
+        _exchangeWarmup = null;
+      }
+    });
+    _exchangeWarmup = future;
+    return future;
+  }
+
+  static bool get _hasFreshExchangeWarmup {
+    final readyAt = _exchangeReadyAt;
+    if (readyAt == null) return false;
+    return DateTime.now().difference(readyAt) < _warmupTtl;
   }
 
   static Future<void> _verifyExchangeEndpointReady() async {
@@ -170,7 +220,8 @@ class OAuthService {
     final details = payload?['details']?.toString().trim();
 
     final isReadyResponse = response.statusCode == 400 &&
-        message == 'authorizationCode, codeVerifier, and redirectUri are required';
+        message ==
+            'authorizationCode, codeVerifier, and redirectUri are required';
     if (isReadyResponse) {
       return;
     }
@@ -200,8 +251,9 @@ class OAuthService {
             ? message!
             : 'GitHub sign-in server is unavailable',
         statusCode: response.statusCode,
-        details:
-            details?.isNotEmpty == true ? details : _fallbackResponseDetails(response),
+        details: details?.isNotEmpty == true
+            ? details
+            : _fallbackResponseDetails(response),
       );
     }
   }

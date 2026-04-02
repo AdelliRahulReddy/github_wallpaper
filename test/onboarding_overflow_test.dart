@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
-import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/auth/pages/onboarding_page.dart';
 
 void main() {
-  testWidgets('Onboarding flow does not overflow on small widths',
+  testWidgets('GitHub connect page does not overflow on small widths',
       (tester) async {
     final errors = <FlutterErrorDetails>[];
     final oldHandler = FlutterError.onError;
@@ -22,32 +21,12 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: AppTheme.lightTheme(),
-          home: const OnboardingPage(),
+          home: const GitHubConnectPage(),
         ),
       );
       await tester.pump(const Duration(milliseconds: 800));
       while (tester.takeException() != null) {}
-
-      await tester.fling(
-        find.byType(PageView),
-        const Offset(-400, 0),
-        1200,
-        warnIfMissed: false,
-      );
-      await tester.pump(const Duration(milliseconds: 800));
-      while (tester.takeException() != null) {}
-
-      await tester.tap(find.text(AppStrings.onboardingCtaSlide2));
-      await tester.pump(const Duration(milliseconds: 800));
-      while (tester.takeException() != null) {}
-
-      await tester.fling(
-        find.byType(PageView),
-        const Offset(-400, 0),
-        1200,
-        warnIfMissed: false,
-      );
-      await tester.pump(const Duration(milliseconds: 800));
+      expect(find.text('Connect on GitHub'), findsOneWidget);
       while (tester.takeException() != null) {}
     } finally {
       FlutterError.onError = oldHandler;

@@ -68,8 +68,11 @@ analysis*.txt
 audit.txt
 *.log
 .agent/
+.agents/
+.codex/
 .trae/
 setx
+skills-lock.json
 
 
 # Local secrets / dart-defines (keep private)

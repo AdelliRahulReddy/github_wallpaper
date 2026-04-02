@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -170,4 +170,3 @@ class SettingsController extends SafeChangeNotifier {
     refreshFromStorage();
   }
 }
-

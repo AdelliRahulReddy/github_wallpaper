@@ -66,18 +66,8 @@ const elements = {
   adminEnabled: document.querySelector("#admin-enabled"),
   adminNotes: document.querySelector("#admin-notes"),
   resetAdminForm: document.querySelector("#reset-admin-form"),
-  membershipSearch: document.querySelector("#membership-search"),
-  membershipUsersTable: document.querySelector("#membership-users-table"),
-  membershipFilters: document.querySelector("#membership-filters"),
-  couponForm: document.querySelector("#coupon-form"),
-  couponCode: document.querySelector("#coupon-code"),
-  couponDurationDays: document.querySelector("#coupon-duration-days"),
-  couponUsernameHint: document.querySelector("#coupon-username-hint"),
-  couponEnabled: document.querySelector("#coupon-enabled"),
-  couponInvalidated: document.querySelector("#coupon-invalidated"),
-  couponNotes: document.querySelector("#coupon-notes"),
-  resetCouponForm: document.querySelector("#reset-coupon-form"),
-  couponTable: document.querySelector("#coupon-table"),
+  userSearch: document.querySelector("#user-search"),
+  usersTable: document.querySelector("#users-table"),
 };
 
 const state = {
@@ -93,10 +83,8 @@ const state = {
   crashReports: [],
   logs: [],
   users: [],
-  coupons: [],
   unsubscribers: [],
   lastAuthError: "",
-  userFilter: "all",
   userSearch: "",
   realtime: {
     status: "idle",
@@ -111,9 +99,7 @@ elements.startSignInButton.addEventListener("click", startGoogleSignIn);
 elements.signOutButton.addEventListener("click", handleSignOut);
 elements.adminForm.addEventListener("submit", handleAdminSubmit);
 elements.resetAdminForm.addEventListener("click", resetAdminForm);
-elements.membershipSearch.addEventListener("input", handleMembershipSearch);
-elements.couponForm.addEventListener("submit", handleCouponSubmit);
-elements.resetCouponForm.addEventListener("click", resetCouponForm);
+elements.userSearch.addEventListener("input", handleUserSearch);
 elements.sendBroadcastButton.addEventListener("click", sendAdminBroadcast);
 document.addEventListener("click", handleGlobalClick);
 document.addEventListener("input", handleFieldChange);
@@ -137,8 +123,6 @@ function resetLiveState() {
   state.crashReports = [];
   state.logs = [];
   state.users = [];
-  state.coupons = [];
-  state.userFilter = "all";
   state.userSearch = "";
   state.realtime.lastEventAt = null;
   setRealtimeStatus("idle", "Waiting for admin session.");
@@ -189,7 +173,6 @@ async function loadDashboard() {
   subscribeMetrics();
   subscribeAdmins();
   subscribeUsers();
-  subscribeCoupons();
   subscribeIncidentFeeds();
   setRealtimeStatus("connecting", "Realtime listeners connected. Waiting for the first live snapshot.");
 }
@@ -264,26 +247,10 @@ function subscribeUsers() {
       query(collection(db, "users"), orderBy("createdAt", "desc"), limit(200)),
       (snapshot) => {
         state.users = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-        renderMembershipUsers();
+        renderUsers();
         renderMetrics();
         renderSummary();
-        noteRealtimeEvent("Membership users refreshed.");
-      },
-      onSnapshotError,
-    ),
-  );
-}
-
-function subscribeCoupons() {
-  state.unsubscribers.push(
-    onSnapshot(
-      query(collection(db, "coupon_codes"), orderBy("updated_at", "desc"), limit(200)),
-      (snapshot) => {
-        state.coupons = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
-        renderCoupons();
-        renderMetrics();
-        renderSummary();
-        noteRealtimeEvent("Coupon inventory refreshed.");
+        noteRealtimeEvent("User records refreshed.");
       },
       onSnapshotError,
     ),
@@ -373,8 +340,7 @@ function render() {
   elements.sessionMode.textContent = buildRealtimeSessionLabel();
   renderConfigSection("app_config");
   renderAdmins();
-  renderMembershipUsers();
-  renderCoupons();
+  renderUsers();
   renderBroadcasts();
   renderMetrics();
   renderList(
@@ -402,9 +368,9 @@ function renderSummary() {
   const cards = [
     { label: "Session", value: state.authorized ? "Live" : "Signed out", meta: "Realtime admin connection" },
     { label: "Admins", value: String(state.admins.length), meta: "Whitelisted operators" },
-    { label: "Users", value: String(derivedMetrics.membership_users_visible ?? 0), meta: "Visible membership records" },
-    { label: "Coupons", value: String(derivedMetrics.active_coupons_visible ?? 0), meta: "Active coupon codes" },
+    { label: "Users", value: String(derivedMetrics.visible_users ?? 0), meta: "Visible user records" },
     { label: "Maintenance", value: state.docs.app_config?.maintenance_mode ? "On" : "Off", meta: "App availability flag" },
+    { label: "Crashes", value: String(derivedMetrics.visible_crash_reports ?? 0), meta: "Visible crash reports" },
     { label: "Sync Failures", value: String(derivedMetrics.sync_failures_visible ?? 0), meta: "Visible telemetry failures" },
   ];
 
@@ -485,11 +451,11 @@ function renderAdmins() {
           .join("");
 }
 
-function renderMembershipUsers() {
+function renderUsers() {
   const items = getVisibleUsers();
-  elements.membershipUsersTable.innerHTML =
+  elements.usersTable.innerHTML =
     items.length === 0
-      ? `<tr><td colspan="5"><div class="empty-state">No users match the current filters.</div></td></tr>`
+      ? `<tr><td colspan="4"><div class="empty-state">No users match the current search.</div></td></tr>`
       : items
           .map((item) => {
             const identity = item.username
@@ -498,44 +464,9 @@ function renderMembershipUsers() {
             return `
               <tr>
                 <td>${identity}</td>
-                <td><span class="status-chip ${membershipPlanTone(item)}">${escapeHtml(membershipPlanLabel(item))}</span></td>
+                <td>${escapeHtml(item.email || "None")}</td>
                 <td>${escapeHtml(formatTimestamp(item.createdAt) || "Unknown")}</td>
-                <td>${escapeHtml(formatTimestamp(item.proAccessExpiresAt) || "None")}</td>
-                <td>${escapeHtml(membershipSourceLabel(item))}</td>
-              </tr>
-            `;
-          })
-          .join("");
-
-  updateUserFilterButtons();
-}
-
-function renderCoupons() {
-  elements.couponTable.innerHTML =
-    state.coupons.length === 0
-      ? `<tr><td colspan="6"><div class="empty-state">No coupon codes found yet.</div></td></tr>`
-      : state.coupons
-          .map((item) => {
-            const status = couponStatus(item);
-            return `
-              <tr>
-                <td>
-                  <strong>${escapeHtml(item.id)}</strong>
-                  ${item.notes ? `<div class="meta">${escapeHtml(item.notes)}</div>` : ""}
-                </td>
-                <td><span class="status-chip ${escapeHtml(status.tone)}">${escapeHtml(status.label)}</span></td>
-                <td>${escapeHtml(String(item.duration_days ?? 180))} days</td>
-                <td>${escapeHtml(item.usedByEmail || "Unused")}</td>
-                <td>${escapeHtml(formatTimestamp(item.updated_at) || "Never")}</td>
-                <td>
-                  <div class="stack-inline">
-                    <button class="secondary-button" data-edit-coupon="${escapeHtml(item.id)}" type="button">Edit</button>
-                    <button class="secondary-button" data-toggle-coupon="${escapeHtml(item.id)}" type="button">
-                      ${status.actionLabel}
-                    </button>
-                    <button class="ghost-button" data-delete-coupon="${escapeHtml(item.id)}" type="button">Delete</button>
-                  </div>
-                </td>
+                <td>${escapeHtml(formatTimestamp(item.updatedAt) || "Unknown")}</td>
               </tr>
             `;
           })
@@ -638,11 +569,7 @@ function getDerivedMetrics() {
 
   return {
     whitelisted_admins: state.admins.length,
-    membership_users_visible: state.users.length,
-    coupon_users_visible: state.users.filter((item) => item.plan === "coupon_pro").length,
-    expiring_coupon_users_visible: state.users.filter((item) => isUserExpiringThisMonth(item)).length,
-    legacy_pro_records_visible: state.users.filter((item) => item.plan === "pro").length,
-    active_coupons_visible: state.coupons.filter((item) => couponStatus(item).label === "Active").length,
+    visible_users: state.users.length,
     visible_log_events: state.logs.length,
     visible_crash_reports: state.crashReports.length,
     latest_log_at: formatTimestamp(state.logs[0]?.timestamp) || "None",
@@ -695,31 +622,6 @@ async function handleGlobalClick(event) {
   const deleteAdminId = event.target.dataset.deleteAdmin;
   if (deleteAdminId) {
     await deleteAdmin(deleteAdminId);
-    return;
-  }
-
-  const userFilter = event.target.dataset.userFilter;
-  if (userFilter) {
-    state.userFilter = userFilter;
-    renderMembershipUsers();
-    return;
-  }
-
-  const editCouponId = event.target.dataset.editCoupon;
-  if (editCouponId) {
-    populateCouponForm(editCouponId);
-    return;
-  }
-
-  const toggleCouponId = event.target.dataset.toggleCoupon;
-  if (toggleCouponId) {
-    await toggleCouponState(toggleCouponId);
-    return;
-  }
-
-  const deleteCouponId = event.target.dataset.deleteCoupon;
-  if (deleteCouponId) {
-    await deleteCoupon(deleteCouponId);
   }
 }
 
@@ -783,103 +685,9 @@ function resetAdminForm() {
   elements.adminEnabled.checked = true;
 }
 
-function handleMembershipSearch(event) {
+function handleUserSearch(event) {
   state.userSearch = event.target.value.trim().toLowerCase();
-  renderMembershipUsers();
-}
-
-function populateCouponForm(code) {
-  const item = state.coupons.find((entry) => entry.id === code);
-  if (!item) {
-    return;
-  }
-
-  elements.couponCode.value = item.id;
-  elements.couponDurationDays.value = item.duration_days ?? 180;
-  elements.couponUsernameHint.value = item.username_hint ?? "";
-  elements.couponEnabled.checked = item.enabled !== false;
-  elements.couponInvalidated.checked = item.invalidated === true;
-  elements.couponNotes.value = item.notes ?? "";
-}
-
-function resetCouponForm() {
-  elements.couponForm.reset();
-  elements.couponDurationDays.value = "180";
-  elements.couponEnabled.checked = true;
-  elements.couponInvalidated.checked = false;
-}
-
-async function handleCouponSubmit(event) {
-  event.preventDefault();
-
-  const code = normalizeCouponCode(elements.couponCode.value);
-  if (!code) {
-    showBanner("Coupon code is required.", "danger");
-    return;
-  }
-
-  try {
-    const existing = state.coupons.find((entry) => entry.id === code);
-    await setDoc(
-      doc(db, "coupon_codes", code),
-      {
-        code,
-        duration_days: Number(elements.couponDurationDays.value || 180),
-        username_hint: elements.couponUsernameHint.value.trim(),
-        enabled: elements.couponEnabled.checked,
-        invalidated: elements.couponInvalidated.checked,
-        notes: elements.couponNotes.value.trim(),
-        updated_at: serverTimestamp(),
-        updated_by: state.currentAdminId,
-        created_at: existing?.created_at ?? serverTimestamp(),
-      },
-      { merge: true },
-    );
-    resetCouponForm();
-    showBanner(`Coupon ${code} saved.`, "success");
-  } catch (error) {
-    showBanner(extractErrorMessage(error), "danger");
-  }
-}
-
-async function toggleCouponState(code) {
-  const item = state.coupons.find((entry) => entry.id === code);
-  if (!item) {
-    return;
-  }
-
-  const nextInvalidated = !(item.invalidated === true);
-  try {
-    await setDoc(
-      doc(db, "coupon_codes", code),
-      {
-        invalidated: nextInvalidated,
-        enabled: nextInvalidated ? false : item.enabled !== false,
-        updated_at: serverTimestamp(),
-        updated_by: state.currentAdminId,
-      },
-      { merge: true },
-    );
-    showBanner(
-      `${code} ${nextInvalidated ? "invalidated" : "re-enabled"}.`,
-      "success",
-    );
-  } catch (error) {
-    showBanner(extractErrorMessage(error), "danger");
-  }
-}
-
-async function deleteCoupon(code) {
-  if (!window.confirm(`Delete coupon ${code}?`)) {
-    return;
-  }
-
-  try {
-    await deleteDoc(doc(db, "coupon_codes", code));
-    showBanner(`Deleted ${code}.`, "success");
-  } catch (error) {
-    showBanner(extractErrorMessage(error), "danger");
-  }
+  renderUsers();
 }
 
 async function handleAdminSubmit(event) {
@@ -1203,97 +1011,13 @@ function handleConnectivityChange() {
 
 function getVisibleUsers() {
   return state.users.filter((item) => {
-    const matchesFilter =
-      state.userFilter === "all" ||
-      (state.userFilter === "expiring" && isUserExpiringThisMonth(item)) ||
-      (state.userFilter === "expired" && isUserExpired(item)) ||
-      (state.userFilter === "coupon" && item.plan === "coupon_pro");
-
-    if (!matchesFilter) {
-      return false;
-    }
-
     if (!state.userSearch) {
       return true;
     }
 
-    const haystack = `${item.id} ${item.username ?? ""}`.toLowerCase();
+    const haystack = `${item.id} ${item.username ?? ""} ${item.email ?? ""}`.toLowerCase();
     return haystack.includes(state.userSearch);
   });
-}
-
-function updateUserFilterButtons() {
-  for (const button of elements.membershipFilters.querySelectorAll("[data-user-filter]")) {
-    button.classList.toggle("is-active", button.dataset.userFilter === state.userFilter);
-  }
-}
-
-function membershipPlanTone(item) {
-  if (item.plan === "coupon_pro") {
-    return isUserExpired(item) ? "pending" : "enabled";
-  }
-  if (item.plan === "pro") {
-    return "pending";
-  }
-  return "disabled";
-}
-
-function membershipPlanLabel(item) {
-  if (item.plan === "coupon_pro") {
-    return isUserExpired(item) ? "coupon_expired" : "coupon_pro";
-  }
-  if (item.plan === "pro") {
-    return "legacy_pro";
-  }
-  return "free";
-}
-
-function membershipSourceLabel(item) {
-  if (item.plan === "coupon_pro") {
-    const baseLabel = item.couponCode
-      ? `Coupon ${item.couponCode}`
-      : "Coupon unlock";
-    return isUserExpired(item)
-      ? `${baseLabel} expired`
-      : baseLabel;
-  }
-
-  if (item.plan === "pro") {
-    const parts = ["Legacy Firestore Pro record"];
-    if (item.paidAmount) {
-      parts.push(`Rs ${Number(item.paidAmount)}`);
-    } else if (item.paidAt) {
-      parts.push("Legacy payment metadata");
-    }
-    return parts.join(" · ");
-  }
-
-  return "Free user";
-}
-
-function couponStatus(item) {
-  if (item.used_at || item.usedByEmail) {
-    return { label: "Used", tone: "received", actionLabel: "Invalidate" };
-  }
-  if (item.invalidated === true || item.enabled === false) {
-    return { label: "Inactive", tone: "disabled", actionLabel: "Re-enable" };
-  }
-  return { label: "Active", tone: "enabled", actionLabel: "Invalidate" };
-}
-
-function isUserExpired(item) {
-  const expiry = getDateValue(item.proAccessExpiresAt);
-  return item.plan === "coupon_pro" && expiry && expiry < new Date();
-}
-
-function isUserExpiringThisMonth(item) {
-  const expiry = getDateValue(item.proAccessExpiresAt);
-  if (!expiry || item.plan !== "coupon_pro") {
-    return false;
-  }
-
-  const now = new Date();
-  return expiry.getFullYear() === now.getFullYear() && expiry.getMonth() === now.getMonth();
 }
 
 function getDateValue(value) {
@@ -1308,10 +1032,6 @@ function getDateValue(value) {
   }
   const parsed = new Date(value);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-function normalizeCouponCode(value) {
-  return `${value ?? ""}`.trim().toUpperCase();
 }
 
 function formatTimestamp(value) {

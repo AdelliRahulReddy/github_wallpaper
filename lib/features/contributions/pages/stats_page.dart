@@ -1,15 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_paywall_page.dart';
-import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
 import 'package:github_wallpaper/features/contributions/widgets/stats_sections.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
 import 'package:github_wallpaper/core/ui/app_components.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
 class StatsPage extends StatefulWidget {
   final CachedContributionData? data;
@@ -33,7 +28,6 @@ class _StatsPageState extends State<StatsPage> {
   int? _selectedYear;
 
   Future<void> _pickYear(List<int> years, int activeYear) async {
-    if (!_hasProAccess(context)) return;
     final scheme = Theme.of(context).colorScheme;
     final picked = await showModalBottomSheet<int>(
       context: context,
@@ -76,26 +70,6 @@ class _StatsPageState extends State<StatsPage> {
 }
 
 extension _StatsPageStateView on _StatsPageState {
-  bool _hasProAccess(BuildContext context) {
-    return context.read<MembershipController?>()?.hasProAccess ??
-        StorageService.getCachedMembershipInfo()?.hasProAccess ??
-        MembershipEntitlements.hasProAccess;
-  }
-
-  Future<void> _openStatsPaywall({
-    required String featureName,
-    required String featureDescription,
-  }) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => MembershipPaywallPage(
-          featureName: featureName,
-          featureDescription: featureDescription,
-        ),
-      ),
-    );
-  }
-
   List<int> _availableYears(CachedContributionData data) {
     final years = <int>{};
     for (final day in data.days) {
@@ -141,26 +115,6 @@ extension _StatsPageStateView on _StatsPageState {
     return ContributionStats.fromDays(
       yearDays,
       nowUtc: cutoff.toUtc(),
-    );
-  }
-
-  Widget _lockableStatsSection({
-    required bool locked,
-    required Widget child,
-    required String featureName,
-    required String featureDescription,
-  }) {
-    if (!locked) {
-      return child;
-    }
-    return StatsLockedPreview(
-      title: '$featureName is Pro',
-      body: featureDescription,
-      onTap: () => _openStatsPaywall(
-        featureName: featureName,
-        featureDescription: featureDescription,
-      ),
-      child: child,
     );
   }
 
@@ -211,11 +165,6 @@ extension _StatsPageStateView on _StatsPageState {
   Widget _buildStatsPage(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-    final hasProAccess = context.watch<MembershipController?>()?.hasProAccess ??
-        StorageService.getCachedMembershipInfo()?.hasProAccess ??
-        MembershipEntitlements.hasProAccess;
-    final canUseAdvancedStats = hasProAccess;
-    final canViewWrapped = hasProAccess;
 
     if (widget.isLoading && widget.data == null) {
       return const Center(child: CircularProgressIndicator());
@@ -298,10 +247,8 @@ extension _StatsPageStateView on _StatsPageState {
       );
     }
     final nowYear = DateTime.now().toLocal().year;
-    final selectedYear = canUseAdvancedStats
-        ? (years.contains(_selectedYear)
-            ? _selectedYear!
-            : (years.contains(nowYear) ? nowYear : years.first))
+    final selectedYear = years.contains(_selectedYear)
+        ? _selectedYear!
         : (years.contains(nowYear) ? nowYear : years.first);
     final yearTotal = _yearTotal(data, selectedYear);
     final yearDays = _daysForYear(data, selectedYear);
@@ -330,70 +277,27 @@ extension _StatsPageStateView on _StatsPageState {
         yearStats: yearStats,
         overallStats: data.stats,
         isCurrentYear: isCurrentYear,
-        canUseAdvancedStats: canUseAdvancedStats,
-        onUnlockPro: () => _openStatsPaywall(
-          featureName: 'Advanced Stats',
-          featureDescription:
-              'Best-day insights, averages, and the deeper stats tiles are part of Pro.',
-        ),
       ),
-      _lockableStatsSection(
-        locked: !canUseAdvancedStats,
-        featureName: 'Weekly Breakdown',
-        featureDescription: 'Weekly contribution breakdowns are part of Pro.',
-        child: StatsWeeklyBreakdownCard(data: data, year: selectedYear),
+      StatsWeeklyBreakdownCard(data: data, year: selectedYear),
+      StatsMonthlyTrendCard(
+        year: selectedYear,
+        thisYear: thisYearMonthly,
+        lastYear: lastYearMonthly,
       ),
-      _lockableStatsSection(
-        locked: !canUseAdvancedStats,
-        featureName: 'Monthly Trend',
-        featureDescription:
-            'Monthly comparisons and trend analysis are part of Pro.',
-        child: StatsMonthlyTrendCard(
-          year: selectedYear,
-          thisYear: thisYearMonthly,
-          lastYear: lastYearMonthly,
-        ),
+      StatsStreakHistoryCard(
+        year: selectedYear,
+        allDays: data.days,
+        yearDays: yearDays,
+        yearStats: yearStats,
+        overallStats: data.stats,
+        isCurrentYear: isCurrentYear,
       ),
-      _lockableStatsSection(
-        locked: !canUseAdvancedStats,
-        featureName: 'Streak History',
-        featureDescription:
-            'Historical streak analysis and milestone breakdowns are part of Pro.',
-        child: StatsStreakHistoryCard(
-          year: selectedYear,
-          allDays: data.days,
-          yearDays: yearDays,
-          yearStats: yearStats,
-          overallStats: data.stats,
-          isCurrentYear: isCurrentYear,
-        ),
-      ),
-      _lockableStatsSection(
-        locked: !canUseAdvancedStats,
-        featureName: 'Most Active Days',
-        featureDescription: 'Weekday performance patterns are part of Pro.',
-        child: StatsMostActiveDaysCard(yearDays: yearDays, year: selectedYear),
-      ),
+      StatsMostActiveDaysCard(yearDays: yearDays, year: selectedYear),
       if (isCurrentYear) ...[
-        _lockableStatsSection(
-          locked: !canUseAdvancedStats,
-          featureName: 'Top Languages',
-          featureDescription:
-              'Language rankings and code mix insights are part of Pro.',
-          child: StatsTopLanguagesCard(langs: data.topLanguages),
-        ),
-        _lockableStatsSection(
-          locked: !canUseAdvancedStats,
-          featureName: 'Top Repositories',
-          featureDescription:
-              'Repository rankings and contribution leaders are part of Pro.',
-          child: StatsTopReposCard(repos: data.repositories),
-        ),
-        StatsYearWrappedCtaCard(
-          data: data,
-          locked: !canViewWrapped,
-        ),
-      ] else if (canUseAdvancedStats) ...[
+        StatsTopLanguagesCard(langs: data.topLanguages),
+        StatsTopReposCard(repos: data.repositories),
+        StatsYearWrappedCtaCard(data: data),
+      ] else ...[
         const _StatsCurrentYearOnlyNoticeCard(),
       ],
       AppTheme.h32,
@@ -426,40 +330,39 @@ extension _StatsPageStateView on _StatsPageState {
                       ),
                     ),
                   ),
-                  if (canUseAdvancedStats)
-                    InkWell(
-                      borderRadius: BorderRadius.circular(999),
-                      onTap: () => _pickYear(years, selectedYear),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: AppTheme.spacing12,
-                          vertical: AppTheme.spacing8,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: scheme.outlineVariant),
-                          color: scheme.surfaceContainerHighest,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$selectedYear',
-                              style: TextStyle(
-                                color: scheme.onSurface,
-                                fontWeight: FontWeight.w700,
-                              ),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(999),
+                    onTap: () => _pickYear(years, selectedYear),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppTheme.spacing12,
+                        vertical: AppTheme.spacing8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: scheme.outlineVariant),
+                        color: scheme.surfaceContainerHighest,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            '$selectedYear',
+                            style: TextStyle(
+                              color: scheme.onSurface,
+                              fontWeight: FontWeight.w700,
                             ),
-                            const SizedBox(width: 6),
-                            Icon(
-                              Icons.expand_more_rounded,
-                              size: AppTheme.iconSM,
-                              color: scheme.onSurfaceVariant,
-                            ),
-                          ],
-                        ),
+                          ),
+                          const SizedBox(width: 6),
+                          Icon(
+                            Icons.expand_more_rounded,
+                            size: AppTheme.iconSM,
+                            color: scheme.onSurfaceVariant,
+                          ),
+                        ],
                       ),
                     ),
+                  ),
                 ],
               ),
             ),

@@ -1,4 +1,4 @@
-﻿// ══════════════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════════════
 // 🔔 BACKGROUND UPDATE SCHEDULER
 // ══════════════════════════════════════════════════════════════════════════
 //
@@ -19,7 +19,6 @@ import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/features/contributions/repositories/contribution_repository.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
 
 /// Unique task identifier for WorkManager
 const String _taskName = "wallpaper-auto-update";
@@ -192,7 +191,8 @@ Future<RefreshResult> _runBackgroundWallpaperUpdate() async {
     return result;
   }
 
-  final result = await ContributionRepository.syncGitHubData(isBackground: true);
+  final result =
+      await ContributionRepository.syncGitHubData(isBackground: true);
   if (scheduleMode == UpdateScheduleMode.autoDaily &&
       _shouldPersistDailyKey(result)) {
     await StorageService.setUpdateScheduleLastDailyKey(
@@ -368,9 +368,7 @@ class BackgroundScheduler {
   }
 
   static bool shouldScheduleReminderChecks() {
-    return MembershipEntitlements.canUseReminders &&
-        (StorageService.getStreakReminderEnabled() ||
-            StorageService.getWeeklyDigestEnabled());
+    return StorageService.getStreakReminderEnabled() ||
+        StorageService.getWeeklyDigestEnabled();
   }
 }
-

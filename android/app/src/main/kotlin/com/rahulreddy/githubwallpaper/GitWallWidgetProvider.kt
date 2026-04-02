@@ -17,15 +17,17 @@ class GitWallWidgetProvider : HomeWidgetProvider() {
     val username = widgetData.getString("gitwall_username", "GitWall") ?: "GitWall"
     val streak = widgetData.getInt("gitwall_current_streak", 0)
     val today = widgetData.getInt("gitwall_today_commits", 0)
-    val badge = widgetData.getString("gitwall_widget_badge", "OPEN") ?: "OPEN"
+    val badge = widgetData.getString("gitwall_widget_badge", "SYNC") ?: "SYNC"
     val status =
       widgetData.getString(
         "gitwall_widget_status",
-        "Connect GitHub to start syncing your contribution widget.",
-      ) ?: "Connect GitHub to start syncing your contribution widget."
+        "Connect GitHub and sync once to turn the widget into a live contribution surface.",
+      ) ?: "Connect GitHub and sync once to turn the widget into a live contribution surface."
     val route =
-      widgetData.getString("gitwall_widget_route", "gitwall://widget/setup")
-        ?: "gitwall://widget/setup"
+      widgetData.getString(
+        "gitwall_widget_route",
+        "gitwall://widget/home?source=home_widget&state=connect",
+      ) ?: "gitwall://widget/home?source=home_widget&state=connect"
 
     for (widgetId in appWidgetIds) {
       val views = RemoteViews(context.packageName, R.layout.gitwall_widget)

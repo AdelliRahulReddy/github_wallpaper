@@ -1,4 +1,4 @@
-﻿import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -8,6 +8,7 @@ import 'package:flutter/foundation.dart';
 import 'package:github_wallpaper/core/constants/firebase_options.dart';
 import 'package:github_wallpaper/core/errors/app_exceptions.dart';
 import 'package:github_wallpaper/features/wallpaper/services/device_config_service.dart';
+import 'package:github_wallpaper/features/auth/services/identity_service.dart';
 import 'package:github_wallpaper/features/auth/services/oauth_service.dart';
 import 'package:github_wallpaper/app/services/remote_config_service.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
@@ -71,8 +72,13 @@ class BootstrapService {
     final auth = FirebaseAuth.instance;
     final currentUser = auth.currentUser;
     if (currentUser != null && !currentUser.isAnonymous) {
-      await StorageService.syncAuthenticatedAppUserId(user: currentUser);
-      return;
+      final resolvedInternalUserId = await IdentityService.ensureInternalUserId(
+        user: currentUser,
+      );
+      if (resolvedInternalUserId != null &&
+          !IdentityService.shouldRefreshLegacyFirebaseSession(currentUser)) {
+        return;
+      }
     }
 
     final hasStoredSession = await StorageService.hasAuthenticatedSession();
@@ -82,10 +88,13 @@ class BootstrapService {
         try {
           final session =
               await OAuthService.restoreFirebaseSessionFromStoredToken(token);
-          await StorageService.syncAuthenticatedAppUserId();
-          await StorageService.setUsername(session.username);
-          await StorageService.setUserEmail(session.email);
-          await StorageService.setHasAuthError(false);
+          await Future.wait([
+            StorageService.setUsername(session.username),
+            StorageService.setUserEmail(session.email),
+            StorageService.setGitHubProviderId(session.githubProviderId),
+            StorageService.setHasAuthError(false),
+          ]);
+          await IdentityService.applyAuthenticatedSession(session);
           return;
         } catch (e, s) {
           AppLog.error('Firebase session restore failed: $e', s);
@@ -94,6 +103,23 @@ class BootstrapService {
           }
         }
       }
+    }
+
+    final refreshedUser = auth.currentUser;
+    if (refreshedUser != null && !refreshedUser.isAnonymous) {
+      final resolvedInternalUserId = await IdentityService.ensureInternalUserId(
+        user: refreshedUser,
+      );
+      if (resolvedInternalUserId != null &&
+          await IdentityService.canUseAuthenticatedAppSession(
+            user: refreshedUser,
+          )) {
+        return;
+      }
+
+      try {
+        await auth.signOut();
+      } catch (_) {}
     }
 
     if (auth.currentUser == null) {
@@ -124,4 +150,3 @@ class BootstrapService {
     return false;
   }
 }
-

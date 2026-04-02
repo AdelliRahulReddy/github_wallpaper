@@ -1,6 +1,139 @@
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 
+class AppPageContent extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+  final double? maxWidth;
+
+  const AppPageContent({
+    super.key,
+    required this.child,
+    this.padding,
+    this.maxWidth,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final tokens = context.surfaceTokens;
+    return Padding(
+      padding: padding ?? tokens.pagePaddingFor(width),
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: maxWidth ?? tokens.contentMaxWidth,
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+class AppSurface extends StatelessWidget {
+  final Widget child;
+  final EdgeInsets? padding;
+  final VoidCallback? onTap;
+  final AppSurfaceTone tone;
+  final Color? accent;
+  final Clip clipBehavior;
+
+  const AppSurface({
+    super.key,
+    required this.child,
+    this.padding,
+    this.onTap,
+    this.tone = AppSurfaceTone.standard,
+    this.accent,
+    this.clipBehavior = Clip.none,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final content = Padding(
+      padding: padding ?? context.surfaceTokens.panelPadding,
+      child: child,
+    );
+
+    return DecoratedBox(
+      decoration: AppTheme.surfaceDecoration(
+        context,
+        tone: tone,
+        accent: accent,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        clipBehavior: clipBehavior,
+        child: onTap == null
+            ? content
+            : InkWell(
+                onTap: onTap,
+                borderRadius: BorderRadius.circular(
+                  tone == AppSurfaceTone.poster
+                      ? context.surfaceTokens.posterRadius
+                      : context.surfaceTokens.panelRadius,
+                ),
+                child: content,
+              ),
+      ),
+    );
+  }
+}
+
+class AppPill extends StatelessWidget {
+  final String label;
+  final IconData? icon;
+  final Color? color;
+  final bool emphasize;
+
+  const AppPill({
+    super.key,
+    required this.label,
+    this.icon,
+    this.color,
+    this.emphasize = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final resolvedColor = color ?? scheme.primary;
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing10,
+        vertical: AppTheme.spacing6,
+      ),
+      decoration: AppTheme.surfaceDecoration(
+        context,
+        tone: emphasize ? AppSurfaceTone.emphasized : AppSurfaceTone.muted,
+        accent: resolvedColor,
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: 14, color: resolvedColor),
+            AppTheme.w6,
+          ],
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: emphasize ? scheme.onSurface : resolvedColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class AppCard extends StatelessWidget {
   final Widget child;
   final EdgeInsets? padding;
@@ -10,26 +143,10 @@ class AppCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext c) {
-    final theme = Theme.of(c);
-    final shape = theme.cardTheme.shape;
-    final BorderRadius borderRadius = shape is RoundedRectangleBorder
-        ? shape.borderRadius.resolve(Directionality.of(c))
-        : BorderRadius.circular(AppTheme.radiusMedium);
-
-    final content = Padding(
-      padding: padding ?? AppTheme.pAll20,
+    return AppSurface(
+      padding: padding,
+      onTap: onTap,
       child: child,
-    );
-
-    return Card(
-      margin: EdgeInsets.zero,
-      child: onTap == null
-          ? content
-          : InkWell(
-              borderRadius: borderRadius,
-              onTap: onTap,
-              child: content,
-            ),
     );
   }
 }
@@ -53,8 +170,7 @@ class AppSectionHeader extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title,
-                  style: tt.titleMedium?.copyWith(color: s.onSurface)),
+              Text(title, style: tt.titleMedium?.copyWith(color: s.onSurface)),
               if (subtitle != null) ...[
                 AppTheme.h8,
                 Text(subtitle!,
@@ -146,7 +262,8 @@ class HeroMetricCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: tt.labelSmall?.copyWith(color: s.onSurfaceVariant)),
+                Text(title,
+                    style: tt.labelSmall?.copyWith(color: s.onSurfaceVariant)),
                 AppTheme.h6,
                 Text(value, style: tt.titleLarge),
                 if (subtitle != null) ...[
@@ -162,4 +279,3 @@ class HeroMetricCard extends StatelessWidget {
     );
   }
 }
-

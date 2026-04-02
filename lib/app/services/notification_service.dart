@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -16,6 +16,7 @@ import 'package:github_wallpaper/core/constants/environment_config.dart';
 import 'package:github_wallpaper/core/constants/firebase_options.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/auth/services/identity_service.dart';
 
 const String adminBroadcastTopic = 'all_users_broadcast';
 const AndroidNotificationChannel _adminBroadcastChannel =
@@ -217,7 +218,12 @@ class NotificationService {
     try {
       final user = FirebaseAuth.instance.currentUser;
       final permissionStatus = await getNotificationAuthorizationStatus();
+      final hasValidAppSession =
+          await IdentityService.canUseAuthenticatedAppSession(
+        user: user,
+      );
       final canSubscribe = user != null &&
+          hasValidAppSession &&
           !user.isAnonymous &&
           StorageService.getAdminBroadcastNotificationsEnabled() &&
           isAuthorizationAllowed(permissionStatus);
@@ -498,9 +504,10 @@ class NotificationService {
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      if (user == null ||
+          !await IdentityService.canUseAuthenticatedAppSession(user: user)) {
         AppLog.info(
-            'Skipping admin broadcast ack for $broadcastId because no Firebase user exists yet.');
+            'Skipping admin broadcast ack for $broadcastId because no valid GitWall app session exists yet.');
         return;
       }
 
@@ -536,4 +543,3 @@ class NotificationService {
     }
   }
 }
-

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:github_wallpaper/core/ui/app_components.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 
 class SettingsSection extends StatelessWidget {
@@ -58,14 +59,11 @@ class SettingsCard extends StatelessWidget {
       builtChildren.add(const SizedBox(height: 4));
     }
 
-    return Card(
-      margin: EdgeInsets.zero,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: builtChildren,
-        ),
+    return AppSurface(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: builtChildren,
       ),
     );
   }
@@ -83,15 +81,9 @@ class StatusChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final tokens = context.settingsTokens;
-    return Chip(
-      side: BorderSide.none,
-      backgroundColor: color.withValues(alpha: tokens.chipBackgroundOpacity),
-      label: Text(
-        label,
-        style: theme.textTheme.bodySmall?.copyWith(color: color),
-      ),
+    return AppPill(
+      label: label,
+      color: color,
     );
   }
 }

@@ -1,15 +1,14 @@
-﻿import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_paywall_page.dart';
+import 'package:github_wallpaper/core/ui/app_components.dart';
 import 'package:github_wallpaper/features/settings/controllers/settings_controller.dart';
 import 'package:github_wallpaper/features/settings/widgets/settings_widgets.dart';
 import 'package:github_wallpaper/app/services/background_scheduler.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
 import 'package:github_wallpaper/app/services/notification_service.dart';
 
 class NotificationsPage extends StatefulWidget {
@@ -127,6 +126,23 @@ class _NotificationsPageState extends State<NotificationsPage> {
     await NotificationService.openSystemNotificationSettings();
   }
 
+  Future<void> _applyProtectStreakPreset(SettingsController prefs) async {
+    prefs.setStreakRemindersEnabled(true);
+    prefs.setDailySyncAlertEnabled(true);
+    await _refreshPermissionStatus();
+  }
+
+  Future<void> _applyImportantAlertsPreset(SettingsController prefs) async {
+    prefs.setStreakRemindersEnabled(false);
+    prefs.setWeeklyDigestEnabled(false);
+    prefs.setStreakSavedEnabled(false);
+    prefs.setCelebrationsEnabled(false);
+    prefs.setDailySyncAlertEnabled(true);
+    prefs.setAdminBroadcastNotificationsEnabled(true);
+    prefs.setSyncSuccessNotificationsEnabled(false);
+    await _refreshPermissionStatus();
+  }
+
   String _permissionLabel() {
     return switch (_permissionStatus) {
       AuthorizationStatus.authorized => 'Allowed',
@@ -146,9 +162,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final tokens = context.settingsTokens;
     final prefs = context.watch<SettingsController>();
-    final canUseReminders = MembershipEntitlements.canUseReminders;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -160,75 +174,81 @@ class _NotificationsPageState extends State<NotificationsPage> {
         title: const Text('Notifications'),
       ),
       body: SingleChildScrollView(
-        padding: tokens.screenPadding,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SettingsCard(
-              children: [
-                SettingsTile(
-                  icon: Icons.notifications_active_outlined,
-                  title: 'System notification access',
-                  subtitle:
-                      NotificationService.isAuthorizationAllowed(_permissionStatus)
-                          ? 'Notifications can appear on this device.'
-                          : 'Notifications are blocked or not granted yet.',
-                  trailing: StatusChip(
-                    label: _permissionLabel(),
-                    color: _permissionColor(scheme),
-                  ),
-                  onTap: _refreshPermissionStatus,
-                ),
-                if (!NotificationService.isAuthorizationAllowed(
-                  _permissionStatus,
-                ))
+        child: AppPageContent(
+          padding: context.surfaceTokens.pagePaddingFor(
+            MediaQuery.sizeOf(context).width,
+          ),
+          maxWidth: 920,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              SettingsCard(
+                children: [
                   SettingsTile(
-                    icon: Icons.settings_outlined,
-                    title: 'Enable in system settings',
+                    icon: Icons.notifications_active_outlined,
+                    title: 'System notification access',
+                    subtitle: NotificationService.isAuthorizationAllowed(
+                            _permissionStatus)
+                        ? 'Notifications can appear on this device.'
+                        : 'Notifications are blocked or not granted yet.',
+                    trailing: StatusChip(
+                      label: _permissionLabel(),
+                      color: _permissionColor(scheme),
+                    ),
+                    onTap: _refreshPermissionStatus,
+                  ),
+                  if (!NotificationService.isAuthorizationAllowed(
+                    _permissionStatus,
+                  ))
+                    SettingsTile(
+                      icon: Icons.settings_outlined,
+                      title: 'Enable in system settings',
+                      subtitle:
+                          'Open the device settings page for GitWall notifications.',
+                      onTap: _openSystemSettings,
+                    ),
+                  if (_permissionStatus == AuthorizationStatus.notDetermined)
+                    SettingsTile(
+                      icon: Icons.add_alert_outlined,
+                      title: 'Request notification permission',
+                      onTap: _requestPermissionAgain,
+                    ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SettingsCard(
+                children: [
+                  SettingsTile(
+                    icon: Icons.shield_outlined,
+                    title: 'Protect my streak',
                     subtitle:
-                        'Open the device settings page for GitWall notifications.',
-                    onTap: _openSystemSettings,
-                  ),
-                if (_permissionStatus == AuthorizationStatus.notDetermined)
-                  SettingsTile(
-                    icon: Icons.add_alert_outlined,
-                    title: 'Request notification permission',
-                    onTap: _requestPermissionAgain,
-                  ),
-                if (!canUseReminders)
-                  SettingsTile(
-                    icon: Icons.workspace_premium_outlined,
-                    title: 'Pro reminders',
-                    subtitle:
-                        'Streak reminders, milestone celebrations, and weekly digest are available on Pro plans only.',
+                        'Turns on the free daily reminder and keeps sync issue alerts enabled.',
                     trailing: const StatusChip(
-                      label: 'Locked',
-                      color: AppTheme.warningOrange,
+                      label: 'Preset',
+                      color: AppTheme.successGreen,
                     ),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MembershipPaywallPage(
-                          featureName: 'Pro reminders',
-                          featureDescription:
-                              'Reminder controls, weekly digest, and celebration notifications are part of Pro.',
-                        ),
-                      ),
-                    ),
+                    onTap: () => _applyProtectStreakPreset(prefs),
                   ),
-                if (canUseReminders) ...[
+                  SettingsTile(
+                    icon: Icons.notifications_paused_outlined,
+                    title: 'Only important alerts',
+                    subtitle:
+                        'Keeps reconnect and admin alerts, while muting extras.',
+                    trailing: const StatusChip(
+                      label: 'Preset',
+                      color: AppTheme.accentViolet,
+                    ),
+                    onTap: () => _applyImportantAlertsPreset(prefs),
+                  ),
                   SettingsTile(
                     icon: Icons.notifications_outlined,
                     title: AppStrings.streakReminders,
-                    subtitle: 'Prompt you before the day ends with no commits.',
-                    trailing: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Switch(
-                          value: prefs.streakRemindersEnabled,
-                          onChanged: (value) =>
-                              _toggleStreakReminders(prefs, value),
-                        ),
-                      ],
+                    subtitle:
+                        'One free daily reminder before the day ends with no commits.',
+                    trailing: Switch(
+                      value: prefs.streakRemindersEnabled,
+                      onChanged: (value) =>
+                          _toggleStreakReminders(prefs, value),
                     ),
                     onTap: null,
                   ),
@@ -236,6 +256,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     SettingsTile(
                       icon: Icons.schedule,
                       title: AppStrings.reminderTime,
+                      subtitle: 'Choose when the daily reminder should arrive.',
                       trailing: Text(
                         _streakTime.format(context),
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -244,26 +265,50 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       ),
                       onTap: _pickStreakTime,
                     ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SettingsCard(
+                children: [
                   SettingsTile(
-                    icon: Icons.done_all_outlined,
-                    title: 'Streak saved',
-                    subtitle: 'Confirm when you commit after a streak reminder.',
+                    icon: Icons.campaign_outlined,
+                    title: 'Admin announcements',
+                    subtitle:
+                        'Instant alerts sent from the GitWall admin panel.',
                     trailing: Switch(
-                      value: prefs.streakSavedEnabled,
-                      onChanged: (value) => _toggleStreakSaved(prefs, value),
+                      value: prefs.adminBroadcastNotificationsEnabled,
+                      onChanged: (value) =>
+                          _toggleAdminAnnouncements(prefs, value),
                     ),
                     onTap: null,
                   ),
                   SettingsTile(
-                    icon: Icons.auto_awesome_outlined,
-                    title: 'Milestone celebrations',
-                    subtitle: 'Celebrate streak and contribution milestones.',
+                    icon: Icons.sync_problem_outlined,
+                    title: 'Sync issues',
+                    subtitle:
+                        'Warn when background sync fails or GitHub needs reconnecting.',
                     trailing: Switch(
-                      value: prefs.celebrationsEnabled,
-                      onChanged: (value) => _toggleCelebrations(prefs, value),
+                      value: prefs.dailySyncAlertEnabled,
+                      onChanged: (value) => _toggleSyncIssues(prefs, value),
                     ),
                     onTap: null,
                   ),
+                  SettingsTile(
+                    icon: Icons.cloud_done_outlined,
+                    title: 'Sync completed',
+                    subtitle:
+                        'Optional once-a-day confirmation after a successful background refresh.',
+                    trailing: Switch(
+                      value: prefs.syncSuccessNotificationsEnabled,
+                      onChanged: (value) => _toggleSyncCompleted(prefs, value),
+                    ),
+                    onTap: null,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              SettingsCard(
+                children: [
                   SettingsTile(
                     icon: Icons.view_week_outlined,
                     title: 'Weekly digest',
@@ -286,46 +331,33 @@ class _NotificationsPageState extends State<NotificationsPage> {
                       ),
                       onTap: () => _pickWeeklyDigestTime(prefs),
                     ),
+                  SettingsTile(
+                    icon: Icons.done_all_outlined,
+                    title: 'Streak saved',
+                    subtitle:
+                        'Confirm when you commit after a streak reminder.',
+                    trailing: Switch(
+                      value: prefs.streakSavedEnabled,
+                      onChanged: (value) => _toggleStreakSaved(prefs, value),
+                    ),
+                    onTap: null,
+                  ),
+                  SettingsTile(
+                    icon: Icons.auto_awesome_outlined,
+                    title: 'Milestone celebrations',
+                    subtitle: 'Celebrate streak and contribution milestones.',
+                    trailing: Switch(
+                      value: prefs.celebrationsEnabled,
+                      onChanged: (value) => _toggleCelebrations(prefs, value),
+                    ),
+                    onTap: null,
+                  ),
                 ],
-                SettingsTile(
-                  icon: Icons.campaign_outlined,
-                  title: 'Admin announcements',
-                  subtitle: 'Instant alerts sent from the GitWall admin panel.',
-                  trailing: Switch(
-                    value: prefs.adminBroadcastNotificationsEnabled,
-                    onChanged: (value) =>
-                        _toggleAdminAnnouncements(prefs, value),
-                  ),
-                  onTap: null,
-                ),
-                SettingsTile(
-                  icon: Icons.sync_problem_outlined,
-                  title: 'Sync issues',
-                  subtitle:
-                      'Warn when background sync fails or GitHub needs reconnecting.',
-                  trailing: Switch(
-                    value: prefs.dailySyncAlertEnabled,
-                    onChanged: (value) => _toggleSyncIssues(prefs, value),
-                  ),
-                  onTap: null,
-                ),
-                SettingsTile(
-                  icon: Icons.cloud_done_outlined,
-                  title: 'Sync completed',
-                  subtitle:
-                      'Optional once-a-day confirmation after a successful background refresh.',
-                  trailing: Switch(
-                    value: prefs.syncSuccessNotificationsEnabled,
-                    onChanged: (value) => _toggleSyncCompleted(prefs, value),
-                  ),
-                  onTap: null,
-                ),
-              ],
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
-

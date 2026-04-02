@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 
 import 'package:github_wallpaper/core/state/safe_change_notifier.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
@@ -20,4 +20,3 @@ class ThemeController extends SafeChangeNotifier {
     notifySafely();
   }
 }
-

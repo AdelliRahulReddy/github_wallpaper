@@ -1,3 +1,4 @@
+const crypto = require("node:crypto");
 const logger = require("firebase-functions/logger");
 const { onRequest } = require("firebase-functions/v2/https");
 const { onSchedule } = require("firebase-functions/v2/scheduler");
@@ -13,6 +14,11 @@ const GITHUB_CLIENT_ID = defineSecret("GITHUB_CLIENT_ID");
 const GITHUB_CLIENT_SECRET = defineSecret("GITHUB_CLIENT_SECRET");
 const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const ADMIN_BROADCAST_TOPIC = "all_users_broadcast";
+const USERS_COLLECTION = "users";
+const EMAIL_LINKS_COLLECTION = "identity_links_email";
+const GITHUB_LINKS_COLLECTION = "identity_links_github";
+const LEGACY_LINKS_COLLECTION = "legacy_identity_links";
+const CANONICAL_USER_PREFIX = "gw_usr_";
 const GEMINI_MODEL = "gemini-2.0-flash-lite";
 const GEMINI_GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 const QUOTE_RETENTION_DAYS = 7;
@@ -395,6 +401,8 @@ exports.ackAdminBroadcastEvent = onRequest(
 
         transaction.set(eventRef, {
           uid: session.uid,
+          internal_user_id: session.internalUserId || session.uid,
+          legacy_uid: session.legacyUid || null,
           email: session.email || null,
           sign_in_provider: session.signInProvider || "unknown",
           platform: platform || "unknown",
@@ -475,6 +483,8 @@ exports.ingestClientLog = onRequest(
         stack: stack || null,
         username: username || null,
         uid: session.uid,
+        internal_user_id: session.internalUserId || session.uid,
+        legacy_uid: session.legacyUid || null,
         email: session.email || null,
         sign_in_provider: session.signInProvider || "unknown",
         platform: platform || "unknown",
@@ -514,120 +524,6 @@ exports.ingestClientLog = onRequest(
       logger.error("Client log ingest failed", sanitizeForLogs(error));
       res.status(error.statusCode || 500).json({
         message: error.message || "Client log ingest failed",
-        details: error.details || null,
-      });
-    }
-  },
-);
-
-exports.redeemCouponCode = onRequest(
-  {
-    cors: true,
-  },
-  async (req, res) => {
-    if (req.method !== "POST") {
-      res.status(405).json({ message: "Method not allowed" });
-      return;
-    }
-
-    try {
-      const session = await authenticateAppRequest(req);
-      const email = `${session.email ?? ""}`.trim().toLowerCase();
-      if (!email) {
-        res.status(403).json({
-          message: "A verified email is required to redeem a coupon.",
-        });
-        return;
-      }
-
-      const code = `${req.body?.code ?? ""}`.trim().toUpperCase();
-      if (!code) {
-        res.status(400).json({ message: "code is required" });
-        return;
-      }
-
-      const db = getFirestore("default");
-      const userRef = db.collection("users").doc(email);
-      const couponRef = db.collection("coupon_codes").doc(code);
-      const appConfigRef = db.collection("config").doc("app_config");
-
-      const result = await db.runTransaction(async (transaction) => {
-        const [couponSnap, userSnap, appConfigSnap] = await Promise.all([
-          transaction.get(couponRef),
-          transaction.get(userRef),
-          transaction.get(appConfigRef),
-        ]);
-
-        if (!couponSnap.exists) {
-          const error = new Error("Coupon invalid or already used.");
-          error.statusCode = 404;
-          throw error;
-        }
-
-        const coupon = couponSnap.data() || {};
-        if (coupon.enabled === false || coupon.invalidated === true) {
-          const error = new Error("Coupon invalid or already used.");
-          error.statusCode = 400;
-          throw error;
-        }
-        if (coupon.used_at || coupon.usedByEmail) {
-          const error = new Error("Coupon invalid or already used.");
-          error.statusCode = 409;
-          throw error;
-        }
-
-        const appConfig = appConfigSnap.exists
-          ? appConfigSnap.data() || {}
-          : {};
-        const durationDays = Number(
-          coupon.duration_days || appConfig.coupon_access_duration_days || 180,
-        );
-        const now = new Date();
-        const expiresAt = new Date(
-          now.getTime() + durationDays * 24 * 60 * 60 * 1000,
-        );
-        const userData = userSnap.exists ? userSnap.data() || {} : {};
-
-        transaction.set(
-          userRef,
-          {
-            email,
-            username: userData.username || coupon.username_hint || null,
-            plan: "coupon_pro",
-            createdAt: userData.createdAt || FieldValue.serverTimestamp(),
-            proAccessExpiresAt: expiresAt,
-            couponCode: code,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-
-        transaction.set(
-          couponRef,
-          {
-            used_at: FieldValue.serverTimestamp(),
-            usedByEmail: email,
-            usedByUid: session.uid,
-            updated_at: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-
-        return {
-          code,
-          durationDays,
-          expiresAt: expiresAt.toISOString(),
-        };
-      });
-
-      res.status(200).json({
-        ok: true,
-        ...result,
-      });
-    } catch (error) {
-      logger.error("Coupon redeem failed", sanitizeForLogs(error));
-      res.status(error.statusCode || 500).json({
-        message: error.message || "Coupon redeem failed",
         details: error.details || null,
       });
     }
@@ -706,20 +602,38 @@ async function buildGitHubSession(accessToken) {
   }
 
   const email = selectVerifiedEmail(profile.email, emails);
-  const uid = `github:${profile.id ?? username.toLowerCase()}`;
+  const githubProviderId = normalizeGithubProviderId(profile);
+  if (!githubProviderId) {
+    const error = new Error("GitHub profile is missing a stable provider id");
+    error.statusCode = 502;
+    throw error;
+  }
+  const legacyFirebaseUid = buildLegacyGithubFirebaseUid(profile);
+  const { internalUserId } = await resolveCanonicalUserIdentity({
+    db: getFirestore("default"),
+    githubProviderId,
+    username,
+    email,
+    legacyFirebaseUid,
+    allowCreate: true,
+  });
   const customClaims = {
+    gitwall_user_id: internalUserId,
     github_username: username,
+    ...(githubProviderId ? { github_provider_id: githubProviderId } : {}),
     ...(email ? { github_email: email } : {}),
   };
 
   const firebaseCustomToken = await getAuth().createCustomToken(
-    uid,
+    internalUserId,
     customClaims,
   );
   return {
     accessToken,
     username,
     email,
+    githubProviderId,
+    internalUserId,
     firebaseCustomToken,
   };
 }
@@ -782,22 +696,11 @@ async function authenticateAppRequest(req) {
     throw error;
   }
 
-  return {
-    uid: decodedToken.uid,
-    email: resolveAppEmail(decodedToken),
-    signInProvider:
-      typeof decodedToken.firebase?.sign_in_provider === "string"
-        ? decodedToken.firebase.sign_in_provider
-        : null,
-  };
+  return resolveCanonicalAppSession(decodedToken);
 }
 
 function resolveAppEmail(decodedToken) {
-  const candidates = [
-    decodedToken?.email,
-    decodedToken?.github_email,
-    decodedToken?.githubEmail,
-  ];
+  const candidates = [decodedToken?.github_email, decodedToken?.githubEmail];
 
   for (const candidate of candidates) {
     if (typeof candidate === "string" && candidate.trim()) {
@@ -806,6 +709,327 @@ function resolveAppEmail(decodedToken) {
   }
 
   return null;
+}
+
+async function resolveCanonicalAppSession(decodedToken) {
+  const rawUid = cleanString(decodedToken?.uid);
+  if (!rawUid) {
+    const error = new Error("Firebase session is missing a uid.");
+    error.statusCode = 401;
+    throw error;
+  }
+
+  const signInProvider =
+    typeof decodedToken.firebase?.sign_in_provider === "string"
+      ? decodedToken.firebase.sign_in_provider
+      : null;
+  if (signInProvider !== "custom") {
+    const error = new Error(
+      "A GitWall GitHub session is required for authenticated app requests.",
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  const email = resolveAppEmail(decodedToken);
+  const claimedUserId = normalizeCanonicalUserId(
+    decodedToken?.gitwall_user_id ||
+      decodedToken?.internal_user_id ||
+      decodedToken?.app_user_id,
+  );
+  const username = cleanString(decodedToken?.github_username);
+  const githubProviderId = cleanString(decodedToken?.github_provider_id);
+
+  if (
+    !claimedUserId &&
+    !isCanonicalInternalUserId(rawUid) &&
+    !githubProviderId &&
+    !isLegacyGithubFirebaseUid(rawUid)
+  ) {
+    const error = new Error(
+      "This Firebase session is not linked to a canonical GitWall identity.",
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  let internalUserId = claimedUserId;
+  if (!internalUserId && isCanonicalInternalUserId(rawUid)) {
+    internalUserId = rawUid.toLowerCase();
+  }
+
+  if (!internalUserId) {
+    const resolved = await resolveCanonicalUserIdentity({
+      db: getFirestore("default"),
+      githubProviderId,
+      username,
+      email,
+      legacyFirebaseUid: rawUid,
+      allowCreate: false,
+    });
+    internalUserId = normalizeCanonicalUserId(resolved?.internalUserId);
+  }
+
+  if (!internalUserId) {
+    const error = new Error(
+      "This Firebase session is not linked to a canonical GitWall identity.",
+    );
+    error.statusCode = 403;
+    throw error;
+  }
+
+  return {
+    uid: internalUserId,
+    internalUserId,
+    legacyUid: rawUid !== internalUserId ? rawUid : null,
+    email,
+    signInProvider,
+  };
+}
+
+async function resolveCanonicalUserIdentity({
+  db,
+  githubProviderId,
+  username,
+  email,
+  legacyFirebaseUid,
+  allowCreate = false,
+}) {
+  const normalizedEmail = normalizeEmail(email);
+  const normalizedGithubProviderId = cleanString(githubProviderId);
+  const normalizedUsername = cleanString(username);
+  const normalizedLegacyFirebaseUid =
+    normalizeLegacyGitHubFirebaseUid(legacyFirebaseUid);
+
+  return db.runTransaction(async (transaction) => {
+    // Keep this lookup order aligned with lib/features/auth/services/identity_service.dart.
+    const legacyLinkRef = normalizedLegacyFirebaseUid
+      ? db.collection(LEGACY_LINKS_COLLECTION).doc(normalizedLegacyFirebaseUid)
+      : null;
+    const githubLinkRef = normalizedGithubProviderId
+      ? db.collection(GITHUB_LINKS_COLLECTION).doc(normalizedGithubProviderId)
+      : null;
+    const emailLinkRef = normalizedEmail
+      ? db.collection(EMAIL_LINKS_COLLECTION).doc(normalizedEmail)
+      : null;
+    const legacyEmailUserRef = normalizedEmail
+      ? db.collection(USERS_COLLECTION).doc(normalizedEmail)
+      : null;
+
+    const legacyLinkSnap = legacyLinkRef
+      ? await transaction.get(legacyLinkRef)
+      : null;
+    const githubLinkSnap = githubLinkRef
+      ? await transaction.get(githubLinkRef)
+      : null;
+    const emailLinkSnap = emailLinkRef ? await transaction.get(emailLinkRef) : null;
+    const legacyEmailUserSnap = legacyEmailUserRef
+      ? await transaction.get(legacyEmailUserRef)
+      : null;
+
+    let internalUserId =
+      extractCanonicalLinkedUserId(legacyLinkSnap?.data()) ||
+      extractCanonicalLinkedUserId(githubLinkSnap?.data()) ||
+      extractCanonicalLinkedUserId(emailLinkSnap?.data()) ||
+      extractCanonicalLinkedUserId(legacyEmailUserSnap?.data());
+
+    if (!internalUserId) {
+      if (!allowCreate) {
+        return { internalUserId: null };
+      }
+      internalUserId = createInternalUserId();
+    }
+
+    const canonicalUserRef = db.collection(USERS_COLLECTION).doc(internalUserId);
+    const canonicalUserSnap = await transaction.get(canonicalUserRef);
+    const canonicalUserData = canonicalUserSnap.exists
+      ? canonicalUserSnap.data() || {}
+      : {};
+    const legacyEmailUserData = legacyEmailUserSnap?.exists
+      ? legacyEmailUserSnap.data() || {}
+      : {};
+
+    const userPayload = buildCanonicalUserPayload({
+      internalUserId,
+      canonicalUserData,
+      legacyEmailUserData,
+      username: normalizedUsername,
+      email: normalizedEmail,
+      githubProviderId: normalizedGithubProviderId,
+      legacyFirebaseUid: normalizedLegacyFirebaseUid,
+    });
+
+    transaction.set(canonicalUserRef, userPayload, { merge: true });
+
+    if (emailLinkRef && normalizedEmail) {
+      transaction.set(
+        emailLinkRef,
+        {
+          internalUserId,
+          email: normalizedEmail,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    if (githubLinkRef && normalizedGithubProviderId) {
+      transaction.set(
+        githubLinkRef,
+        {
+          internalUserId,
+          githubProviderId: normalizedGithubProviderId,
+          username: normalizedUsername || null,
+          email: normalizedEmail || null,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    for (const legacyId of collectLegacyIds(
+      canonicalUserData,
+      legacyEmailUserData,
+      normalizedLegacyFirebaseUid,
+      internalUserId,
+    )) {
+      transaction.set(
+        db.collection(LEGACY_LINKS_COLLECTION).doc(legacyId),
+        {
+          internalUserId,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    if (
+      legacyEmailUserRef &&
+      legacyEmailUserSnap?.exists &&
+      legacyEmailUserRef.id !== internalUserId
+    ) {
+      transaction.set(
+        legacyEmailUserRef,
+        {
+          internalUserId,
+          appUserId: internalUserId,
+          migrationState: "canonicalized",
+          migratedToInternalUserId: internalUserId,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
+
+    return { internalUserId };
+  });
+}
+
+function buildCanonicalUserPayload({
+  internalUserId,
+  canonicalUserData,
+  legacyEmailUserData,
+  username,
+  email,
+  githubProviderId,
+  legacyFirebaseUid,
+}) {
+  const resolvedEmail =
+    normalizeEmail(email) ||
+    normalizeEmail(canonicalUserData?.email) ||
+    normalizeEmail(legacyEmailUserData?.email);
+  const resolvedUsername =
+    cleanString(username) ||
+    cleanString(canonicalUserData?.username) ||
+    cleanString(legacyEmailUserData?.username);
+  const resolvedGithubProviderId =
+    cleanString(githubProviderId) ||
+    cleanString(canonicalUserData?.githubProviderId) ||
+    cleanString(legacyEmailUserData?.githubProviderId);
+
+  const payload = {
+    internalUserId,
+    appUserId: internalUserId,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  const createdAt = earlierDateValue(
+    canonicalUserData?.createdAt,
+    legacyEmailUserData?.createdAt,
+  );
+  payload.createdAt = createdAt || FieldValue.serverTimestamp();
+
+  if (resolvedEmail) {
+    payload.email = resolvedEmail;
+  }
+  if (resolvedUsername) {
+    payload.username = resolvedUsername;
+  }
+  if (resolvedGithubProviderId) {
+    payload.githubProviderId = resolvedGithubProviderId;
+  }
+
+  payload.firebaseUid = internalUserId;
+
+  const providerLinks = {};
+  providerLinks.firebase = {
+    uid: internalUserId,
+    linkedAt: FieldValue.serverTimestamp(),
+  };
+  if (resolvedGithubProviderId) {
+    providerLinks.github = {
+      providerId: resolvedGithubProviderId,
+      ...(resolvedUsername ? { username: resolvedUsername } : {}),
+      ...(resolvedEmail ? { email: resolvedEmail } : {}),
+      linkedAt: FieldValue.serverTimestamp(),
+    };
+  }
+  payload.providerLinks = providerLinks;
+
+  const legacyIds = collectLegacyIds(
+    canonicalUserData,
+    legacyEmailUserData,
+    legacyFirebaseUid,
+    internalUserId,
+  );
+  if (legacyIds.length > 0) {
+    payload.legacyIds = FieldValue.arrayUnion(...legacyIds);
+  }
+
+  return payload;
+}
+
+function collectLegacyIds(
+  canonicalUserData,
+  legacyEmailUserData,
+  legacyFirebaseUid,
+  internalUserId,
+) {
+  return uniqueNonEmpty([
+    ...(Array.isArray(canonicalUserData?.legacyIds)
+      ? canonicalUserData.legacyIds
+      : []),
+    ...(Array.isArray(legacyEmailUserData?.legacyIds)
+      ? legacyEmailUserData.legacyIds
+      : []),
+    cleanString(canonicalUserData?.appUserId),
+    cleanString(legacyEmailUserData?.appUserId),
+    legacyFirebaseUid,
+  ])
+    .map((legacyId) => normalizeLegacyGitHubFirebaseUid(legacyId))
+    .filter(Boolean)
+    .filter(
+      (legacyId) =>
+        legacyId &&
+        legacyId !== internalUserId &&
+        !isCanonicalInternalUserId(legacyId),
+    );
+}
+
+function extractCanonicalLinkedUserId(data) {
+  return normalizeCanonicalUserId(
+    data?.internalUserId || data?.appUserId || data?.migratedToInternalUserId,
+  );
 }
 
 async function assertAuthorizedAdminEmail(email) {
@@ -832,6 +1056,80 @@ async function assertAuthorizedAdminEmail(email) {
   return {
     role: snapshot.data()?.role ?? "admin",
   };
+}
+
+function normalizeGithubProviderId(profile) {
+  const providerId = cleanString(
+    profile?.id == null ? null : `${profile.id}`,
+  );
+  return providerId || null;
+}
+
+function buildLegacyGithubFirebaseUid(profile) {
+  const providerId = cleanString(
+    profile?.id == null ? null : `${profile.id}`,
+  );
+  return providerId ? `github:${providerId}` : null;
+}
+
+function cleanString(value) {
+  const text = `${value ?? ""}`.trim();
+  return text ? text : null;
+}
+
+function normalizeEmail(value) {
+  const email = cleanString(value)?.toLowerCase();
+  return email || null;
+}
+
+function normalizeCanonicalUserId(value) {
+  const internalUserId = cleanString(value)?.toLowerCase();
+  return isCanonicalInternalUserId(internalUserId) ? internalUserId : null;
+}
+
+function normalizeLegacyGitHubFirebaseUid(value) {
+  const legacyUid = cleanString(value)?.toLowerCase();
+  return isLegacyGithubFirebaseUid(legacyUid) ? legacyUid : null;
+}
+
+function isCanonicalInternalUserId(value) {
+  const internalUserId = cleanString(value)?.toLowerCase();
+  return /^gw_usr_[a-z0-9]{20,}$/.test(internalUserId || "");
+}
+
+function isLegacyGithubFirebaseUid(value) {
+  const legacyUid = cleanString(value)?.toLowerCase();
+  return /^github:\d+$/.test(legacyUid || "");
+}
+
+function createInternalUserId() {
+  return `${CANONICAL_USER_PREFIX}${crypto.randomBytes(12).toString("hex")}`;
+}
+
+function uniqueNonEmpty(values) {
+  return [...new Set(values.map((value) => cleanString(value)).filter(Boolean))];
+}
+
+function toEpochMillis(value) {
+  if (!value) {
+    return null;
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value?.toDate === "function") {
+    return value.toDate().getTime();
+  }
+  const parsed = Date.parse(`${value}`);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function earlierDateValue(first, second) {
+  const firstMs = toEpochMillis(first);
+  const secondMs = toEpochMillis(second);
+  if (firstMs == null) return second || null;
+  if (secondMs == null) return first || null;
+  return firstMs <= secondMs ? first : second;
 }
 
 function selectVerifiedEmail(profileEmail, emailsPayload) {
@@ -874,7 +1172,7 @@ function selectVerifiedEmail(profileEmail, emailsPayload) {
     return verifiedAny.email.trim().toLowerCase();
   }
 
-  return normalizedProfileEmail;
+  return null;
 }
 
 async function safeJson(response) {

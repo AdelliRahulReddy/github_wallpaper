@@ -283,20 +283,20 @@ class AppStrings {
   static const continue_ = 'Continue';
   static const getStarted = 'Get Started';
   static const apply = 'Apply';
-  static const applyWallpaper = 'Set Auto Wallpaper';
+  static const applyWallpaper = 'Apply Wallpaper';
   static const syncNow = 'Sync Now';
   static const loading = 'Loading...';
   static const unknown = 'Unknown';
   static const error = 'Error';
 
   // Onboarding
-  static const onboardingTagline = 'FOR DEVS';
-  static const onboardingTitle1 = 'Your streak.\nYour screen.';
+  static const onboardingTagline = 'LIVE FROM GITHUB';
+  static const onboardingTitle1 = 'Your GitHub activity\nbecomes wallpaper.';
   static const onboardingDesc1 =
-      'Every commit updates your wallpaper. Your consistency, always on display.';
-  static const onboardingTitle2 = 'Built for\ndevelopers.';
+      'GitWall turns your contribution rhythm into a personal wallpaper from the first launch.';
+  static const onboardingTitle2 = 'Connect GitHub\nto continue.';
   static const onboardingDesc2 =
-      'Auto-sync, streak goals, weekly digests — everything a serious developer needs.';
+      'We use GitHub to generate your wallpaper and keep it in sync.';
   static const onboardingCtaSlide2 = 'Connect GitHub';
   static const onboardingHeatmapLabel = 'Your contribution streak';
   static const onboardingStreakBadge = '21-day streak 🔥';
@@ -308,7 +308,7 @@ class AppStrings {
       'Set a target. Get reminded before you break your streak.';
   static const onboardingFeature3Title = 'Templates & palettes';
   static const onboardingFeature3Desc =
-      'Pick a style and apply. Premium look in seconds.';
+      'Pick a style and apply. Polished wallpapers in seconds.';
   static const onboardingFeature4Title = 'GitHub analytics dashboard';
   static const onboardingFeature4Desc =
       'Trends, languages, repos — your activity at a glance.';
@@ -367,7 +367,7 @@ class AppStrings {
 
   // Customize Page
   static const customize = 'Customize';
-  static const setWallpaper = 'Set Auto Wallpaper';
+  static const setWallpaper = 'Wallpaper Target';
   static const homeScreen = 'Home Screen';
   static const lockScreen = 'Lock Screen';
   static const bothScreens = 'Both Screens';
@@ -436,12 +436,7 @@ class AppStrings {
   static const supportUs = 'Support Us ☕';
   static const supportUsSubtitle = 'Optional support to help GitWall grow';
   static const freeForeverBanner =
-      'GitWall starts on a real Free plan. Pro unlocks the advanced developer features.';
-  static const membership = 'Membership';
-  static const membershipRedeemCoupon = 'Redeem coupon';
-  static const membershipCouponHint = 'Enter coupon code';
-  static const membershipCouponApplied = 'Coupon applied. Pro access unlocked.';
-  static const membershipCouponInvalid = 'Coupon invalid or already used.';
+      'GitWall is fully free. Every feature is included for every account.';
   static const data = 'Data';
   static const removeCachedData = 'Remove cached contribution data';
   static const clearCache = 'Clear Cache';
@@ -555,6 +550,9 @@ class AppConstants {
   static const String keyToken = 'gh_token',
       keyUsername = 'username',
       keyAppUserId = 'app_user_id_v1',
+      keyLegacyAppUserId = 'legacy_app_user_id_v1',
+      keyLegacyFirebaseUid = 'legacy_firebase_uid_v1',
+      keyGitHubProviderId = 'github_provider_id_v1',
       keyDisplayName = 'display_name_v1',
       keyUserEmail = 'user_email_v1',
       keyCachedData = 'cached_data_v2',
@@ -577,6 +575,8 @@ class AppConstants {
   static const String keyHasAppliedWallpaper = 'has_applied_wallpaper';
   static const String keyFirstLoginGreetingPending =
       'first_login_greeting_pending';
+  static const String keyPostLoginSetupComplete =
+      'post_login_setup_complete_v1';
   static const String keyDimensionWidth = 'dim_w',
       keyDimensionHeight = 'dim_h',
       keyDimensionPixelRatio = 'dim_pr';
@@ -618,9 +618,6 @@ class AppConstants {
   static const String keyQuoteTone = 'quote_tone_v1';
   static const String keyCachedAiQuote = 'cached_ai_quote_v1';
   static const String keyCachedAiQuoteDay = 'cached_ai_quote_day_v1';
-  static const String keyMembershipInfo = 'membership_info_v1';
-  static const String keyMembershipLastValidatedAt =
-      'membership_last_validated_at_v1';
   static const String keyHasAuthError = 'has_auth_error_v1';
   static const List<String> weekdays = [
     'Sun',
@@ -640,12 +637,12 @@ class AppConstants {
       displayNameMaxLength = 40,
       quoteMaxLength = 200,
       monthGridColumns = 7;
-  static const double lockTopReserveHeightFraction = 0.075,
-      lockTopReserveMinPx = 96.0,
-      lockTopReserveMaxPx = 176.0,
-      lockBottomReserveHeightFraction = 0.04,
-      lockBottomReserveMinPx = 28.0,
-      lockBottomReserveMaxPx = 84.0,
+  static const double lockTopReserveHeightFraction = 0.105,
+      lockTopReserveMinPx = 160.0,
+      lockTopReserveMaxPx = 280.0,
+      lockBottomReserveHeightFraction = 0.072,
+      lockBottomReserveMinPx = 96.0,
+      lockBottomReserveMaxPx = 176.0,
       homeTopReserveHeightFraction = 0.018,
       homeTopReserveMinPx = 10.0,
       homeTopReserveMaxPx = 42.0,

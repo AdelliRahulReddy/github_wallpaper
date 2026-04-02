@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +9,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:github_wallpaper/core/constants/environment_config.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/features/auth/services/identity_service.dart';
 
 class TelemetryService {
   static const Set<String> _allowedTypes = {
@@ -17,6 +18,7 @@ class TelemetryService {
     'background_job_failure',
     'client_error',
   };
+  static bool _endpointUnavailableForSession = false;
 
   static Future<void> logError(String type, dynamic error,
       [StackTrace? stack]) async {
@@ -27,11 +29,18 @@ class TelemetryService {
       return;
     }
 
+    if (_endpointUnavailableForSession) {
+      return;
+    }
+
     try {
       final user = FirebaseAuth.instance.currentUser;
-      if (user == null) {
+      if (user == null ||
+          !await IdentityService.canUseAuthenticatedAppSession(user: user)) {
         if (kDebugMode) {
-          AppLog.info('Telemetry: Skipping $type log because no Firebase user exists.');
+          AppLog.info(
+            'Telemetry: Skipping $type log because no valid GitWall app session exists.',
+          );
         }
         return;
       }
@@ -64,10 +73,18 @@ class TelemetryService {
       );
 
       if (response.statusCode < 200 || response.statusCode >= 300) {
+        if (response.statusCode == 404) {
+          _endpointUnavailableForSession = true;
+        }
         if (kDebugMode) {
           AppLog.error(
             'Telemetry ingest failed (${response.statusCode}): ${response.body}',
           );
+          if (_endpointUnavailableForSession) {
+            AppLog.info(
+              'Telemetry: Disabling ingest for the rest of this app session because the backend endpoint is unavailable.',
+            );
+          }
         }
         return;
       }
@@ -104,4 +121,3 @@ class TelemetryService {
     return defaultTargetPlatform.name;
   }
 }
-

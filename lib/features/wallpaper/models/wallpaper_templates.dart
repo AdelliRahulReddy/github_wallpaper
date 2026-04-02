@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 
 @immutable
@@ -21,27 +21,39 @@ class WallpaperTemplate {
 }
 
 class WallpaperTemplates {
+  static String canonicalId(String? id) => switch (id) {
+        'quiet_grid_premium' => 'quiet_grid_home',
+        _ => id ?? all.first.id,
+      };
+
   static const List<WallpaperTemplate> all = [
     WallpaperTemplate(
       id: 'minimal_dark',
       label: 'Minimal Dark',
       emoji: '⬛',
-      description: 'Clean grid, subtle corners, no quote.',
+      description: 'Sparse grid, subtle corners, no quote.',
       apply: _minimalDark,
     ),
     WallpaperTemplate(
       id: 'code_centric',
       label: 'Code Centric',
       emoji: '💻',
-      description: 'Tight layout, strong contrast, small quote.',
+      description: 'Balanced layout with a grid-first focus.',
       seedQuoteIfEmpty: true,
       apply: _codeCentric,
+    ),
+    WallpaperTemplate(
+      id: 'heatmap_hero_lite',
+      label: 'Heatmap Hero Lite',
+      emoji: '🟩',
+      description: 'Poster-style composition with stronger grid emphasis.',
+      apply: _heatmapHeroLite,
     ),
     WallpaperTemplate(
       id: 'large_quote',
       label: 'Large Quote',
       emoji: '📝',
-      description: 'Bigger quote, softer grid, centered.',
+      description: 'Quote-forward layout with more breathing room.',
       seedQuoteIfEmpty: true,
       apply: _largeQuote,
     ),
@@ -49,28 +61,58 @@ class WallpaperTemplates {
       id: 'dracula_pop',
       label: 'Dracula Pop',
       emoji: '🧛',
-      description: 'High-impact palette with slightly rounded tiles.',
+      description: 'Power density with a bold stats-led look.',
       apply: _draculaPop,
+    ),
+    WallpaperTemplate(
+      id: 'heatmap_hero',
+      label: 'Heatmap Hero',
+      emoji: '🔥',
+      description: 'Bold lock-screen poster with heatmap priority.',
+      apply: _heatmapHero,
+    ),
+    WallpaperTemplate(
+      id: 'streak_poster',
+      label: 'Streak Poster',
+      emoji: '⚡',
+      description: 'Milestone-first composition with stronger proof styling.',
+      apply: _streakPoster,
+    ),
+    WallpaperTemplate(
+      id: 'momentum_card',
+      label: 'Momentum Card',
+      emoji: '📈',
+      description: 'Balanced layout with richer insight emphasis.',
+      apply: _momentumCard,
+    ),
+    WallpaperTemplate(
+      id: 'quiet_grid_home',
+      label: 'Quiet Grid Home',
+      emoji: '🌌',
+      description: 'Calmer home-screen composition with icon-safe spacing.',
+      apply: _quietGridHome,
     ),
     WallpaperTemplate(
       id: 'monochrome',
       label: 'Monochrome',
       emoji: '⚪',
-      description: 'Muted look for a minimal monochrome aesthetic.',
+      description: 'Sparse monochrome for a minimal aesthetic.',
       apply: _monochrome,
     ),
     WallpaperTemplate(
       id: 'neon_night',
       label: 'Neon Night',
       emoji: '⚡',
-      description: 'Bright palette with crisp tiles.',
+      description: 'Power density with crisp, high-energy contrast.',
       apply: _neonNight,
     ),
   ];
 
   static WallpaperTemplate fromId(String? id) {
-    if (id == null) return all.first;
-    return all.firstWhere((t) => t.id == id, orElse: () => all.first);
+    return all.firstWhere(
+      (t) => t.id == canonicalId(id),
+      orElse: () => all.first,
+    );
   }
 
   static WallpaperConfig _presetBase(WallpaperConfig current) {
@@ -81,6 +123,8 @@ class WallpaperTemplates {
       statLongestStreak: current.statLongestStreak,
       statTotalCommits: current.statTotalCommits,
       statTopLanguage: current.statTopLanguage,
+      densityMode: current.densityMode,
+      heroFocus: current.heroFocus,
     );
   }
 
@@ -97,6 +141,8 @@ class WallpaperTemplates {
       quoteOpacity: 0.9,
       verticalPosition: 0.5,
       horizontalPosition: 0.5,
+      densityMode: WallpaperDensityMode.sparse,
+      heroFocus: WallpaperHeroFocus.grid,
     );
   }
 
@@ -112,6 +158,27 @@ class WallpaperTemplates {
       quoteOpacity: 0.85,
       verticalPosition: 0.48,
       horizontalPosition: 0.5,
+      densityMode: WallpaperDensityMode.normal,
+      heroFocus: WallpaperHeroFocus.grid,
+    );
+  }
+
+  static WallpaperConfig _heatmapHeroLite(WallpaperConfig base) {
+    final preset = _presetBase(base);
+    return preset.copyWith(
+      isDarkMode: true,
+      themeId: 'midnight',
+      autoFitWidth: true,
+      opacity: 1.0,
+      cornerRadius: 2.5,
+      customQuote: '',
+      quoteFontSize: 13.0,
+      quoteOpacity: 0.82,
+      verticalPosition: 0.58,
+      horizontalPosition: 0.5,
+      densityMode: WallpaperDensityMode.normal,
+      heroFocus: WallpaperHeroFocus.grid,
+      statTopLanguage: false,
     );
   }
 
@@ -127,6 +194,8 @@ class WallpaperTemplates {
       quoteOpacity: 0.95,
       verticalPosition: 0.52,
       horizontalPosition: 0.5,
+      densityMode: WallpaperDensityMode.power,
+      heroFocus: WallpaperHeroFocus.quote,
     );
   }
 
@@ -142,6 +211,79 @@ class WallpaperTemplates {
       verticalPosition: 0.5,
       horizontalPosition: 0.5,
       themeId: 'dracula',
+      densityMode: WallpaperDensityMode.power,
+      heroFocus: WallpaperHeroFocus.stats,
+    );
+  }
+
+  static WallpaperConfig _heatmapHero(WallpaperConfig base) {
+    final preset = _presetBase(base);
+    return preset.copyWith(
+      isDarkMode: true,
+      autoFitWidth: true,
+      opacity: 1.0,
+      cornerRadius: 3.0,
+      quoteFontSize: 13.0,
+      quoteOpacity: 0.84,
+      verticalPosition: 0.56,
+      horizontalPosition: 0.5,
+      themeId: 'tokyo_night',
+      densityMode: WallpaperDensityMode.normal,
+      heroFocus: WallpaperHeroFocus.grid,
+      statTopLanguage: false,
+    );
+  }
+
+  static WallpaperConfig _streakPoster(WallpaperConfig base) {
+    final preset = _presetBase(base);
+    return preset.copyWith(
+      isDarkMode: true,
+      autoFitWidth: true,
+      opacity: 1.0,
+      cornerRadius: 3.5,
+      quoteFontSize: 12.5,
+      quoteOpacity: 0.78,
+      verticalPosition: 0.57,
+      horizontalPosition: 0.5,
+      themeId: 'dracula',
+      densityMode: WallpaperDensityMode.power,
+      heroFocus: WallpaperHeroFocus.stats,
+      statTopLanguage: false,
+    );
+  }
+
+  static WallpaperConfig _momentumCard(WallpaperConfig base) {
+    final preset = _presetBase(base);
+    return preset.copyWith(
+      isDarkMode: true,
+      autoFitWidth: true,
+      opacity: 0.98,
+      cornerRadius: 2.5,
+      quoteFontSize: 13.5,
+      quoteOpacity: 0.84,
+      verticalPosition: 0.54,
+      horizontalPosition: 0.5,
+      themeId: 'github_soft',
+      densityMode: WallpaperDensityMode.normal,
+      heroFocus: WallpaperHeroFocus.stats,
+    );
+  }
+
+  static WallpaperConfig _quietGridHome(WallpaperConfig base) {
+    final preset = _presetBase(base);
+    return preset.copyWith(
+      isDarkMode: true,
+      autoFitWidth: true,
+      opacity: 0.94,
+      cornerRadius: 2.0,
+      quoteFontSize: 12.0,
+      quoteOpacity: 0.74,
+      verticalPosition: 0.44,
+      horizontalPosition: 0.46,
+      themeId: 'mono',
+      densityMode: WallpaperDensityMode.sparse,
+      heroFocus: WallpaperHeroFocus.grid,
+      statTopLanguage: false,
     );
   }
 
@@ -157,6 +299,8 @@ class WallpaperTemplates {
       verticalPosition: 0.5,
       horizontalPosition: 0.5,
       themeId: 'mono',
+      densityMode: WallpaperDensityMode.sparse,
+      heroFocus: WallpaperHeroFocus.grid,
     );
   }
 
@@ -172,7 +316,8 @@ class WallpaperTemplates {
       verticalPosition: 0.5,
       horizontalPosition: 0.5,
       themeId: 'neon',
+      densityMode: WallpaperDensityMode.power,
+      heroFocus: WallpaperHeroFocus.stats,
     );
   }
 }
-

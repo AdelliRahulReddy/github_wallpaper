@@ -5,6 +5,45 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function isCanonicalInternalUserId(value) {
+      return value is string && value.matches('^gw_usr_[a-z0-9]{20,}$');
+    }
+
+    function canonicalAppUserId() {
+      return isCanonicalInternalUserId(request.auth.uid)
+        ? request.auth.uid
+        : isCanonicalInternalUserId(request.auth.token.gitwall_user_id)
+          ? request.auth.token.gitwall_user_id
+          : isCanonicalInternalUserId(request.auth.token.internal_user_id)
+            ? request.auth.token.internal_user_id
+            : isCanonicalInternalUserId(request.auth.token.app_user_id)
+              ? request.auth.token.app_user_id
+              : null;
+    }
+
+    function verifiedGithubEmail() {
+      return request.auth.token.github_email is string
+        ? request.auth.token.github_email
+        : null;
+    }
+
+    function githubProviderId() {
+      return request.auth.token.github_provider_id is string
+        ? request.auth.token.github_provider_id
+        : null;
+    }
+
+    function isGitWallCustomSession() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider is string
+        && request.auth.token.firebase.sign_in_provider == 'custom';
+    }
+
+    function isAppUserSession() {
+      return isGitWallCustomSession()
+        && canonicalAppUserId() is string;
+    }
+
     function isAdmin() {
       return isSignedIn()
         && request.auth.token.email is string
@@ -12,32 +51,45 @@ service cloud.firestore {
         && get(/databases/$(database)/documents/admins/$(request.auth.token.email)).data.enabled != false;
     }
 
-    function appEmail() {
-      return request.auth.token.github_email is string
-        ? request.auth.token.github_email
-        : request.auth.token.email is string
-          ? request.auth.token.email
-          : null;
+    function isOwnCanonicalUserDoc(userId) {
+      return isAppUserSession()
+        && canonicalAppUserId() == userId;
     }
 
-    function isOwnUserDoc(email) {
+    function isOwnLegacyEmailUserDoc(userId) {
+      return isGitWallCustomSession()
+        && verifiedGithubEmail() is string
+        && verifiedGithubEmail() == userId;
+    }
+
+    function isAllowedCanonicalUserWrite(userId) {
+      return isOwnCanonicalUserDoc(userId)
+        && request.resource.data.internalUserId == canonicalAppUserId()
+        && (!request.resource.data.keys().hasAny(['appUserId'])
+          || request.resource.data.appUserId == canonicalAppUserId())
+        && (!request.resource.data.keys().hasAny(['firebaseUid'])
+          || request.resource.data.firebaseUid == canonicalAppUserId())
+        && (!request.resource.data.keys().hasAny(['githubProviderId'])
+          || githubProviderId() == null
+          || request.resource.data.githubProviderId == githubProviderId());
+    }
+
+    function isOwnEmailLinkDoc(email) {
+      return isGitWallCustomSession()
+        && verifiedGithubEmail() is string
+        && verifiedGithubEmail() == email;
+    }
+
+    function isOwnGithubLinkDoc(providerId) {
+      return isGitWallCustomSession()
+        && githubProviderId() is string
+        && githubProviderId() == providerId;
+    }
+
+    function isOwnLegacyLinkDoc(legacyId) {
       return isSignedIn()
-        && appEmail() is string
-        && appEmail() == email;
-    }
-
-    function isAllowedOwnUserCreate(email) {
-      return isOwnUserDoc(email)
-        && request.resource.data.keys().hasOnly([
-          'email',
-          'username',
-          'plan',
-          'createdAt',
-          'updatedAt',
-        ])
-        && request.resource.data.email is string
-        && request.resource.data.email == email
-        && request.resource.data.plan == 'free';
+        && request.auth.uid is string
+        && request.auth.uid == legacyId;
     }
 
     match /config/{document} {
@@ -49,14 +101,27 @@ service cloud.firestore {
       allow read, write: if isAdmin();
     }
 
-    match /users/{email} {
-      allow read: if isAdmin() || isOwnUserDoc(email);
-      allow create: if isAdmin() || isAllowedOwnUserCreate(email);
-      allow update, delete: if isAdmin();
+    match /users/{userId} {
+      allow read: if isAdmin()
+        || isOwnCanonicalUserDoc(userId)
+        || isOwnLegacyEmailUserDoc(userId);
+      allow create, update: if isAdmin() || isAllowedCanonicalUserWrite(userId);
+      allow delete: if isAdmin();
     }
 
-    match /coupon_codes/{code} {
-      allow read, write: if isAdmin();
+    match /identity_links_email/{email} {
+      allow read: if isAdmin() || isOwnEmailLinkDoc(email);
+      allow write: if isAdmin();
+    }
+
+    match /identity_links_github/{providerId} {
+      allow read: if isAdmin() || isOwnGithubLinkDoc(providerId);
+      allow write: if isAdmin();
+    }
+
+    match /legacy_identity_links/{legacyId} {
+      allow read: if isAdmin() || isOwnLegacyLinkDoc(legacyId);
+      allow write: if isAdmin();
     }
 
     match /admin_metrics/{document=**} {

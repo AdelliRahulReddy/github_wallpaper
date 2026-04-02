@@ -28,7 +28,6 @@ class RemoteConfigService extends ChangeNotifier {
     'ai_quotes_quota_exceeded': false,
     'debug_mode_enabled': false,
     'onboarding_version': 1,
-    'coupon_access_duration_days': 180,
   };
 
   Future<void> init() async {
@@ -115,8 +114,6 @@ class RemoteConfigService extends ChangeNotifier {
   String get forceUpdateMessage => getAppValue('force_update_message');
   bool get debugModeEnabled => getAppValue('debug_mode_enabled');
   int get onboardingVersion => getAppValue('onboarding_version');
-  int get couponAccessDurationDays =>
-      (getAppValue('coupon_access_duration_days') as num?)?.toInt() ?? 180;
 
   @override
   void dispose() {

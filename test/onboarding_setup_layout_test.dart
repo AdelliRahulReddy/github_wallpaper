@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/features/auth/pages/onboarding_page.dart';
-import 'package:github_wallpaper/features/auth/pages/setup_page.dart';
 
 Future<void> _pumpAtSize(
   WidgetTester tester, {
@@ -38,7 +37,7 @@ Future<void> _pumpAtSize(
 }
 
 void main() {
-  testWidgets('Onboarding page has no overflow at common sizes',
+  testWidgets('GitHub connect page has no overflow at common sizes',
       (WidgetTester tester) async {
     for (final size in const [
       Size(320, 568),
@@ -46,19 +45,11 @@ void main() {
       Size(375, 812),
       Size(411, 891),
     ]) {
-      await _pumpAtSize(tester, size: size, child: const OnboardingPage());
-    }
-  });
-
-  testWidgets('Setup page has no overflow at common sizes',
-      (WidgetTester tester) async {
-    for (final size in const [
-      Size(320, 568),
-      Size(360, 640),
-      Size(375, 812),
-      Size(411, 891),
-    ]) {
-      await _pumpAtSize(tester, size: size, child: const SetupPage());
+      await _pumpAtSize(tester, size: size, child: const GitHubConnectPage());
+      expect(find.textContaining('GitHub activity'), findsOneWidget);
+      expect(find.text('Sign in'), findsOneWidget);
+      expect(find.text('Wallpaper'), findsOneWidget);
+      expect(find.text('Connect on GitHub'), findsOneWidget);
     }
   });
 }

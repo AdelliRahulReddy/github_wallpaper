@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -16,7 +16,6 @@ import 'package:github_wallpaper/features/contributions/pages/home_page.dart';
 import 'package:github_wallpaper/features/contributions/pages/stats_page.dart';
 import 'package:github_wallpaper/features/wallpaper/pages/customize_page.dart';
 import 'package:github_wallpaper/features/settings/pages/settings_page.dart';
-
 
 class MainNavPage extends StatefulWidget {
   const MainNavPage({super.key});
@@ -37,6 +36,7 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    _selectedIndex = MainNavPage.navIndex.value;
     WidgetsBinding.instance.addObserver(this);
     MainNavPage.navIndex.addListener(_handleExternalIndexChange);
     _requestSyncFromCustomize = () {
@@ -269,17 +269,12 @@ class _MainNavPageState extends State<MainNavPage> with WidgetsBindingObserver {
 }
 
 extension _MainNavPageStateSurface on _MainNavPageState {
-  Future<bool> _handleSetWallpaper(String target) async {
+  Future<bool> _handleSetWallpaper(String _) async {
     if (_data == null) return false;
 
     try {
       final config = StorageService.getWallpaperConfig();
-      final targetEnum = switch (target) {
-        'home' => WallpaperTarget.home,
-        'lock' => WallpaperTarget.lock,
-        'both' => WallpaperTarget.both,
-        _ => WallpaperTarget.lock,
-      };
+      final targetEnum = WallpaperTarget.lock;
 
       final didApply = await WallpaperService.generateAndSetWallpaper(
         data: _data!,
@@ -387,5 +382,3 @@ extension _MainNavPageStateSurface on _MainNavPageState {
     );
   }
 }
-
-

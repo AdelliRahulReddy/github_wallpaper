@@ -71,5 +71,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'gitwall-d63cc.firebasestorage.app',
     measurementId: 'G-SF2V3498F1',
   );
-
 }

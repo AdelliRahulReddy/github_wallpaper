@@ -385,11 +385,6 @@ textarea {
   gap: 14px;
 }
 
-.membership-form,
-.coupon-form {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
 .toolbar {
   display: flex;
   justify-content: space-between;

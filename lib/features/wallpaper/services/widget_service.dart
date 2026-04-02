@@ -1,5 +1,7 @@
 import 'package:home_widget/home_widget.dart';
 
+import 'package:github_wallpaper/app/product/services/product_state_factory.dart';
+import 'package:github_wallpaper/app/product/services/surface_builders.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
@@ -19,25 +21,17 @@ class WidgetService {
   static const String _keyRoute = 'gitwall_widget_route';
 
   static Future<void> updateFromData(CachedContributionData data) async {
-    final hasProAccess =
-        StorageService.getCachedMembershipInfo()?.hasProAccess ?? false;
-    final route = hasProAccess
-        ? 'gitwall://widget/stats?source=home_widget'
-        : 'gitwall://widget/paywall?source=home_widget';
-    final status = hasProAccess
-        ? (data.isStale()
-            ? 'Tap to open Pro stats. Data is cached.'
-            : 'Tap to open your Pro insight panel.')
-        : 'Tap to unlock full widget insights with Pro.';
+    final snapshot = ProductStateFactory.fromStorage(data: data);
+    final widgetModel = WidgetBuilder.build(snapshot);
 
     await _persistWidgetState(
-      currentStreak: data.currentStreak,
-      todayCommits: data.todayCommits,
-      totalContributions: data.totalContributions,
-      username: data.username,
-      badge: hasProAccess ? 'PRO' : 'FREE',
-      status: status,
-      route: route,
+      currentStreak: widgetModel.currentStreak,
+      todayCommits: widgetModel.todayCommits,
+      totalContributions: widgetModel.totalContributions,
+      username: widgetModel.username,
+      badge: widgetModel.badge,
+      status: widgetModel.status,
+      route: widgetModel.route,
     );
   }
 
@@ -56,8 +50,8 @@ class WidgetService {
         totalContributions: 0,
         username: username,
         badge: 'SYNC',
-        status: 'Open GitWall to fetch your latest GitHub data.',
-        route: 'gitwall://widget/stats?source=home_widget',
+        status: 'Open GitWall once to wake up your live contribution surface.',
+        route: 'gitwall://widget/home?source=home_widget&state=sync',
       );
       return;
     }
@@ -71,9 +65,10 @@ class WidgetService {
       todayCommits: 0,
       totalContributions: 0,
       username: 'GitWall',
-      badge: 'OPEN',
-      status: 'Connect GitHub to start syncing your contribution widget.',
-      route: 'gitwall://widget/setup?source=home_widget',
+      badge: 'SYNC',
+      status:
+          'Connect GitHub and sync once to turn the widget into a live progress surface.',
+      route: 'gitwall://widget/home?source=home_widget&state=connect',
     );
   }
 

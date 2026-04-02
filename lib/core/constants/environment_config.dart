@@ -3,10 +3,6 @@ import 'package:github_wallpaper/core/errors/app_exceptions.dart';
 class AppConfig {
   static const String firebaseProjectId = 'gitwall-d63cc';
   static const String firebaseFunctionsRegion = 'us-central1';
-  static const String playStoreSubscriptionsUrl = String.fromEnvironment(
-    'PLAY_STORE_SUBSCRIPTIONS_URL',
-    defaultValue: 'https://play.google.com/store/account/subscriptions',
-  );
   static const String githubClientId = String.fromEnvironment(
     'GITHUB_CLIENT_ID',
     defaultValue: 'Ov23liLsYG4d5Xiv10H6',
@@ -30,19 +26,6 @@ class AppConfig {
     defaultValue:
         'https://us-central1-gitwall-d63cc.cloudfunctions.net/ingestClientLog',
   );
-  static const String couponRedeemUrl = String.fromEnvironment(
-    'COUPON_REDEEM_URL',
-    defaultValue:
-        'https://us-central1-gitwall-d63cc.cloudfunctions.net/redeemCouponCode',
-  );
-  static const String revenueCatGooglePublicKey = String.fromEnvironment(
-    'REVENUECAT_GOOGLE_PUBLIC_KEY',
-    defaultValue: 'goog_uOrOeEbviaYqcfNwfGcyRGQvxiU',
-  );
-  static const String revenueCatProEntitlementId = String.fromEnvironment(
-    'REVENUECAT_PRO_ENTITLEMENT_ID',
-    defaultValue: 'pro',
-  );
   static const String geminiApiKey = String.fromEnvironment(
     'GEMINI_API_KEY',
     defaultValue: '',
@@ -57,9 +40,6 @@ class AppConfig {
         '/store/apps/details',
         {'id': packageName},
       );
-
-  static Uri get playStoreSubscriptionsUri =>
-      Uri.parse(playStoreSubscriptionsUrl);
 
   static void validateOAuthConfig({String? registeredRedirectUri}) {
     const id = githubClientId;

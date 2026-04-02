@@ -1,10 +1,9 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
-import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/features/settings/widgets/settings_widgets.dart';
 import 'package:github_wallpaper/app/services/background_scheduler.dart';
 import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
@@ -29,7 +28,6 @@ class _WallpaperSyncPageState extends State<WallpaperSyncPage> {
   bool _autoUpdate = StorageService.getAutoUpdate();
   UpdateScheduleMode _scheduleMode = StorageService.getUpdateScheduleMode();
   TimeOfDay _dailyTime = StorageService.getUpdateDailyTime();
-  WallpaperTarget _target = StorageService.getLastWallpaperTarget();
   bool _autoApplyAfterSync = StorageService.getAutoApplyAfterSync();
 
   DateTime? _lastSyncUtc = StorageService.getEffectiveLastSync();
@@ -78,11 +76,6 @@ class _WallpaperSyncPageState extends State<WallpaperSyncPage> {
       minute: picked.minute,
     );
     await BackgroundScheduler.scheduleUpdates();
-  }
-
-  Future<void> _setTarget(WallpaperTarget target) async {
-    setState(() => _target = target);
-    await StorageService.setLastWallpaperTarget(target);
   }
 
   Future<void> _setAutoApplyAfterSync(bool value) async {
@@ -185,34 +178,13 @@ class _WallpaperSyncPageState extends State<WallpaperSyncPage> {
                 children: [
                   SettingsTile(
                     icon: Icons.smartphone_outlined,
-                    title: 'Apply to',
-                    subtitle: switch (_target) {
-                      WallpaperTarget.home =>
-                        'Home keeps the wallpaper visible around your icons',
-                      WallpaperTarget.both => 'Both is an advanced option',
-                      WallpaperTarget.lock => 'Lock is recommended',
-                    },
-                    trailing: DropdownButtonHideUnderline(
-                      child: DropdownButton<WallpaperTarget>(
-                        value: _target,
-                        items: const [
-                          DropdownMenuItem(
-                            value: WallpaperTarget.home,
-                            child: Text('Home'),
-                          ),
-                          DropdownMenuItem(
-                            value: WallpaperTarget.lock,
-                            child: Text('Lock'),
-                          ),
-                          DropdownMenuItem(
-                            value: WallpaperTarget.both,
-                            child: Text('Both (Advanced)'),
-                          ),
-                        ],
-                        onChanged: (value) {
-                          if (value == null) return;
-                          _setTarget(value);
-                        },
+                    title: 'Wallpaper target',
+                    subtitle: 'Lock screen only',
+                    trailing: Text(
+                      'Lock',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     onTap: null,
@@ -321,4 +293,3 @@ class _WallpaperSyncPageState extends State<WallpaperSyncPage> {
     );
   }
 }
-

@@ -6,6 +6,7 @@ import android.content.ComponentName
 import android.content.Intent
 import android.os.Build
 import android.graphics.BitmapFactory
+import android.graphics.Rect
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -50,44 +51,82 @@ class MainActivity : FlutterActivity() {
 
           try {
             val wm = WallpaperManager.getInstance(this)
-            val flags = when (targetStr) {
-              "home" -> WallpaperManager.FLAG_SYSTEM
-              "lock" -> WallpaperManager.FLAG_LOCK
-              else -> WallpaperManager.FLAG_SYSTEM or WallpaperManager.FLAG_LOCK
+            if (!wm.isWallpaperSupported) {
+              result.error("WALLPAPER_UNSUPPORTED", "Wallpaper changes are not supported on this device", null)
+              return@setMethodCallHandler
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !wm.isSetWallpaperAllowed) {
+              result.error("WALLPAPER_NOT_ALLOWED", "Wallpaper changes are blocked by device policy", null)
+              return@setMethodCallHandler
             }
 
-            try {
-              // Try combined setting first (Efficient)
-              FileInputStream(file).use { stream ->
-                wm.setStream(stream, null, true, flags)
+            val supportsLock = Build.VERSION.SDK_INT >= Build.VERSION_CODES.N
+            val normalizedTarget = when {
+              targetStr == "lock" && !supportsLock -> "home"
+              targetStr == "both" && !supportsLock -> "home"
+              else -> targetStr
+            }
+            val boundsOptions = BitmapFactory.Options().apply {
+              inJustDecodeBounds = true
+            }
+            BitmapFactory.decodeFile(path, boundsOptions)
+            val visibleCrop =
+              if (boundsOptions.outWidth > 0 && boundsOptions.outHeight > 0) {
+                Rect(0, 0, boundsOptions.outWidth, boundsOptions.outHeight)
+              } else {
+                null
               }
-            } catch (e1: Exception) {
-              // ATTEMPT 2: Sequential Setting (Fixes issues on some Xiaomi/Samsung implementations)
+
+            if (visibleCrop != null) {
               try {
-                if (targetStr == "both" || targetStr == "home") {
-                  FileInputStream(file).use { s -> wm.setStream(s, null, true, WallpaperManager.FLAG_SYSTEM) }
-                }
-                if (targetStr == "both" || targetStr == "lock") {
-                  FileInputStream(file).use { s -> wm.setStream(s, null, true, WallpaperManager.FLAG_LOCK) }
-                }
-              } catch (e2: Exception) {
-                // ATTEMPT 3: Bitmap Fallback (Universal / Native decoded)
-                val bitmap = BitmapFactory.decodeFile(path)
-                if (bitmap != null) {
-                  try {
-                    if (targetStr == "both" || targetStr == "home") {
-                      wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_SYSTEM)
-                    }
-                    if (targetStr == "both" || targetStr == "lock") {
-                      wm.setBitmap(bitmap, null, true, WallpaperManager.FLAG_LOCK)
-                    }
-                  } finally {
-                    bitmap.recycle()
-                  }
-                } else {
-                  throw Exception("Bitmap decoding failed: ${e2.message}")
+                wm.suggestDesiredDimensions(visibleCrop.width(), visibleCrop.height())
+              } catch (_: Exception) {
+              }
+            }
+
+            fun setStream(which: Int) {
+              FileInputStream(file).use { stream ->
+                wm.setStream(stream, visibleCrop, true, which)
+              }
+            }
+
+            fun setBitmap(which: Int) {
+              val bitmap = BitmapFactory.decodeFile(path)
+                ?: throw Exception("Bitmap decoding failed for $path")
+              try {
+                wm.setBitmap(bitmap, visibleCrop, true, which)
+              } finally {
+                bitmap.recycle()
+              }
+            }
+
+            fun applyTarget(which: Int, label: String) {
+              try {
+                setStream(which)
+              } catch (streamError: Exception) {
+                try {
+                  setBitmap(which)
+                } catch (bitmapError: Exception) {
+                  throw Exception("$label wallpaper apply failed: ${bitmapError.message ?: streamError.message}")
                 }
               }
+            }
+
+            val systemRequested = normalizedTarget == "home" || normalizedTarget == "both"
+            val lockRequested = supportsLock &&
+              (normalizedTarget == "lock" || normalizedTarget == "both")
+
+            if (systemRequested) {
+              applyTarget(WallpaperManager.FLAG_SYSTEM, "home")
+            }
+
+            if (lockRequested) {
+              applyTarget(WallpaperManager.FLAG_LOCK, "lock")
+            }
+
+            if (!systemRequested && !lockRequested) {
+              result.error("INVALID_TARGET", "Unsupported wallpaper target: $targetStr", null)
+              return@setMethodCallHandler
             }
 
             result.success(true)

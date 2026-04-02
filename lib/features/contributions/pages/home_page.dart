@@ -1,14 +1,10 @@
-import 'dart:ui';
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
-import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_paywall_page.dart';
 import 'package:github_wallpaper/features/settings/pages/settings_page.dart';
 import 'package:github_wallpaper/features/contributions/services/daily_quotes.dart';
 import 'package:github_wallpaper/features/contributions/services/achievement_service.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
 import 'package:github_wallpaper/features/contributions/services/share_service.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
@@ -16,14 +12,15 @@ import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/ui/app_components.dart';
 import 'package:intl/intl.dart';
-import 'package:provider/provider.dart';
 
 class HomePage extends StatefulWidget {
   final CachedContributionData? data;
   final bool isLoading;
   final String? loadError;
   final Future<void> Function() onRefresh;
-  final VoidCallback onOpenStats;
+  final VoidCallback? onOpenStats;
+  final VoidCallback? onOpenInsights;
+  final VoidCallback? onOpenStudio;
 
   const HomePage({
     super.key,
@@ -31,11 +28,15 @@ class HomePage extends StatefulWidget {
     required this.isLoading,
     required this.loadError,
     required this.onRefresh,
-    required this.onOpenStats,
-  });
+    this.onOpenStats,
+    this.onOpenInsights,
+    this.onOpenStudio,
+  }) : assert(onOpenStats != null || onOpenInsights != null);
 
   @override
   State<HomePage> createState() => _HomePageState();
+
+  VoidCallback get openStats => onOpenStats ?? onOpenInsights ?? () {};
 }
 
 class _HomePageState extends State<HomePage>
@@ -1404,11 +1405,6 @@ class _HomeProductivityInsightsSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final canUseAdvancedStats =
-        context.watch<MembershipController?>()?.hasProAccess ??
-            StorageService.getCachedMembershipInfo()?.hasProAccess ??
-            MembershipEntitlements.hasProAccess;
-
     final bestDay = data.stats.mostActiveWeekday;
     final peakDay = ContributionAnalyzer.findPeakDay(
       data.days,
@@ -1504,115 +1500,7 @@ class _HomeProductivityInsightsSection extends StatelessWidget {
       ],
     );
 
-    if (canUseAdvancedStats) {
-      return content;
-    }
-
-    return _HomeLockedInsightsPreview(
-      title: 'Productivity insights are Pro',
-      body:
-          'Peak day, best weekday, average activity, and consistency insights stay visible here as a locked preview.',
-      child: content,
-    );
-  }
-}
-
-class _HomeLockedInsightsPreview extends StatelessWidget {
-  final String title;
-  final String body;
-  final Widget child;
-
-  const _HomeLockedInsightsPreview({
-    required this.title,
-    required this.body,
-    required this.child,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    void openPaywall() {
-      Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const MembershipPaywallPage(
-            featureName: 'Productivity Insights',
-            featureDescription:
-                'Peak day, best weekday, average activity, and consistency insights are part of Pro.',
-          ),
-        ),
-      );
-    }
-
-    return ClipRRect(
-      borderRadius: AppTheme.brLarge,
-      child: Stack(
-        children: [
-          IgnorePointer(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-              child: Opacity(
-                opacity: 0.50,
-                child: child,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Material(
-              color: scheme.surface.withValues(alpha: 0.28),
-              child: InkWell(
-                onTap: openPaywall,
-                child: Center(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 320),
-                    margin: AppTheme.pAll20,
-                    padding: AppTheme.pAll20,
-                    decoration: BoxDecoration(
-                      color: scheme.surface.withValues(alpha: 0.94),
-                      borderRadius: AppTheme.brLarge,
-                      border: Border.all(color: scheme.outlineVariant),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.lock_rounded,
-                          size: AppTheme.iconLG,
-                          color: scheme.primary,
-                        ),
-                        AppTheme.h12,
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: tt.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        AppTheme.h8,
-                        Text(
-                          body,
-                          textAlign: TextAlign.center,
-                          style: tt.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.4,
-                          ),
-                        ),
-                        AppTheme.h16,
-                        FilledButton.tonal(
-                          onPressed: openPaywall,
-                          child: const Text('Unlock Pro'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return content;
   }
 }
 

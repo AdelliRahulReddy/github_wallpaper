@@ -1,4 +1,4 @@
-﻿import 'dart:math';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -7,7 +7,6 @@ import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/app/services/remote_config_service.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
 import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 
 import 'package:github_wallpaper/core/utils/app_utils.dart';
@@ -84,9 +83,8 @@ class DailyQuoteService {
     }
 
     final tone = normalizeTone(StorageService.getQuoteTone());
-    final hasProAccess = MembershipEntitlements.hasProAccess;
 
-    if (forceRegenerate && hasProAccess) {
+    if (forceRegenerate) {
       final generated = await _generateRegeneratedQuote(
         data: data,
         tone: tone,
@@ -96,15 +94,6 @@ class DailyQuoteService {
         await StorageService.setCachedAiQuote(quote: generated, dayKey: dayKey);
         return DailyQuoteResult(quote: generated, usedAi: true);
       }
-    }
-
-    if (!MembershipEntitlements.canUseAiQuotes) {
-      final quote = _fallbackQuote(tone: tone, seed: data.todayCommits);
-      await StorageService.setCachedAiQuote(quote: quote, dayKey: dayKey);
-      return DailyQuoteResult(
-        quote: quote,
-        usedFallback: true,
-      );
     }
 
     final pooledQuote = await _fetchPooledQuote(data);
@@ -291,4 +280,3 @@ Rules:
     }
   }
 }
-

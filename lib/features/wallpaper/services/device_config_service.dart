@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:synchronized/synchronized.dart';
 
 import 'package:github_wallpaper/core/storage/storage_service.dart';
@@ -13,7 +13,8 @@ class DeviceConfigService {
       final view = WidgetsBinding.instance.platformDispatcher.views.first;
       await _lock.synchronized(() async {
         final media = MediaQueryData.fromView(view);
-        final signature = '${media.size}|${media.devicePixelRatio}';
+        final signature =
+            '${media.size}|${media.devicePixelRatio}|${media.viewPadding}';
         if (signature != _signature) {
           await StorageService.saveDeviceMetrics(
             width: media.size.width,
@@ -29,4 +30,3 @@ class DeviceConfigService {
     }
   }
 }
-

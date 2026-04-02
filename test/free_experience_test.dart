@@ -1,17 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/core/theme/app_theme.dart';
+import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/features/contributions/pages/stats_page.dart';
-import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
 import 'package:github_wallpaper/features/settings/controllers/settings_controller.dart';
 import 'package:github_wallpaper/features/settings/controllers/theme_controller.dart';
 import 'package:github_wallpaper/features/settings/pages/settings_page.dart';
 import 'package:github_wallpaper/features/wallpaper/pages/customize_page.dart';
-import 'package:github_wallpaper/core/storage/storage_service.dart';
-import 'package:github_wallpaper/features/membership/models/membership_models.dart';
-import 'package:github_wallpaper/core/theme/app_theme.dart';
-import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -58,12 +56,13 @@ void main() {
   }
 
   CachedContributionData buildData() {
-    final start = DateTime.utc(2025, 1, 1);
+    final currentYear = DateTime.now().toLocal().year;
+    final start = DateTime.utc(currentYear - 1, 1, 1);
     final days = List.generate(
-      370,
-      (i) => ContributionDay(
-        date: start.add(Duration(days: i)),
-        contributionCount: i % 11 == 0 ? 8 : 0,
+      430,
+      (index) => ContributionDay(
+        date: start.add(Duration(days: index)),
+        contributionCount: index % 11 == 0 ? 8 : 0,
       ),
     );
 
@@ -74,7 +73,7 @@ void main() {
         (sum, day) => sum + day.contributionCount,
       ),
       days: days,
-      lastUpdated: DateTime.utc(2026, 3, 1),
+      lastUpdated: DateTime.utc(currentYear, 3, 1),
       repositories: const [],
     );
   }
@@ -86,14 +85,13 @@ void main() {
     await prefs.clear();
   });
 
-  testWidgets('Settings shows cleaned membership actions and support screen',
+  testWidgets('Settings removes monetization actions and still opens support',
       (tester) async {
     await tester.pumpWidget(
       MultiProvider(
         providers: [
           ChangeNotifierProvider(create: (_) => SettingsController()),
           ChangeNotifierProvider(create: (_) => ThemeController()),
-          ChangeNotifierProvider(create: (_) => MembershipController()),
         ],
         child: MaterialApp(
           theme: AppTheme.lightTheme(),
@@ -103,15 +101,12 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text(AppStrings.supportUs), findsNothing);
-    expect(find.text('Upgrade to Pro'), findsOneWidget);
+    expect(find.text('Upgrade to Pro'), findsNothing);
     expect(find.text('Restore Purchase'), findsNothing);
-    expect(find.text('Subscription'), findsOneWidget);
-    expect(find.text('Redeem Coupon'), findsOneWidget);
-    expect(find.text('Weekly goal'), findsOneWidget);
-    expect(find.text('See Pro'), findsNothing);
+    expect(find.text('Subscription'), findsNothing);
+    expect(find.text('Redeem Coupon'), findsNothing);
 
-    final supportTile = find.text('Support');
+    final supportTile = find.widgetWithText(ListTile, 'Support');
     await tester.ensureVisible(supportTile);
     await tester.tap(supportTile, warnIfMissed: false);
     await tester.pumpAndSettle();
@@ -119,126 +114,59 @@ void main() {
     expect(find.text('About & Support'), findsOneWidget);
     expect(find.text(AppStrings.freeForeverBanner), findsOneWidget);
   });
-  testWidgets('Customize shows locked Pro templates to free users',
-      (tester) async {
-    await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => MembershipController(),
-        child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: Scaffold(
-            body: CustomizePage(
-              data: buildData(),
-              onSetWallpaper: (_) async => true,
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
 
-    expect(find.text('🧩  Templates'), findsOneWidget);
-    expect(find.textContaining('Minimal Dark'), findsOneWidget);
-    expect(find.textContaining('Code Centric'), findsOneWidget);
-    expect(find.text('Pro'), findsWidgets);
-  });
-
-  testWidgets('Settings opens membership access as a parent screen',
+  testWidgets('Customize shows included templates without locked messaging',
       (tester) async {
-    const membershipInfo = MembershipInfo(
-      plan: MembershipPlan.free,
-    );
-    await StorageService.setCachedMembershipInfo(membershipInfo);
-    final membershipState = MembershipController()
-      ..setMembershipInfo(membershipInfo);
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => SettingsController()),
-          ChangeNotifierProvider(create: (_) => ThemeController()),
-          ChangeNotifierProvider.value(value: membershipState),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: const SettingsPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.text('Subscription'), findsOneWidget);
-    expect(find.text('Appearance'), findsOneWidget);
-
-    await tester.tap(find.text('Subscription'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Subscription Details'), findsWidgets);
-    expect(find.text('Restore Purchase'), findsOneWidget);
-  });
-
-  testWidgets('Free users see coupon and restore actions in access page',
-      (tester) async {
-    const membershipInfo = MembershipInfo(
-      plan: MembershipPlan.free,
-    );
-    await StorageService.setCachedMembershipInfo(membershipInfo);
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider(create: (_) => SettingsController()),
-          ChangeNotifierProvider(create: (_) => ThemeController()),
-          ChangeNotifierProvider(create: (_) => MembershipController()),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: const SettingsPage(),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.text('Subscription'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Redeem Coupon'), findsOneWidget);
-    expect(find.text('Restore Purchase'), findsOneWidget);
-    expect(find.textContaining('Free plan active'), findsOneWidget);
-  });
-
-  testWidgets('Stats unlocks Pro sections in real time after membership update',
-      (tester) async {
-    await setupStorage();
-    await StorageService.setCachedMembershipInfo(
-      MembershipInfo.free(),
-    );
-    final membershipState = MembershipController()
-      ..setMembershipInfo(MembershipInfo.free());
-
-    await tester.pumpWidget(
-      ChangeNotifierProvider.value(
-        value: membershipState,
-        child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: StatsPage(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: CustomizePage(
             data: buildData(),
-            isLoading: false,
-            loadError: null,
-            onRefresh: () async {},
+            onSetWallpaper: (_) async => true,
           ),
         ),
       ),
     );
     await tester.pumpAndSettle();
 
-    expect(find.byIcon(Icons.expand_more_rounded), findsNothing);
+    expect(find.textContaining('Templates'), findsWidgets);
+    expect(find.textContaining('Minimal Dark'), findsWidgets);
+    expect(find.text('Swipe to explore • Tap to apply'), findsOneWidget);
+    expect(find.textContaining('Locked templates stay visible'), findsNothing);
+  });
 
-    membershipState.setMembershipInfo(
-      const MembershipInfo(plan: MembershipPlan.pro),
+  testWidgets('Stats allows switching to previous years without account tiers',
+      (tester) async {
+    final data = buildData();
+    final previousYear = data.days.first.date.toLocal().year;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: StatsPage(
+          data: data,
+          isLoading: false,
+          loadError: null,
+          onRefresh: () async {},
+        ),
+      ),
     );
     await tester.pumpAndSettle();
 
     expect(find.byIcon(Icons.expand_more_rounded), findsOneWidget);
+
+    await tester.tap(find.byIcon(Icons.expand_more_rounded));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('$previousYear').last, warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.textContaining('contributions in $previousYear'),
+      findsOneWidget,
+    );
   });
 }

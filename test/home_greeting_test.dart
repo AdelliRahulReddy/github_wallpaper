@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
@@ -32,7 +32,8 @@ void main() {
           isLoading: false,
           loadError: null,
           onRefresh: () async {},
-          onOpenStats: () {},
+          onOpenInsights: () {},
+          onOpenStudio: () {},
         ),
       ),
     );
@@ -54,7 +55,8 @@ void main() {
           isLoading: false,
           loadError: null,
           onRefresh: () async {},
-          onOpenStats: () {},
+          onOpenInsights: () {},
+          onOpenStudio: () {},
         ),
       ),
     );
@@ -63,4 +65,3 @@ void main() {
     expect(find.byType(HomePage), findsOneWidget);
   });
 }
-

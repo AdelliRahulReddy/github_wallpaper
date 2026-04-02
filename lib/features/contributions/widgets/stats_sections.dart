@@ -1,5 +1,3 @@
-﻿import 'dart:ui';
-
 import 'dart:math';
 
 import 'package:fl_chart/fl_chart.dart';
@@ -7,102 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_paywall_page.dart';
 import 'package:github_wallpaper/features/contributions/pages/wrapped_page.dart';
 import 'package:github_wallpaper/core/ui/app_components.dart';
 import 'package:intl/intl.dart';
-
-
-
-class StatsLockedPreview extends StatelessWidget {
-  final Widget child;
-  final String title;
-  final String body;
-  final VoidCallback onTap;
-
-  const StatsLockedPreview({
-    super.key,
-    required this.child,
-    required this.title,
-    required this.body,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-
-    return ClipRRect(
-      borderRadius: AppTheme.brLarge,
-      child: Stack(
-        children: [
-          IgnorePointer(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 7, sigmaY: 7),
-              child: Opacity(
-                opacity: 0.50,
-                child: child,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Material(
-              color: scheme.surface.withValues(alpha: 0.28),
-              child: InkWell(
-                onTap: onTap,
-                child: Center(
-                  child: Container(
-                    constraints: const BoxConstraints(maxWidth: 300),
-                    margin: AppTheme.pAll16,
-                    padding: AppTheme.pAll16,
-                    decoration: BoxDecoration(
-                      color: scheme.surface.withValues(alpha: 0.94),
-                      borderRadius: AppTheme.brLarge,
-                      border: Border.all(color: scheme.outlineVariant),
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.lock_rounded,
-                          color: scheme.primary,
-                          size: AppTheme.iconMD,
-                        ),
-                        AppTheme.h10,
-                        Text(
-                          title,
-                          textAlign: TextAlign.center,
-                          style: tt.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                        AppTheme.h8,
-                        Text(
-                          body,
-                          textAlign: TextAlign.center,
-                          style: tt.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                            height: 1.3,
-                          ),
-                        ),
-                        AppTheme.h12,
-                        FilledButton.tonal(
-                          onPressed: onTap,
-                          child: const Text('Unlock Pro'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 class StatsAtAGlanceGrid extends StatelessWidget {
   final int year;
@@ -111,8 +16,6 @@ class StatsAtAGlanceGrid extends StatelessWidget {
   final ContributionStats yearStats;
   final ContributionStats overallStats;
   final bool isCurrentYear;
-  final bool canUseAdvancedStats;
-  final VoidCallback onUnlockPro;
 
   const StatsAtAGlanceGrid({
     super.key,
@@ -122,8 +25,6 @@ class StatsAtAGlanceGrid extends StatelessWidget {
     required this.yearStats,
     required this.overallStats,
     required this.isCurrentYear,
-    required this.canUseAdvancedStats,
-    required this.onUnlockPro,
   });
 
   @override
@@ -178,8 +79,6 @@ class StatsAtAGlanceGrid extends StatelessWidget {
               color: scheme.tertiary,
               label: 'Best in $year',
               value: '${yearStats.longestStreak}d',
-              locked: !canUseAdvancedStats,
-              onTap: onUnlockPro,
             ),
             _AtAGlanceTile(
               icon: Icons.calendar_month_outlined,
@@ -192,8 +91,6 @@ class StatsAtAGlanceGrid extends StatelessWidget {
               color: AppTheme.warningOrange,
               label: 'Peak Day',
               value: '$peakDay',
-              locked: !canUseAdvancedStats,
-              onTap: onUnlockPro,
             ),
             _AtAGlanceTile(
               icon: Icons.commit_rounded,
@@ -206,8 +103,6 @@ class StatsAtAGlanceGrid extends StatelessWidget {
               color: scheme.secondary,
               label: 'Avg/Day',
               value: avgPerDay.toStringAsFixed(1),
-              locked: !canUseAdvancedStats,
-              onTap: onUnlockPro,
             ),
           ],
         ),
@@ -221,16 +116,12 @@ class _AtAGlanceTile extends StatelessWidget {
   final Color color;
   final String label;
   final String value;
-  final bool locked;
-  final VoidCallback? onTap;
 
   const _AtAGlanceTile({
     required this.icon,
     required this.color,
     required this.label,
     required this.value,
-    this.locked = false,
-    this.onTap,
   });
 
   @override
@@ -265,66 +156,7 @@ class _AtAGlanceTile extends StatelessWidget {
         ),
       ),
     );
-
-    if (!locked) {
-      return tile;
-    }
-
-    return ClipRRect(
-      borderRadius: AppTheme.brLarge,
-      child: Stack(
-        children: [
-          IgnorePointer(
-            child: ImageFiltered(
-              imageFilter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-              child: Opacity(
-                opacity: 0.50,
-                child: tile,
-              ),
-            ),
-          ),
-          Positioned.fill(
-            child: Material(
-              color: scheme.surface.withValues(alpha: 0.26),
-              child: InkWell(
-                onTap: onTap,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: scheme.surface.withValues(alpha: 0.92),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: scheme.outlineVariant),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.lock_rounded,
-                          size: AppTheme.iconSM,
-                          color: scheme.primary,
-                        ),
-                        AppTheme.w6,
-                        Text(
-                          'Pro',
-                          style: tt.labelMedium?.copyWith(
-                            color: scheme.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return tile;
   }
 }
 
@@ -354,9 +186,9 @@ class StatsYearHeatmapCard extends StatelessWidget {
     );
     final yearStart = DateTime(year, 1, 1);
     final yearEnd = DateTime(year, 12, 31);
-    final gridStart =
-        yearStart.subtract(Duration(days: yearStart.weekday - 1));
-    final gridEnd = yearEnd.add(Duration(days: DateTime.daysPerWeek - yearEnd.weekday));
+    final gridStart = yearStart.subtract(Duration(days: yearStart.weekday - 1));
+    final gridEnd =
+        yearEnd.add(Duration(days: DateTime.daysPerWeek - yearEnd.weekday));
     final totalGridDays = gridEnd.difference(gridStart).inDays + 1;
     final weekCount = (totalGridDays / DateTime.daysPerWeek).ceil();
     final byKey = {for (final day in data.days) day.dateKey: day};
@@ -964,9 +796,8 @@ class StatsMostActiveDaysCard extends StatelessWidget {
       if (totals[i] > totals[best]) best = i;
     }
     final hasActivity = totals.any((value) => value > 0);
-    final maxV = hasActivity
-        ? totals.fold<int>(1, (a, b) => max(a, b)).toDouble()
-        : 1.0;
+    final maxV =
+        hasActivity ? totals.fold<int>(1, (a, b) => max(a, b)).toDouble() : 1.0;
     const labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
     return Column(
@@ -1229,12 +1060,10 @@ class StatsTopReposCard extends StatelessWidget {
 
 class StatsYearWrappedCtaCard extends StatelessWidget {
   final CachedContributionData data;
-  final bool locked;
 
   const StatsYearWrappedCtaCard({
     super.key,
     required this.data,
-    this.locked = false,
   });
 
   @override
@@ -1253,8 +1082,7 @@ class StatsYearWrappedCtaCard extends StatelessWidget {
     }
     DateTime? bestMonthKey;
     for (final entry in totals.entries) {
-      if (bestMonthKey == null ||
-          entry.value > (totals[bestMonthKey] ?? 0)) {
+      if (bestMonthKey == null || entry.value > (totals[bestMonthKey] ?? 0)) {
         bestMonthKey = entry.key;
       }
     }
@@ -1297,30 +1125,12 @@ class StatsYearWrappedCtaCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: Text(
-                        locked ? 'Wrapped Preview' : 'Last 365 Days',
+                        'Last 365 Days',
                         style: tt.titleMedium?.copyWith(
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                     ),
-                    if (locked)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: scheme.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          'Locked',
-                          style: tt.labelSmall?.copyWith(
-                            color: scheme.primary,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
                   ],
                 ),
                 AppTheme.h16,
@@ -1355,16 +1165,10 @@ class StatsYearWrappedCtaCard extends StatelessWidget {
                     onPressed: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => locked
-                              ? const MembershipPaywallPage(
-                                  featureName: 'Wrapped',
-                                  featureDescription:
-                                      'GitWall Wrapped is a Pro feature with the yearly recap and share flow.',
-                                )
-                              : WrappedPage(
-                                  data: data,
-                                  username: data.username,
-                                ),
+                          builder: (_) => WrappedPage(
+                            data: data,
+                            username: data.username,
+                          ),
                         ),
                       );
                     },
@@ -1373,7 +1177,7 @@ class StatsYearWrappedCtaCard extends StatelessWidget {
                       foregroundColor: scheme.onPrimary,
                       padding: AppTheme.pSymV16,
                     ),
-                    child: Text(locked ? 'Unlock Wrapped' : 'View My Wrapped'),
+                    child: const Text('View My Wrapped'),
                   ),
                 ),
               ],
@@ -1512,9 +1316,8 @@ class StatsMonthlyTrendCard extends StatelessWidget {
     final now = DateTime.now().toLocal();
     final currentMonthIndex =
         year == now.year ? (now.month - 1).clamp(0, 11) : 11;
-    final prev = currentMonthIndex == 0
-        ? lastYear[11]
-        : thisYear[currentMonthIndex - 1];
+    final prev =
+        currentMonthIndex == 0 ? lastYear[11] : thisYear[currentMonthIndex - 1];
     final curr = thisYear[currentMonthIndex];
     final pct = prev == 0 ? null : ((curr - prev) / prev) * 100.0;
     final pctLabel = pct == null
@@ -1672,5 +1475,3 @@ class _LegendDot extends StatelessWidget {
     );
   }
 }
-
-

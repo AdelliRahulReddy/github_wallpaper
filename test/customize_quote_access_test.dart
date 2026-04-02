@@ -1,13 +1,10 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
-import 'package:github_wallpaper/features/membership/models/membership_models.dart';
-import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
 import 'package:github_wallpaper/features/wallpaper/pages/customize_page.dart';
-import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -53,12 +50,13 @@ void main() {
   }
 
   CachedContributionData buildData() {
-    final start = DateTime.utc(2025, 1, 1);
+    final currentYear = DateTime.now().toUtc().year;
+    final start = DateTime.utc(currentYear, 1, 1);
     final days = List.generate(
       40,
-      (i) => ContributionDay(
-        date: start.add(Duration(days: i)),
-        contributionCount: i.isEven ? 2 : 0,
+      (index) => ContributionDay(
+        date: start.add(Duration(days: index)),
+        contributionCount: index.isEven ? 2 : 0,
       ),
     );
 
@@ -69,7 +67,7 @@ void main() {
         (sum, day) => sum + day.contributionCount,
       ),
       days: days,
-      lastUpdated: DateTime.utc(2026, 3, 1),
+      lastUpdated: DateTime.utc(currentYear, 3, 1),
       repositories: const [],
     );
   }
@@ -81,23 +79,18 @@ void main() {
     await prefs.clear();
   });
 
-  testWidgets('Customize shows locked live quote action for free users',
+  testWidgets('Customize exposes live quote generation without tiers',
       (tester) async {
-    final membershipState = MembershipController()
-      ..setMembershipInfo(MembershipInfo.free());
+    await tester.binding.setSurfaceSize(const Size(1200, 2000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
 
     await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: membershipState),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: Scaffold(
-            body: CustomizePage(
-              data: buildData(),
-              onSetWallpaper: (_) async => true,
-            ),
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: CustomizePage(
+            data: buildData(),
+            onSetWallpaper: (_) async => true,
           ),
         ),
       ),
@@ -110,42 +103,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Generate Live Quote'), findsOneWidget);
-    expect(find.byIcon(Icons.lock_rounded), findsWidgets);
-  });
-
-  testWidgets('Customize shows live quote action for pro users',
-      (tester) async {
-    final membershipState = MembershipController()
-      ..setMembershipInfo(
-        MembershipInfo(
-          plan: MembershipPlan.pro,
-        ),
-      );
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider.value(value: membershipState),
-        ],
-        child: MaterialApp(
-          theme: AppTheme.lightTheme(),
-          home: Scaffold(
-            body: CustomizePage(
-              data: buildData(),
-              onSetWallpaper: (_) async => true,
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final textOverlay = find.text('Text Overlay');
-    await tester.ensureVisible(textOverlay);
-    await tester.tap(textOverlay, warnIfMissed: false);
-    await tester.pumpAndSettle();
-
-    expect(find.text('Generate Live Quote'), findsOneWidget);
+    expect(find.byIcon(Icons.lock_rounded), findsNothing);
   });
 }
-

@@ -40,11 +40,6 @@ export const schemas = {
     },
     { key: "debug_mode_enabled", label: "Debug mode enabled", type: "boolean" },
     { key: "onboarding_version", label: "Onboarding version", type: "number" },
-    {
-      key: "coupon_access_duration_days",
-      label: "Coupon access duration days",
-      type: "number",
-    },
   ],
 };
 
@@ -59,6 +54,5 @@ export const defaults = {
     ai_quotes_quota_exceeded: false,
     debug_mode_enabled: false,
     onboarding_version: 1,
-    coupon_access_duration_days: 180,
   },
 };

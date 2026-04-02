@@ -296,9 +296,8 @@ class CachedContributionData {
       );
       if (totalLanguageSize > 0) {
         for (final language in repository.languages) {
-          totals[language.name] =
-              (totals[language.name] ?? 0) +
-                  (repository.commitCount * language.size / totalLanguageSize);
+          totals[language.name] = (totals[language.name] ?? 0) +
+              (repository.commitCount * language.size / totalLanguageSize);
           colors[language.name] ??= language.color;
         }
       } else if (repository.primaryLanguageName != null) {
@@ -327,9 +326,8 @@ class CachedContributionData {
     }
 
     if (sortedTotals.length > 7) {
-      final remaining = sortedTotals
-          .skip(7)
-          .fold(0.0, (sum, entry) => sum + entry.value);
+      final remaining =
+          sortedTotals.skip(7).fold(0.0, (sum, entry) => sum + entry.value);
       if (remaining > 0) {
         result.add(
           LanguageUsage(

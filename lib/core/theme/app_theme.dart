@@ -208,6 +208,32 @@ class AppTheme {
   static List<BoxShadow> shadow(Color color,
           {double blur = 12.0, double spread = 0.0, double opacity = 0.06}) =>
       _shadow(color, blur: blur, spread: spread, opacity: opacity);
+
+  static BoxDecoration surfaceDecoration(
+    BuildContext context, {
+    AppSurfaceTone tone = AppSurfaceTone.standard,
+    Color? accent,
+  }) =>
+      _surfaceDecoration(context, tone: tone, accent: accent);
+
+  static ButtonStyle outlinedActionStyle(
+    BuildContext context, {
+    bool compact = false,
+  }) =>
+      _outlinedActionStyle(context, compact: compact);
+
+  static ButtonStyle ghostActionStyle(
+    BuildContext context, {
+    Color? color,
+    bool compact = false,
+  }) =>
+      _ghostActionStyle(context, color: color, compact: compact);
+
+  static ButtonStyle primaryActionStyle(
+    BuildContext context, {
+    bool compact = false,
+  }) =>
+      _primaryActionStyle(context, compact: compact);
 }
 
 ThemeData _createTheme(Brightness brightness) {
@@ -304,6 +330,7 @@ ThemeData _createTheme(Brightness brightness) {
     iconTheme: IconThemeData(color: colorScheme.onSurfaceVariant),
     extensions: [
       AppThemeExt(isLight: !isDark),
+      AppSurfaceTokens.standard(),
       SettingsThemeTokens.standard(),
     ],
     appBarTheme: baseTheme.appBarTheme.copyWith(
@@ -364,9 +391,10 @@ ThemeData _createTheme(Brightness brightness) {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         ),
         elevation: 0,
+        minimumSize: const Size.fromHeight(48),
         padding: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing16,
           vertical: AppTheme.spacing12,
@@ -379,13 +407,86 @@ ThemeData _createTheme(Brightness brightness) {
         backgroundColor: colorScheme.primary,
         foregroundColor: colorScheme.onPrimary,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
         ),
         elevation: 0,
+        minimumSize: const Size.fromHeight(48),
         padding: const EdgeInsets.symmetric(
           horizontal: AppTheme.spacing16,
           vertical: AppTheme.spacing12,
         ),
+      ),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: OutlinedButton.styleFrom(
+        foregroundColor: colorScheme.onSurface,
+        minimumSize: const Size.fromHeight(48),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacing16,
+          vertical: AppTheme.spacing12,
+        ),
+        side: BorderSide(
+          color: colorScheme.outline.withValues(alpha: isDark ? 0.38 : 0.32),
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        textStyle: textTheme.titleSmall,
+      ),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: TextButton.styleFrom(
+        foregroundColor: colorScheme.onSurfaceVariant,
+        minimumSize: const Size(0, 40),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppTheme.spacing12,
+          vertical: AppTheme.spacing10,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        ),
+        textStyle: textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    ),
+    chipTheme: baseTheme.chipTheme.copyWith(
+      backgroundColor: colorScheme.surfaceContainerHigh,
+      side: BorderSide.none,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(999),
+      ),
+      labelStyle: textTheme.labelSmall?.copyWith(
+        color: colorScheme.onSurface,
+        fontWeight: FontWeight.w700,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing10,
+        vertical: 0,
+      ),
+    ),
+    switchTheme: SwitchThemeData(
+      thumbIcon: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) {
+          return const Icon(Icons.check_rounded, size: 14);
+        }
+        return const Icon(Icons.close_rounded, size: 14);
+      }),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: colorScheme.surface,
+      surfaceTintColor: colorScheme.surface,
+      modalBackgroundColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
+      ),
+      clipBehavior: Clip.antiAlias,
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: colorScheme.surface,
+      surfaceTintColor: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppTheme.radiusXL),
       ),
     ),
     snackBarTheme: SnackBarThemeData(
@@ -398,11 +499,14 @@ ThemeData _createTheme(Brightness brightness) {
       elevation: 1,
     ),
     cardTheme: CardThemeData(
-      color: colorScheme.surface,
-      elevation: 0.5,
-      shadowColor: colorScheme.shadow.withValues(alpha: 0.06),
+      color: isDark ? colorScheme.surfaceContainerLow : colorScheme.surface,
+      elevation: 0,
+      shadowColor: colorScheme.shadow.withValues(alpha: 0.08),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        side: BorderSide(
+          color: colorScheme.outline.withValues(alpha: isDark ? 0.24 : 0.14),
+        ),
       ),
     ),
     listTileTheme: ListTileThemeData(
@@ -442,6 +546,139 @@ List<BoxShadow> _shadow(
         offset: const Offset(0, 4),
       ),
     ];
+
+enum AppSurfaceTone {
+  standard,
+  muted,
+  emphasized,
+  glass,
+  poster,
+}
+
+BoxDecoration _surfaceDecoration(
+  BuildContext context, {
+  AppSurfaceTone tone = AppSurfaceTone.standard,
+  Color? accent,
+}) {
+  final colors = Theme.of(context).colorScheme;
+  final tokens = AppSurfaceTokens.of(context);
+  final accentColor = accent ?? colors.primary;
+  final color = switch (tone) {
+    AppSurfaceTone.standard => colors.surface,
+    AppSurfaceTone.muted => colors.surfaceContainerLow,
+    AppSurfaceTone.emphasized =>
+      colors.surfaceContainerHigh.withValues(alpha: 0.92),
+    AppSurfaceTone.glass =>
+      colors.surface.withValues(alpha: tokens.glassFillOpacity),
+    AppSurfaceTone.poster => colors.surfaceContainerHighest.withValues(
+        alpha: 0.96,
+      ),
+  };
+  final borderColor = switch (tone) {
+    AppSurfaceTone.poster => accentColor.withValues(
+        alpha: tokens.accentStrokeOpacity,
+      ),
+    AppSurfaceTone.emphasized => colors.outline.withValues(
+        alpha: tokens.strongStrokeOpacity,
+      ),
+    AppSurfaceTone.glass => colors.outline.withValues(
+        alpha: tokens.standardStrokeOpacity,
+      ),
+    AppSurfaceTone.standard ||
+    AppSurfaceTone.muted =>
+      colors.outline.withValues(alpha: tokens.subtleStrokeOpacity),
+  };
+  final radius = switch (tone) {
+    AppSurfaceTone.poster => tokens.posterRadius,
+    AppSurfaceTone.standard ||
+    AppSurfaceTone.muted ||
+    AppSurfaceTone.emphasized ||
+    AppSurfaceTone.glass =>
+      tokens.panelRadius,
+  };
+
+  return BoxDecoration(
+    color: color,
+    borderRadius: BorderRadius.circular(radius),
+    border: Border.all(color: borderColor),
+    boxShadow: [
+      BoxShadow(
+        color: colors.shadow.withValues(alpha: tokens.shadowOpacity),
+        blurRadius: tone == AppSurfaceTone.poster ? 28 : 18,
+        spreadRadius: tone == AppSurfaceTone.poster ? -6 : -8,
+        offset: Offset(0, tone == AppSurfaceTone.poster ? 18 : 10),
+      ),
+    ],
+    gradient: tone == AppSurfaceTone.poster
+        ? LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              color,
+              color.withValues(alpha: 0.98),
+              accentColor.withValues(alpha: 0.06),
+            ],
+          )
+        : null,
+  );
+}
+
+ButtonStyle _primaryActionStyle(
+  BuildContext context, {
+  bool compact = false,
+}) {
+  final theme = Theme.of(context);
+  return theme.filledButtonTheme.style!.copyWith(
+    minimumSize: WidgetStatePropertyAll(
+      Size.fromHeight(compact ? 40 : 48),
+    ),
+    padding: WidgetStatePropertyAll(
+      EdgeInsets.symmetric(
+        horizontal: compact ? AppTheme.spacing12 : AppTheme.spacing16,
+        vertical: compact ? AppTheme.spacing10 : AppTheme.spacing12,
+      ),
+    ),
+  );
+}
+
+ButtonStyle _outlinedActionStyle(
+  BuildContext context, {
+  bool compact = false,
+}) {
+  final theme = Theme.of(context);
+  return theme.outlinedButtonTheme.style!.copyWith(
+    minimumSize: WidgetStatePropertyAll(
+      Size.fromHeight(compact ? 40 : 48),
+    ),
+    padding: WidgetStatePropertyAll(
+      EdgeInsets.symmetric(
+        horizontal: compact ? AppTheme.spacing12 : AppTheme.spacing16,
+        vertical: compact ? AppTheme.spacing10 : AppTheme.spacing12,
+      ),
+    ),
+  );
+}
+
+ButtonStyle _ghostActionStyle(
+  BuildContext context, {
+  Color? color,
+  bool compact = false,
+}) {
+  final theme = Theme.of(context);
+  final scheme = theme.colorScheme;
+  return theme.textButtonTheme.style!.copyWith(
+    foregroundColor: WidgetStatePropertyAll(color ?? scheme.onSurfaceVariant),
+    minimumSize: WidgetStatePropertyAll(
+      Size(0, compact ? 36 : 40),
+    ),
+    padding: WidgetStatePropertyAll(
+      EdgeInsets.symmetric(
+        horizontal: compact ? AppTheme.spacing10 : AppTheme.spacing12,
+        vertical: compact ? AppTheme.spacing8 : AppTheme.spacing10,
+      ),
+    ),
+  );
+}
 
 class AppThemeExt extends ThemeExtension<AppThemeExt> {
   final List<Color> heatmapLevels;
@@ -501,6 +738,143 @@ class AppThemeExt extends ThemeExtension<AppThemeExt> {
       Theme.of(context).extension<AppThemeExt>()!;
 }
 
+class AppSurfaceTokens extends ThemeExtension<AppSurfaceTokens> {
+  final double contentMaxWidth;
+  final double panelRadius;
+  final double posterRadius;
+  final double subtleStrokeOpacity;
+  final double standardStrokeOpacity;
+  final double strongStrokeOpacity;
+  final double accentStrokeOpacity;
+  final double shadowOpacity;
+  final double glassFillOpacity;
+  final EdgeInsets panelPadding;
+  final EdgeInsets heroPadding;
+  final double sectionGap;
+  final double compactGap;
+  final double buttonHeight;
+
+  const AppSurfaceTokens._raw({
+    required this.contentMaxWidth,
+    required this.panelRadius,
+    required this.posterRadius,
+    required this.subtleStrokeOpacity,
+    required this.standardStrokeOpacity,
+    required this.strongStrokeOpacity,
+    required this.accentStrokeOpacity,
+    required this.shadowOpacity,
+    required this.glassFillOpacity,
+    required this.panelPadding,
+    required this.heroPadding,
+    required this.sectionGap,
+    required this.compactGap,
+    required this.buttonHeight,
+  });
+
+  factory AppSurfaceTokens.standard() => const AppSurfaceTokens._raw(
+        contentMaxWidth: 1120,
+        panelRadius: AppTheme.radiusLarge,
+        posterRadius: AppTheme.radiusXL,
+        subtleStrokeOpacity: 0.12,
+        standardStrokeOpacity: 0.18,
+        strongStrokeOpacity: 0.26,
+        accentStrokeOpacity: 0.20,
+        shadowOpacity: 0.08,
+        glassFillOpacity: 0.74,
+        panelPadding: EdgeInsets.all(AppTheme.spacing20),
+        heroPadding: EdgeInsets.all(AppTheme.spacing24),
+        sectionGap: AppTheme.spacing16,
+        compactGap: AppTheme.spacing12,
+        buttonHeight: 48,
+      );
+
+  EdgeInsets pagePaddingFor(double width) {
+    if (width >= 1100) {
+      return const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing32,
+        vertical: AppTheme.spacing20,
+      );
+    }
+    if (width >= 700) {
+      return const EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing24,
+        vertical: AppTheme.spacing20,
+      );
+    }
+    return const EdgeInsets.symmetric(
+      horizontal: AppTheme.spacing16,
+      vertical: AppTheme.spacing16,
+    );
+  }
+
+  @override
+  AppSurfaceTokens copyWith({
+    double? contentMaxWidth,
+    double? panelRadius,
+    double? posterRadius,
+    double? subtleStrokeOpacity,
+    double? standardStrokeOpacity,
+    double? strongStrokeOpacity,
+    double? accentStrokeOpacity,
+    double? shadowOpacity,
+    double? glassFillOpacity,
+    EdgeInsets? panelPadding,
+    EdgeInsets? heroPadding,
+    double? sectionGap,
+    double? compactGap,
+    double? buttonHeight,
+  }) =>
+      AppSurfaceTokens._raw(
+        contentMaxWidth: contentMaxWidth ?? this.contentMaxWidth,
+        panelRadius: panelRadius ?? this.panelRadius,
+        posterRadius: posterRadius ?? this.posterRadius,
+        subtleStrokeOpacity: subtleStrokeOpacity ?? this.subtleStrokeOpacity,
+        standardStrokeOpacity:
+            standardStrokeOpacity ?? this.standardStrokeOpacity,
+        strongStrokeOpacity: strongStrokeOpacity ?? this.strongStrokeOpacity,
+        accentStrokeOpacity: accentStrokeOpacity ?? this.accentStrokeOpacity,
+        shadowOpacity: shadowOpacity ?? this.shadowOpacity,
+        glassFillOpacity: glassFillOpacity ?? this.glassFillOpacity,
+        panelPadding: panelPadding ?? this.panelPadding,
+        heroPadding: heroPadding ?? this.heroPadding,
+        sectionGap: sectionGap ?? this.sectionGap,
+        compactGap: compactGap ?? this.compactGap,
+        buttonHeight: buttonHeight ?? this.buttonHeight,
+      );
+
+  @override
+  AppSurfaceTokens lerp(ThemeExtension<AppSurfaceTokens>? other, double t) {
+    if (other is! AppSurfaceTokens) return this;
+    return AppSurfaceTokens._raw(
+      contentMaxWidth:
+          contentMaxWidth + (other.contentMaxWidth - contentMaxWidth) * t,
+      panelRadius: panelRadius + (other.panelRadius - panelRadius) * t,
+      posterRadius: posterRadius + (other.posterRadius - posterRadius) * t,
+      subtleStrokeOpacity: subtleStrokeOpacity +
+          (other.subtleStrokeOpacity - subtleStrokeOpacity) * t,
+      standardStrokeOpacity: standardStrokeOpacity +
+          (other.standardStrokeOpacity - standardStrokeOpacity) * t,
+      strongStrokeOpacity: strongStrokeOpacity +
+          (other.strongStrokeOpacity - strongStrokeOpacity) * t,
+      accentStrokeOpacity: accentStrokeOpacity +
+          (other.accentStrokeOpacity - accentStrokeOpacity) * t,
+      shadowOpacity: shadowOpacity + (other.shadowOpacity - shadowOpacity) * t,
+      glassFillOpacity:
+          glassFillOpacity + (other.glassFillOpacity - glassFillOpacity) * t,
+      panelPadding:
+          EdgeInsets.lerp(panelPadding, other.panelPadding, t) ?? panelPadding,
+      heroPadding:
+          EdgeInsets.lerp(heroPadding, other.heroPadding, t) ?? heroPadding,
+      sectionGap: sectionGap + (other.sectionGap - sectionGap) * t,
+      compactGap: compactGap + (other.compactGap - compactGap) * t,
+      buttonHeight: buttonHeight + (other.buttonHeight - buttonHeight) * t,
+    );
+  }
+
+  static AppSurfaceTokens of(BuildContext context) =>
+      Theme.of(context).extension<AppSurfaceTokens>()!;
+}
+
 class SettingsThemeTokens extends ThemeExtension<SettingsThemeTokens> {
   final EdgeInsets screenPadding;
   final EdgeInsets sectionCardPadding;
@@ -528,7 +902,8 @@ class SettingsThemeTokens extends ThemeExtension<SettingsThemeTokens> {
 
   factory SettingsThemeTokens.standard() => const SettingsThemeTokens._raw(
         screenPadding: EdgeInsets.symmetric(vertical: AppTheme.spacing16),
-        sectionCardPadding: EdgeInsets.symmetric(horizontal: AppTheme.spacing16),
+        sectionCardPadding:
+            EdgeInsets.symmetric(horizontal: AppTheme.spacing16),
         sectionHeaderPadding: EdgeInsets.only(
           left: AppTheme.spacing16,
           top: AppTheme.spacing20,
@@ -577,15 +952,14 @@ class SettingsThemeTokens extends ThemeExtension<SettingsThemeTokens> {
   ) {
     if (other is! SettingsThemeTokens) return this;
     return SettingsThemeTokens._raw(
-      screenPadding:
-          EdgeInsets.lerp(screenPadding, other.screenPadding, t) ??
-              screenPadding,
+      screenPadding: EdgeInsets.lerp(screenPadding, other.screenPadding, t) ??
+          screenPadding,
       sectionCardPadding:
           EdgeInsets.lerp(sectionCardPadding, other.sectionCardPadding, t) ??
               sectionCardPadding,
-      sectionHeaderPadding:
-          EdgeInsets.lerp(sectionHeaderPadding, other.sectionHeaderPadding, t) ??
-              sectionHeaderPadding,
+      sectionHeaderPadding: EdgeInsets.lerp(
+              sectionHeaderPadding, other.sectionHeaderPadding, t) ??
+          sectionHeaderPadding,
       sectionTitleOpacity: sectionTitleOpacity +
           (other.sectionTitleOpacity - sectionTitleOpacity) * t,
       subtitleOpacity:
@@ -608,6 +982,7 @@ class SettingsThemeTokens extends ThemeExtension<SettingsThemeTokens> {
 
 extension ThemeContext on BuildContext {
   AppThemeExt get appTheme => AppThemeExt.of(this);
+  AppSurfaceTokens get surfaceTokens => AppSurfaceTokens.of(this);
   SettingsThemeTokens get settingsTokens => SettingsThemeTokens.of(this);
   bool get isDark => Theme.of(this).brightness == Brightness.dark;
   ColorScheme get colors => Theme.of(this).colorScheme;

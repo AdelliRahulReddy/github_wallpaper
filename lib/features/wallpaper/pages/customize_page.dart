@@ -6,21 +6,17 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/features/wallpaper/widgets/ui_render.dart';
-import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_paywall_page.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/ui/app_components.dart';
 import 'package:github_wallpaper/features/wallpaper/models/theme_presets.dart';
 import 'package:github_wallpaper/features/contributions/services/daily_quotes.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
 import 'package:github_wallpaper/app/services/background_scheduler.dart';
 import 'package:github_wallpaper/features/wallpaper/services/device_config_service.dart';
 import 'package:github_wallpaper/features/wallpaper/services/wallpaper_service.dart';
 import 'package:github_wallpaper/features/wallpaper/models/wallpaper_templates.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
-import 'package:provider/provider.dart';
 import 'dart:async';
 
 class CustomizePage extends StatefulWidget {
@@ -45,40 +41,24 @@ class _CustomizePageState extends State<CustomizePage> {
   bool _isGenerating = false;
   bool _isGeneratingQuote = false;
   bool _isRefreshingDeviceProfile = false;
-  late WallpaperTarget _previewTarget;
+  bool _autoUpdateEnabled = false;
+  bool _autoApplyAfterSyncEnabled = false;
   bool _safePreviewEnabled = true;
   late final PageController _themeController;
 
   @override
   void initState() {
     super.initState();
-    _config = StorageService.getWallpaperConfig();
-    if (!MembershipEntitlements.isThemeUnlocked(_config.themeId)) {
-      _config = _config.copyWith(
-        themeId: MembershipEntitlements.normalizeThemeId(_config.themeId),
-      );
-    }
-    if (!MembershipEntitlements.isTemplateUnlocked(_config.templateId)) {
-      _config = _config.copyWith(
-        templateId: MembershipEntitlements.normalizeTemplateId(
-          _config.templateId,
-        ),
-      );
-    }
+    _config = _normalizedConfig(StorageService.getWallpaperConfig());
     _quoteController = TextEditingController(text: _config.customQuote);
-    _previewTarget = StorageService.getLastWallpaperTarget();
-    _safePreviewEnabled = StorageService.getSafePreviewEnabled();
+    _autoUpdateEnabled = StorageService.getAutoUpdate();
+    _autoApplyAfterSyncEnabled = StorageService.getAutoApplyAfterSync();
+    _safePreviewEnabled = false;
     _themeController = PageController(
       initialPage: _themeIndexFor(_config.themeId),
       viewportFraction: 0.86,
     );
     unawaited(_ensureDeviceMetrics());
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    _normalizeConfigForMembership();
   }
 
   @override
@@ -94,21 +74,11 @@ class _CustomizePageState extends State<CustomizePage> {
     return index < 0 ? 0 : index;
   }
 
-  void _normalizeConfigForMembership() {
-    var next = _config;
-    if (!MembershipEntitlements.isThemeUnlocked(next.themeId)) {
-      next = next.copyWith(
-        themeId: MembershipEntitlements.normalizeThemeId(next.themeId),
-      );
-    }
-    if (!MembershipEntitlements.isTemplateUnlocked(next.templateId)) {
-      next = next.copyWith(
-        templateId: MembershipEntitlements.normalizeTemplateId(next.templateId),
-      );
-    }
-    if (next == _config) return;
-    setState(() => _config = next);
-    _syncThemeGalleryToCurrentSelection(animate: false);
+  WallpaperConfig _normalizedConfig(WallpaperConfig config) {
+    return config.copyWith(
+      themeId: ThemePresets.fromId(config.themeId).id,
+      templateId: WallpaperTemplates.fromId(config.templateId).id,
+    );
   }
 
   void _syncThemeGalleryToCurrentSelection({bool animate = true}) {
@@ -157,7 +127,6 @@ class _CustomizePageState extends State<CustomizePage> {
 
   Future<void> _generateQuote() async {
     if (_isGeneratingQuote || widget.data == null) return;
-    if (!context.read<MembershipController>().hasProAccess) return;
     HapticFeedback.lightImpact();
     setState(() => _isGeneratingQuote = true);
     try {
@@ -187,41 +156,7 @@ class _CustomizePageState extends State<CustomizePage> {
     }
   }
 
-  Future<bool> _promptForLockedAccess({
-    required String featureName,
-    required String featureDescription,
-  }) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => MembershipPaywallPage(
-          featureName: featureName,
-          featureDescription: featureDescription,
-        ),
-      ),
-    );
-    if (!mounted) return false;
-    final refreshed = context.read<MembershipController>().info ??
-        StorageService.getCachedMembershipInfo();
-    if (refreshed?.hasProAccess == true &&
-        BackgroundScheduler.shouldScheduleReminderChecks()) {
-      await BackgroundScheduler.scheduleStreakReminders();
-    }
-    if (mounted) {
-      setState(() {});
-    }
-    return refreshed?.hasProAccess == true;
-  }
-
   Future<void> _applyTemplate(WallpaperTemplate template) async {
-    if (!MembershipEntitlements.isTemplateUnlocked(template.id)) {
-      final unlocked = await _promptForLockedAccess(
-        featureName: template.label,
-        featureDescription:
-            '${template.label} is a Pro template with a more styled layout and polish.',
-      );
-      if (!unlocked || !mounted) return;
-    }
-
     HapticFeedback.selectionClick();
     var next = template.apply(_config).copyWith(templateId: template.id);
     if (template.seedQuoteIfEmpty && next.customQuote.isEmpty) {
@@ -243,7 +178,7 @@ class _CustomizePageState extends State<CustomizePage> {
   }) {
     final dims = StorageService.getDimensions();
     final wallpaperWidth = dims?['width'] ?? AppConstants.defaultWallpaperWidth;
-    final effectiveTarget = target ?? _previewTarget;
+    final effectiveTarget = target ?? WallpaperTarget.lock;
     final effectiveConfig = _configForTarget(effectiveTarget);
     final targetWidth = wallpaperWidth -
         effectiveConfig.paddingLeft -
@@ -268,70 +203,12 @@ class _CustomizePageState extends State<CustomizePage> {
         preserveTemplateSelection: preserveTemplateSelection);
   }
 
-  void _setPreviewTarget(WallpaperTarget target) {
-    if (_previewTarget == target) return;
-    HapticFeedback.selectionClick();
-    setState(() => _previewTarget = target);
-    if (_config.autoFitWidth) {
-      _fitToWidth(target: target, preserveTemplateSelection: true);
-    }
-  }
-
   Future<void> _saveAndApply() async {
-    final scheme = Theme.of(context).colorScheme;
-    final target = await showModalBottomSheet<String>(
-      context: context,
-      backgroundColor: scheme.surfaceContainerHighest,
-      shape: const RoundedRectangleBorder(
-        borderRadius:
-            BorderRadius.vertical(top: Radius.circular(AppTheme.radiusLarge)),
-      ),
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: AppTheme.pSymV20,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                AppStrings.setWallpaper,
-                style: Theme.of(context)
-                    .textTheme
-                    .titleLarge
-                    ?.copyWith(color: scheme.onSurface),
-              ),
-              AppTheme.h16,
-              ListTile(
-                leading: const Icon(Icons.lock_outlined),
-                title: const Text(AppStrings.lockScreen),
-                subtitle: const Text('Recommended for the cleanest layout'),
-                onTap: () => Navigator.pop(context, 'lock'),
-              ),
-              ListTile(
-                leading: const Icon(Icons.smartphone),
-                title: const Text('Both Screens (Advanced)'),
-                subtitle: const Text(
-                    'Also mirrors the wallpaper to your home screen'),
-                onTap: () => Navigator.pop(context, 'both'),
-              ),
-              AppTheme.h8,
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (target == null || !mounted) return;
-
-    final targetEnum = switch (target) {
-      'home' => WallpaperTarget.home,
-      'lock' => WallpaperTarget.lock,
-      'both' => WallpaperTarget.both,
-      _ => WallpaperTarget.lock,
-    };
-    _setPreviewTarget(targetEnum);
+    const target = 'lock';
+    final resolvedConfig = _normalizedConfig(_config);
 
     // Validate quote
-    final validationError = isValidQuoteFormat(_config.customQuote);
+    final validationError = isValidQuoteFormat(resolvedConfig.customQuote);
     if (validationError != null) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -348,10 +225,26 @@ class _CustomizePageState extends State<CustomizePage> {
     setState(() => _isGenerating = true);
 
     try {
-      await StorageService.saveWallpaperConfig(_config);
+      FocusScope.of(context).unfocus();
+      if (resolvedConfig != _config && mounted) {
+        setState(() => _config = resolvedConfig);
+      }
+      await StorageService.saveWallpaperConfig(resolvedConfig);
+      await StorageService.setLastWallpaperTarget(WallpaperTarget.lock);
       final ok = await widget.onSetWallpaper(target);
-      if (ok && mounted) {
+      if (!mounted) return;
+      if (ok) {
         _showWallpaperAppliedCelebration();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text(
+              'Wallpaper could not be applied. Try again on the lock screen.',
+            ),
+            backgroundColor: AppTheme.warningOrange,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } catch (e) {
       if (mounted) {
@@ -436,16 +329,29 @@ class _CustomizePageState extends State<CustomizePage> {
     await _ensureDeviceMetrics(forceRefresh: true);
   }
 
-  String _previewTargetLabel(WallpaperTarget target) {
-    switch (target) {
-      case WallpaperTarget.home:
-        return AppStrings.homeScreen;
-      case WallpaperTarget.lock:
-        return AppStrings.lockScreen;
-      case WallpaperTarget.both:
-        return AppStrings.bothScreens;
+  bool get _autoWallpaperEnabled =>
+      _autoUpdateEnabled && _autoApplyAfterSyncEnabled;
+
+  Future<void> _setAutoWallpaperEnabled(bool value) async {
+    HapticFeedback.selectionClick();
+    if (mounted) {
+      setState(() {
+        _autoUpdateEnabled = value;
+        _autoApplyAfterSyncEnabled = value;
+      });
+    }
+
+    await StorageService.setAutoUpdate(value);
+    await StorageService.setAutoApplyAfterSync(value);
+
+    if (value) {
+      await BackgroundScheduler.scheduleUpdates();
+    } else {
+      await BackgroundScheduler.cancelUpdates();
     }
   }
+
+  String _applyButtonLabel() => 'Set Lock Screen';
 
   @override
   Widget build(BuildContext context) => _buildCustomizePage(context);
@@ -460,77 +366,53 @@ extension _CustomizePageStateView on _CustomizePageState {
     final scheme = Theme.of(context).colorScheme;
     final media = MediaQuery.of(context);
     final isLandscape = media.orientation == Orientation.landscape;
-    final textScale = media.textScaler.scale(1.0);
-    final previewFlex = textScale > 1.2 ? 6 : 7;
-    final controlsFlex = textScale > 1.2 ? 6 : 5;
+    final basePagePadding = AppTheme.pagePadding(context);
 
     final previewPanel = Container(
+      key: const ValueKey('customize-preview-panel'),
       width: double.infinity,
-      padding: AppTheme.pagePadding(context).copyWith(top: 12, bottom: 12),
+      padding: basePagePadding.copyWith(top: 12, bottom: isLandscape ? 12 : 6),
       decoration: BoxDecoration(
-        color: scheme.surface,
-        border: Border(
-          bottom: BorderSide(color: scheme.outline.withValues(alpha: 0.55)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.surface,
+            scheme.surfaceContainerHighest.withValues(alpha: 0.96),
+            scheme.primary.withValues(alpha: 0.05),
+          ],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: scheme.shadow.withValues(alpha: 0.08),
-            blurRadius: 10,
-            offset: const Offset(0, 5),
-          ),
-        ],
       ),
-      child: Center(child: _buildPreviewSection()),
+      child: _buildPreviewSection(),
     );
 
     final controlsPanel = Container(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      key: const ValueKey('customize-controls-panel'),
+      clipBehavior: isLandscape ? Clip.none : Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Theme.of(context).scaffoldBackgroundColor,
+        borderRadius: isLandscape
+            ? null
+            : const BorderRadius.vertical(top: Radius.circular(30)),
+        boxShadow: isLandscape
+            ? null
+            : [
+                BoxShadow(
+                  color: scheme.shadow.withValues(alpha: 0.06),
+                  blurRadius: 24,
+                  offset: const Offset(0, -10),
+                ),
+              ],
+      ),
       child: SafeArea(
         top: false,
         child: SingleChildScrollView(
           physics: const ClampingScrollPhysics(),
-          padding: AppTheme.pagePadding(context),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppSectionHeader(
-                title: AppStrings.customize,
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    IconButton(
-                      icon: const Icon(Icons.restore_rounded),
-                      tooltip: 'Reset to Defaults',
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        _updateConfig(
-                          WallpaperConfig.defaults(),
-                          preserveTemplateSelection: true,
-                          syncQuoteField: true,
-                        );
-                        _setPreviewTarget(WallpaperTarget.lock);
-                        _fitToWidth(preserveTemplateSelection: true);
-                        _syncThemeGalleryToCurrentSelection();
-                      },
-                    ),
-                    Icon(Icons.wallpaper_rounded, color: scheme.primary),
-                  ],
-                ),
-              ),
-              AppTheme.h16,
-              _buildTemplatePicker(),
-              AppTheme.h12,
-              _buildThemePicker(),
-              AppTheme.h12,
-              AppCard(
-                padding: AppTheme.pAll16,
-                child: _buildCustomizationSection(),
-              ),
-              AppTheme.h32,
-              _buildApplyButton(),
-              AppTheme.h32,
-            ],
+          padding: basePagePadding.copyWith(
+            top: 18,
+            bottom: 24,
           ),
+          child: _buildControlsSections(),
         ),
       ),
     );
@@ -539,7 +421,7 @@ extension _CustomizePageStateView on _CustomizePageState {
       return Row(
         children: [
           Expanded(child: previewPanel),
-          AppTheme.w12,
+          const SizedBox(width: 16),
           Expanded(child: controlsPanel),
         ],
       );
@@ -547,8 +429,50 @@ extension _CustomizePageStateView on _CustomizePageState {
 
     return Column(
       children: [
-        Expanded(flex: previewFlex, child: previewPanel),
-        Expanded(flex: controlsFlex, child: controlsPanel),
+        Expanded(child: previewPanel),
+        Expanded(child: controlsPanel),
+      ],
+    );
+  }
+
+  Widget _buildControlsSections() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AppSectionHeader(
+          title: AppStrings.customize,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.restore_rounded),
+                tooltip: 'Reset to Defaults',
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  _updateConfig(
+                    WallpaperConfig.defaults(),
+                    preserveTemplateSelection: true,
+                    syncQuoteField: true,
+                  );
+                  _fitToWidth(preserveTemplateSelection: true);
+                  _syncThemeGalleryToCurrentSelection();
+                },
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+        _buildTemplatePicker(),
+        const SizedBox(height: 14),
+        _buildThemePicker(),
+        const SizedBox(height: 14),
+        AppCard(
+          padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+          child: _buildCustomizationSection(),
+        ),
+        const SizedBox(height: 16),
+        _buildActionGroup(),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -629,103 +553,176 @@ extension _CustomizePageStatePreview on _CustomizePageState {
   Widget _buildPreviewSection() {
     final scheme = Theme.of(context).colorScheme;
     final dims = StorageService.getDimensions();
-    final usingFallbackMetrics = dims == null;
-    var wallpaperWidth = dims?['width'] ?? AppConstants.defaultWallpaperWidth;
-    var wallpaperHeight =
+    final wallpaperWidth = dims?['width'] ?? AppConstants.defaultWallpaperWidth;
+    final wallpaperHeight =
         dims?['height'] ?? AppConstants.defaultWallpaperHeight;
-
     final wallpaperAspectRatio = wallpaperWidth / wallpaperHeight;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Calculate limits
-        final maxW = constraints.maxWidth;
-        final maxH = constraints.maxHeight;
+        final stageWidth = constraints.maxWidth;
+        final stageHeight = constraints.maxHeight;
+        final stageShortSide =
+            stageWidth < stageHeight ? stageWidth : stageHeight;
 
-        // Keep metadata compact so preview occupies more of the top panel.
-        final infoHeight = usingFallbackMetrics ? 72.0 : 48.0;
-        final previewMaxHeight = (maxH - infoHeight).clamp(160.0, maxH);
-
-        double previewHeight = previewMaxHeight;
+        double previewHeight = stageHeight - 12;
         double previewWidth = previewHeight * wallpaperAspectRatio;
 
-        if (previewWidth > maxW) {
-          previewWidth = maxW;
+        if (previewWidth > stageWidth - 16) {
+          previewWidth = stageWidth - 16;
           previewHeight = previewWidth / wallpaperAspectRatio;
         }
 
-        return SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              AppTheme.h12, // Standardized spacing
-              Semantics(
-                label:
-                    'Wallpaper preview for ${_previewTargetLabel(_previewTarget)}.',
+        return Stack(
+          alignment: Alignment.center,
+          children: [
+            Positioned.fill(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(34),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      scheme.surface.withValues(alpha: 0.92),
+                      scheme.surfaceContainerHighest.withValues(alpha: 0.92),
+                      scheme.tertiary.withValues(alpha: 0.08),
+                    ],
+                  ),
+                  border: Border.all(
+                    color: scheme.outline.withValues(alpha: 0.08),
+                  ),
+                ),
+              ),
+            ),
+            _buildPreviewAura(
+              alignment: const Alignment(-0.88, -0.78),
+              color: scheme.primary,
+              size: stageShortSide * 0.34,
+            ),
+            _buildPreviewAura(
+              alignment: const Alignment(0.96, 0.58),
+              color: scheme.tertiary,
+              size: stageShortSide * 0.42,
+            ),
+            _buildPreviewAura(
+              alignment: const Alignment(0.06, -0.96),
+              color: scheme.secondary,
+              size: stageShortSide * 0.24,
+            ),
+            Center(
+              child: Semantics(
+                label: 'Wallpaper preview for lock screen.',
                 image: true,
                 child: Container(
                   height: previewHeight,
                   width: previewWidth,
                   decoration: BoxDecoration(
-                    color: scheme.surfaceContainerHighest,
-                    borderRadius: AppTheme.brLarge,
-                    boxShadow: AppTheme.shadow(scheme.shadow),
-                    border: Border.all(color: scheme.outline, width: 1),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: AppTheme.brLarge,
-                    child: Stack(
-                      children: [
-                        RepaintBoundary(
-                          child: CustomPaint(
-                            painter: WallpaperPreviewPainter(
-                              data: widget.data!,
-                              wallpaperWidth: wallpaperWidth,
-                              wallpaperHeight: wallpaperHeight,
-                              target: _previewTarget,
-                              config: _configForTarget(_previewTarget),
-                            ),
-                            child: Container(),
-                          ),
-                        ),
-                        // Visual Guide for System UI
-                        if (_safePreviewEnabled)
-                          _buildSystemUiGuides(
-                            previewHeight / wallpaperHeight,
-                            _previewTarget,
-                          ),
+                    borderRadius: BorderRadius.circular(34),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        scheme.surface.withValues(alpha: 0.98),
+                        scheme.surfaceContainerHigh.withValues(alpha: 0.94),
                       ],
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: scheme.shadow.withValues(alpha: 0.08),
+                        blurRadius: 36,
+                        offset: const Offset(0, 18),
+                      ),
+                      BoxShadow(
+                        color: scheme.primary.withValues(alpha: 0.05),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: Colors.white.withValues(alpha: 0.82),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(10),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: scheme.surface,
+                        borderRadius: BorderRadius.circular(26),
+                        border: Border.all(
+                          color: scheme.outline.withValues(alpha: 0.10),
+                          width: 1,
+                        ),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(26),
+                        child: Stack(
+                          fit: StackFit.expand,
+                          children: [
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                key: const ValueKey('customize-preview-canvas'),
+                                painter: WallpaperPreviewPainter(
+                                  data: widget.data!,
+                                  wallpaperWidth: wallpaperWidth,
+                                  wallpaperHeight: wallpaperHeight,
+                                  target: WallpaperTarget.lock,
+                                  config:
+                                      _configForTarget(WallpaperTarget.lock),
+                                ),
+                                child: const SizedBox.expand(),
+                              ),
+                            ),
+                            if (_safePreviewEnabled)
+                              _buildSystemUiGuides(
+                                previewHeight / wallpaperHeight,
+                                WallpaperTarget.lock,
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
                 ),
               ),
-
-              AppTheme.h8,
-              Text(
-                'Wallpaper Preview',
-                style: TextStyle(
-                  fontSize: AppTheme.fontBody,
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurface,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              if (usingFallbackMetrics) ...[
-                AppTheme.h8,
-                Text(
-                  'Refresh device fit below for the most accurate preview.',
-                  style: TextStyle(
-                    fontSize: AppTheme.fontCaption,
-                    color: AppTheme.warningOrange,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ],
-          ),
+            ),
+          ],
         );
       },
+    );
+  }
+
+  Widget _buildPreviewAura({
+    required Alignment alignment,
+    required Color color,
+    required double size,
+  }) {
+    return IgnorePointer(
+      child: Align(
+        alignment: alignment,
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: RadialGradient(
+              colors: [
+                color.withValues(alpha: 0.22),
+                color.withValues(alpha: 0.08),
+                color.withValues(alpha: 0.0),
+              ],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(alpha: 0.12),
+                blurRadius: size * 0.42,
+                spreadRadius: size * 0.04,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
@@ -741,7 +738,7 @@ extension _CustomizePageStateTemplates on _CustomizePageState {
       padding: AppTheme.pagePadding(context),
       decoration: AppTheme.glassCard(
         context,
-        opacity: isAppDark ? 0.18 : 0.12,
+        opacity: isAppDark ? 0.18 : 0.14,
         tint: scheme.surface,
       ),
       child: Column(
@@ -751,7 +748,7 @@ extension _CustomizePageStateTemplates on _CustomizePageState {
             children: [
               Expanded(
                 child: Text(
-                  '🧩  Templates',
+                  'Templates',
                   style: tt.titleLarge?.copyWith(color: scheme.onSurface),
                 ),
               ),
@@ -772,17 +769,7 @@ extension _CustomizePageStateTemplates on _CustomizePageState {
               ),
             ],
           ),
-          AppTheme.h12,
-          if (!MembershipEntitlements.hasProAccess)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                'Free includes the essentials. Locked templates stay visible so you can preview the Pro set.',
-                style: tt.bodySmall?.copyWith(
-                  color: scheme.onSurface.withValues(alpha: 0.65),
-                ),
-              ),
-            ),
+          const SizedBox(height: 14),
           SizedBox(
             height: 112,
             child: ListView.builder(
@@ -790,108 +777,71 @@ extension _CustomizePageStateTemplates on _CustomizePageState {
               itemCount: templates.length,
               itemBuilder: (context, index) {
                 final template = templates[index];
-                final isUnlocked =
-                    MembershipEntitlements.isTemplateUnlocked(template.id);
                 final isSelected = _config.templateId == template.id;
 
                 return Padding(
                   padding: EdgeInsets.only(
                       right: index == templates.length - 1 ? 0 : 12),
-                  child: Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      borderRadius: AppTheme.brLarge,
-                      onTap: () => _applyTemplate(template),
-                      child: AnimatedContainer(
-                        duration: AppTheme.durationFast,
-                        width: 200,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 10),
-                        decoration: BoxDecoration(
-                          borderRadius: AppTheme.brLarge,
-                          border: Border.all(
+                  child: Semantics(
+                    button: true,
+                    selected: isSelected,
+                    label:
+                        'Template ${template.label}. ${template.description}',
+                    hint: isSelected ? 'Currently selected.' : 'Tap to apply.',
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        borderRadius: AppTheme.brLarge,
+                        onTap: () => _applyTemplate(template),
+                        child: AnimatedContainer(
+                          duration: AppTheme.durationFast,
+                          width: 200,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            borderRadius: AppTheme.brLarge,
+                            border: Border.all(
+                              color: isSelected
+                                  ? scheme.primary
+                                  : scheme.outlineVariant.withValues(
+                                      alpha: isAppDark ? 0.65 : 0.45),
+                              width: isSelected ? 2 : 1,
+                            ),
                             color: isSelected
                                 ? scheme.primary
-                                : scheme.outlineVariant
-                                    .withValues(alpha: isAppDark ? 0.65 : 0.45),
-                            width: isSelected ? 2 : 1,
+                                    .withValues(alpha: isAppDark ? 0.18 : 0.08)
+                                : (isAppDark
+                                    ? scheme.surface.withValues(alpha: 0.85)
+                                    : scheme.surfaceContainerHighest
+                                        .withValues(alpha: 0.55)),
                           ),
-                          color: isSelected
-                              ? scheme.primary
-                                  .withValues(alpha: isAppDark ? 0.18 : 0.08)
-                              : (isAppDark
-                                  ? scheme.surface.withValues(alpha: 0.85)
-                                  : scheme.surfaceContainerHighest
-                                      .withValues(alpha: 0.55)),
-                        ),
-                        child: Stack(
-                          children: [
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  '${template.emoji} ${template.label}',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.titleSmall?.copyWith(
-                                    fontWeight: FontWeight.w900,
-                                    color: isSelected
-                                        ? scheme.primary
-                                        : scheme.onSurface,
-                                  ),
-                                ),
-                                Text(
-                                  template.description,
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: tt.bodySmall?.copyWith(
-                                    color: scheme.onSurface
-                                        .withValues(alpha: 0.65),
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            if (!isUnlocked)
-                              Positioned(
-                                top: 0,
-                                right: 0,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color:
-                                        scheme.primary.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: scheme.primary
-                                          .withValues(alpha: 0.18),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.lock_rounded,
-                                        size: 12,
-                                        color: scheme.primary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Pro',
-                                        style: tt.labelSmall?.copyWith(
-                                          color: scheme.primary,
-                                          fontWeight: FontWeight.w900,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                template.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.titleSmall?.copyWith(
+                                  fontWeight: FontWeight.w900,
+                                  color: isSelected
+                                      ? scheme.primary
+                                      : scheme.onSurface,
                                 ),
                               ),
-                          ],
+                              Text(
+                                template.description,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: tt.bodySmall?.copyWith(
+                                  color:
+                                      scheme.onSurface.withValues(alpha: 0.65),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -916,7 +866,7 @@ extension _CustomizePageStateThemes on _CustomizePageState {
       padding: AppTheme.pagePadding(context),
       decoration: AppTheme.glassCard(
         context,
-        opacity: isAppDark ? 0.18 : 0.12,
+        opacity: isAppDark ? 0.18 : 0.14,
         tint: scheme.surface,
       ),
       child: Column(
@@ -926,7 +876,7 @@ extension _CustomizePageStateThemes on _CustomizePageState {
             children: [
               Expanded(
                 child: Text(
-                  '🎨  Color Style',
+                  'Color Style',
                   style: textTheme.titleLarge?.copyWith(
                     color: scheme.onSurface,
                   ),
@@ -973,16 +923,14 @@ extension _CustomizePageStateThemes on _CustomizePageState {
               ),
             ],
           ),
-          AppTheme.h12,
+          const SizedBox(height: 14),
           Text(
-            MembershipEntitlements.hasProAccess
-                ? 'Swipe to explore • Tap to apply'
-                : 'Swipe to explore • Free palettes apply instantly, Pro palettes open access',
+            'Swipe to explore • Tap to apply',
             style: textTheme.bodySmall?.copyWith(
               color: scheme.onSurface.withValues(alpha: 0.6),
             ),
           ),
-          AppTheme.h12,
+          const SizedBox(height: 14),
           _buildThemeGallery(
             scheme: scheme,
             textTheme: textTheme,
@@ -1013,8 +961,6 @@ extension _CustomizePageStateThemeGallery on _CustomizePageState {
                 itemCount: themes.length,
                 itemBuilder: (context, index) {
                   final themePreset = themes[index];
-                  final isUnlocked =
-                      MembershipEntitlements.isThemeUnlocked(themePreset.id);
                   final isSelected = _config.themeId == themePreset.id;
                   final levels = ThemePresets.levelsFor(
                     themePreset.id,
@@ -1023,223 +969,192 @@ extension _CustomizePageStateThemeGallery on _CustomizePageState {
 
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 6),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        borderRadius: AppTheme.brLarge,
-                        onTap: () async {
-                          if (!isUnlocked) {
-                            final unlocked = await _promptForLockedAccess(
-                              featureName: themePreset.label,
-                              featureDescription:
-                                  '${themePreset.label} is a Pro palette. Claim access to use the full color system.',
+                    child: Semantics(
+                      button: true,
+                      selected: isSelected,
+                      label: 'Color style ${themePreset.label}',
+                      hint: isSelected
+                          ? 'Currently selected.'
+                          : 'Tap to apply this palette.',
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: AppTheme.brLarge,
+                          onTap: () {
+                            HapticFeedback.selectionClick();
+                            _updateConfig(
+                              _config.copyWith(themeId: themePreset.id),
                             );
-                            if (!unlocked || !mounted) return;
-                          }
-                          HapticFeedback.selectionClick();
-                          _updateConfig(
-                            _config.copyWith(themeId: themePreset.id),
-                          );
-                        },
-                        child: AnimatedContainer(
-                          duration: AppTheme.durationFast,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: AppTheme.brLarge,
-                            border: Border.all(
-                              color: isSelected
-                                  ? scheme.primary
-                                  : scheme.outlineVariant.withValues(
-                                      alpha: isAppDark ? 0.65 : 0.45,
-                                    ),
-                              width: isSelected ? 2 : 1,
+                          },
+                          child: AnimatedContainer(
+                            duration: AppTheme.durationFast,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
                             ),
-                            color: isSelected
-                                ? scheme.primary.withValues(
-                                    alpha: isAppDark ? 0.18 : 0.08,
-                                  )
-                                : (isAppDark
-                                    ? scheme.surface.withValues(alpha: 0.85)
-                                    : scheme.surfaceContainerHighest
-                                        .withValues(alpha: 0.55)),
-                            boxShadow: isAppDark
-                                ? AppTheme.shadow(
-                                    scheme.shadow,
-                                    blur: 18,
-                                    opacity: isSelected ? 0.18 : 0.12,
-                                  )
-                                : null,
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '${themePreset.emoji} ${themePreset.label}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: textTheme.titleSmall?.copyWith(
-                                        fontWeight: FontWeight.w900,
-                                        color: isSelected
-                                            ? scheme.primary
-                                            : scheme.onSurface,
+                            decoration: BoxDecoration(
+                              borderRadius: AppTheme.brLarge,
+                              border: Border.all(
+                                color: isSelected
+                                    ? scheme.primary
+                                    : scheme.outlineVariant.withValues(
+                                        alpha: isAppDark ? 0.65 : 0.45,
                                       ),
-                                    ),
-                                  ),
-                                  if (!isUnlocked)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: scheme.primary
-                                            .withValues(alpha: 0.12),
-                                        borderRadius:
-                                            BorderRadius.circular(999),
-                                        border: Border.all(
-                                          color: scheme.primary
-                                              .withValues(alpha: 0.18),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.lock_rounded,
-                                            size: 12,
-                                            color: scheme.primary,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            'Pro',
-                                            style:
-                                                textTheme.labelSmall?.copyWith(
-                                              color: scheme.primary,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    )
-                                  else if (themePreset.id == 'github')
-                                    ConstrainedBox(
-                                      constraints:
-                                          const BoxConstraints(maxWidth: 72),
-                                      child: FittedBox(
-                                        fit: BoxFit.scaleDown,
-                                        child: Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: scheme.primary
-                                                .withValues(alpha: 0.12),
-                                            borderRadius:
-                                                BorderRadius.circular(999),
-                                            border: Border.all(
-                                              color: scheme.primary
-                                                  .withValues(alpha: 0.20),
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'Default',
-                                            style:
-                                                textTheme.labelSmall?.copyWith(
-                                              color: scheme.primary,
-                                              fontWeight: FontWeight.w900,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    )
-                                  else if (isSelected)
-                                    Icon(
-                                      Icons.check_circle_rounded,
-                                      size: 18,
-                                      color: scheme.primary,
-                                    )
-                                  else
-                                    Icon(
-                                      Icons.chevron_right_rounded,
-                                      size: 18,
-                                      color: scheme.onSurface
-                                          .withValues(alpha: 0.55),
-                                    ),
-                                ],
+                                width: isSelected ? 2 : 1,
                               ),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Container(
-                                      height: 12,
-                                      decoration: BoxDecoration(
-                                        borderRadius: BorderRadius.circular(6),
-                                        color: scheme.surface
-                                            .withValues(alpha: 0.35),
-                                        border: Border.all(
-                                          color: scheme.outline
-                                              .withValues(alpha: 0.20),
+                              color: isSelected
+                                  ? scheme.primary.withValues(
+                                      alpha: isAppDark ? 0.18 : 0.08,
+                                    )
+                                  : (isAppDark
+                                      ? scheme.surface.withValues(alpha: 0.85)
+                                      : scheme.surfaceContainerHighest
+                                          .withValues(alpha: 0.55)),
+                              boxShadow: isAppDark
+                                  ? AppTheme.shadow(
+                                      scheme.shadow,
+                                      blur: 18,
+                                      opacity: isSelected ? 0.18 : 0.12,
+                                    )
+                                  : null,
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        themePreset.label,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: textTheme.titleSmall?.copyWith(
+                                          fontWeight: FontWeight.w900,
+                                          color: isSelected
+                                              ? scheme.primary
+                                              : scheme.onSurface,
                                         ),
                                       ),
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                      ),
-                                      child: Row(
-                                        children: [
-                                          for (int i = 0;
-                                              i < levels.length;
-                                              i++)
-                                            Expanded(
-                                              child: Container(
-                                                margin: EdgeInsets.only(
-                                                  right: i == levels.length - 1
-                                                      ? 0
-                                                      : 3,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: levels[i],
-                                                  borderRadius:
-                                                      BorderRadius.circular(3),
-                                                ),
+                                    ),
+                                    if (themePreset.id == 'github')
+                                      ConstrainedBox(
+                                        constraints:
+                                            const BoxConstraints(maxWidth: 72),
+                                        child: FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: scheme.primary
+                                                  .withValues(alpha: 0.12),
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                              border: Border.all(
+                                                color: scheme.primary
+                                                    .withValues(alpha: 0.20),
                                               ),
                                             ),
-                                        ],
+                                            child: Text(
+                                              'Default',
+                                              style: textTheme.labelSmall
+                                                  ?.copyWith(
+                                                color: scheme.primary,
+                                                fontWeight: FontWeight.w900,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    else if (isSelected)
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        size: 18,
+                                        color: scheme.primary,
+                                      )
+                                    else
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        size: 18,
+                                        color: scheme.onSurface
+                                            .withValues(alpha: 0.55),
                                       ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      color: levels[4].withValues(alpha: 0.18),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                        color:
-                                            levels[4].withValues(alpha: 0.45),
-                                      ),
-                                    ),
-                                    child: Center(
-                                      child: Text(
-                                        'Aa',
-                                        style: textTheme.labelSmall?.copyWith(
-                                          fontWeight: FontWeight.w900,
-                                          color: scheme.onSurface,
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Container(
+                                        height: 12,
+                                        decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                          color: scheme.surface
+                                              .withValues(alpha: 0.35),
+                                          border: Border.all(
+                                            color: scheme.outline
+                                                .withValues(alpha: 0.20),
+                                          ),
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 6,
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            for (int i = 0;
+                                                i < levels.length;
+                                                i++)
+                                              Expanded(
+                                                child: Container(
+                                                  margin: EdgeInsets.only(
+                                                    right:
+                                                        i == levels.length - 1
+                                                            ? 0
+                                                            : 3,
+                                                  ),
+                                                  decoration: BoxDecoration(
+                                                    color: levels[i],
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                      3,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
                                         ),
                                       ),
                                     ),
-                                  ),
-                                ],
-                              ),
-                            ],
+                                    const SizedBox(width: 10),
+                                    Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color:
+                                            levels[4].withValues(alpha: 0.18),
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color:
+                                              levels[4].withValues(alpha: 0.45),
+                                        ),
+                                      ),
+                                      child: Center(
+                                        child: Text(
+                                          'Aa',
+                                          style: textTheme.labelSmall?.copyWith(
+                                            fontWeight: FontWeight.w900,
+                                            color: scheme.onSurface,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
@@ -1301,109 +1216,183 @@ extension _CustomizePageStateThemeGallery on _CustomizePageState {
             ),
           ),
         ),
-        if (!MembershipEntitlements.hasProAccess) ...[
-          const SizedBox(height: 10),
-          Text(
-            'Free includes the essential palettes. Locked palettes stay visible so you can preview what Pro unlocks.',
-            textAlign: TextAlign.center,
-            style: textTheme.bodySmall?.copyWith(
-              color: scheme.onSurface.withValues(alpha: 0.60),
-            ),
-          ),
-        ],
       ],
     );
   }
 }
 
 extension _CustomizePageStateControls on _CustomizePageState {
+  Widget _buildActionGroup() {
+    final scheme = Theme.of(context).colorScheme;
+    final autoEnabled = _autoWallpaperEnabled;
+    final compactDock = MediaQuery.sizeOf(context).height < 780;
+
+    return AppCard(
+      key: const ValueKey('customize-action-group'),
+      padding: EdgeInsets.fromLTRB(
+        compactDock ? 14 : 16,
+        compactDock ? 14 : 16,
+        compactDock ? 14 : 16,
+        compactDock ? 16 : 18,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(
+              horizontal: compactDock ? 12 : 14,
+              vertical: compactDock ? 10 : 12,
+            ),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(22),
+              border: Border.all(
+                color: scheme.outline.withValues(alpha: 0.14),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: compactDock ? 32 : 34,
+                  height: compactDock ? 32 : 34,
+                  decoration: BoxDecoration(
+                    color: scheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(
+                    Icons.autorenew_rounded,
+                    size: compactDock ? 17 : 18,
+                    color: scheme.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Auto wallpaper',
+                        style: TextStyle(
+                          color: scheme.onSurface,
+                          fontSize: AppTheme.fontBase,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        autoEnabled
+                            ? 'Refreshes and sets your lock screen automatically.'
+                            : 'Off for now. Turn on for hands-free lock updates.',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: scheme.onSurface.withValues(alpha: 0.66),
+                          fontSize: compactDock
+                              ? AppTheme.fontCaption
+                              : AppTheme.fontSmall,
+                          fontWeight: FontWeight.w600,
+                          height: 1.25,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Switch(
+                  value: autoEnabled,
+                  onChanged: _isGenerating
+                      ? null
+                      : (value) => _setAutoWallpaperEnabled(value),
+                ),
+              ],
+            ),
+          ),
+          SizedBox(height: compactDock ? 10 : 12),
+          _buildApplyButton(compact: true),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCustomizationSection() {
     final scheme = Theme.of(context).colorScheme;
     final showAdvanced = !_config.autoFitWidth;
 
-    return Container(
-      padding: AppTheme.pagePadding(context),
-      decoration: AppTheme.glassCard(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Quick Adjust',
-                  style: TextStyle(
-                    fontSize: AppTheme.fontBase,
-                    fontWeight: FontWeight.w800,
-                    color: scheme.onSurface,
-                  ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Quick Adjust',
+                style: TextStyle(
+                  fontSize: AppTheme.fontBase,
+                  fontWeight: FontWeight.w800,
+                  color: scheme.onSurface,
                 ),
               ),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: scheme.primary.withValues(alpha: 0.10),
-                  borderRadius: BorderRadius.circular(999),
-                  border:
-                      Border.all(color: scheme.primary.withValues(alpha: 0.20)),
-                ),
-                child: Text(
-                  _config.autoFitWidth ? 'Auto-fit' : 'Manual',
-                  style: TextStyle(
-                    fontSize: AppTheme.fontSmall,
-                    fontWeight: FontWeight.w900,
-                    color: scheme.primary,
-                  ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: scheme.primary.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(999),
+                border:
+                    Border.all(color: scheme.primary.withValues(alpha: 0.20)),
+              ),
+              child: Text(
+                _config.autoFitWidth ? 'Auto-fit' : 'Manual',
+                style: TextStyle(
+                  fontSize: AppTheme.fontSmall,
+                  fontWeight: FontWeight.w900,
+                  color: scheme.primary,
                 ),
               ),
-            ],
-          ),
-          AppTheme.h12,
-          _buildSlider(
-            label: AppStrings.opacity,
-            value: _config.opacity,
-            min: 0.3,
-            max: 1.0,
-            divisions: 7,
-            onChanged: (value) {
-              _updateConfig(_config.copyWith(opacity: value));
-            },
-          ),
-          AppTheme.h16,
-          _buildSlider(
-            label: AppStrings.cornerRadius,
-            value: _config.cornerRadius,
-            min: 0,
-            max: 8,
-            divisions: 8,
-            onChanged: (value) {
-              _updateConfig(_config.copyWith(cornerRadius: value));
-            },
-          ),
-          AppTheme.h16,
-          const Divider(),
-          AppTheme.h12,
-          _buildTextOverlaySection(scheme),
-          AppTheme.h8,
-          _buildStatsBarControls(scheme),
-          AppTheme.h16,
-          const Divider(),
-          AppTheme.h12,
-          _buildPreviewToolsSection(scheme),
-          AppTheme.h16,
-          _buildAdvancedLayoutSection(scheme, showAdvanced),
-        ],
-      ),
+            ),
+          ],
+        ),
+        AppTheme.h12,
+        _buildSlider(
+          label: AppStrings.opacity,
+          value: _config.opacity,
+          min: 0.3,
+          max: 1.0,
+          divisions: 7,
+          onChanged: (value) {
+            _updateConfig(_config.copyWith(opacity: value));
+          },
+        ),
+        const SizedBox(height: 14),
+        _buildSlider(
+          label: AppStrings.cornerRadius,
+          value: _config.cornerRadius,
+          min: 0,
+          max: 8,
+          divisions: 8,
+          onChanged: (value) {
+            _updateConfig(_config.copyWith(cornerRadius: value));
+          },
+        ),
+        const SizedBox(height: 14),
+        const Divider(),
+        const SizedBox(height: 10),
+        _buildTextOverlaySection(scheme),
+        const SizedBox(height: 10),
+        _buildStatsBarControls(scheme),
+        const SizedBox(height: 14),
+        const Divider(),
+        const SizedBox(height: 10),
+        _buildAdvancedLayoutSection(scheme, showAdvanced),
+      ],
     );
   }
 }
 
 extension _CustomizePageStateControlSections on _CustomizePageState {
   Widget _buildTextOverlaySection(ColorScheme scheme) {
-    final hasProAccess =
-        context.watch<MembershipController?>()?.hasProAccess ?? false;
-
     return ExpansionTile(
       key: ValueKey('text-overlay-${_config.customQuote.isNotEmpty}'),
       tilePadding: EdgeInsets.zero,
@@ -1449,19 +1438,7 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(
-            onPressed: _isGeneratingQuote
-                ? null
-                : () async {
-                    if (hasProAccess) {
-                      await _generateQuote();
-                      return;
-                    }
-                    await _promptForLockedAccess(
-                      featureName: 'Live Quote Generation',
-                      featureDescription:
-                          'Generate fresh AI quotes from Customize instead of using only the daily fallback quote.',
-                    );
-                  },
+            onPressed: _isGeneratingQuote ? null : _generateQuote,
             icon: _isGeneratingQuote
                 ? SizedBox(
                     width: 16,
@@ -1471,10 +1448,7 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
                       color: scheme.primary,
                     ),
                   )
-                : Icon(
-                    hasProAccess ? Icons.auto_awesome : Icons.lock_rounded,
-                    size: 16,
-                  ),
+                : const Icon(Icons.auto_awesome, size: 16),
             label: Text(
               _isGeneratingQuote
                   ? 'Generating Quote...'
@@ -1578,64 +1552,80 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
   }
 
   Widget _buildPreviewToolsSection(ColorScheme scheme) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Safe preview guides',
-                style: TextStyle(
-                  fontSize: AppTheme.fontBase,
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurface,
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+        borderRadius: AppTheme.brLarge,
+        border: Border.all(
+          color: scheme.outline.withValues(alpha: 0.18),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Preview tools',
+                      style: TextStyle(
+                        fontSize: AppTheme.fontBase,
+                        fontWeight: FontWeight.w700,
+                        color: scheme.onSurface,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Guides show where Android system UI can cover the wallpaper.',
+                      style: TextStyle(
+                        fontSize: AppTheme.fontCaption,
+                        color: scheme.onSurface.withValues(alpha: 0.65),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-            Switch(
-              value: _safePreviewEnabled,
-              activeThumbColor: scheme.primary,
-              onChanged: _toggleSafePreview,
-            ),
-          ],
-        ),
-        Text(
-          'Guides show where Android system UI can cover the wallpaper.',
-          style: TextStyle(
-            fontSize: AppTheme.fontCaption,
-            color: scheme.onSurface.withValues(alpha: 0.65),
+              Switch(
+                value: _safePreviewEnabled,
+                activeThumbColor: scheme.primary,
+                onChanged: _toggleSafePreview,
+              ),
+            ],
           ),
-        ),
-        AppTheme.h8,
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed:
-                _isRefreshingDeviceProfile ? null : _refreshDeviceProfile,
-            icon: _isRefreshingDeviceProfile
-                ? SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: scheme.primary,
-                    ),
-                  )
-                : const Icon(Icons.refresh_rounded, size: 16),
-            label: Text(
-              _isRefreshingDeviceProfile
-                  ? 'Refreshing Device Fit...'
-                  : 'Refresh Device Fit',
-              style: const TextStyle(fontSize: AppTheme.fontBody),
-            ),
-            style: TextButton.styleFrom(
-              padding: AppTheme.pZero,
-              visualDensity: VisualDensity.compact,
+          AppTheme.h8,
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed:
+                  _isRefreshingDeviceProfile ? null : _refreshDeviceProfile,
+              icon: _isRefreshingDeviceProfile
+                  ? SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: scheme.primary,
+                      ),
+                    )
+                  : const Icon(Icons.refresh_rounded, size: 16),
+              label: Text(
+                _isRefreshingDeviceProfile
+                    ? 'Refreshing fit...'
+                    : 'Refresh device fit',
+                style: const TextStyle(fontSize: AppTheme.fontBody),
+              ),
+              style: TextButton.styleFrom(
+                padding: AppTheme.pZero,
+                visualDensity: VisualDensity.compact,
+              ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -1709,6 +1699,8 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
           ),
         ),
         AppTheme.h12,
+        _buildPreviewToolsSection(scheme),
+        AppTheme.h12,
         Text(
           AppStrings.scale,
           style: TextStyle(
@@ -1728,8 +1720,8 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
           ),
           child: Slider(
             value: _config.scale,
-            min: 0.5,
-            max: 8.0,
+            min: AppConstants.minWallpaperScale,
+            max: AppConstants.maxWallpaperScale,
             divisions: 75,
             onChanged: _config.autoFitWidth
                 ? null
@@ -1879,14 +1871,16 @@ extension _CustomizePageStateControlHelpers on _CustomizePageState {
   // APPLY BUTTON
   // ══════════════════════════════════════════════════════════════════════
 
-  Widget _buildApplyButton() {
+  Widget _buildApplyButton({bool compact = false}) {
     final scheme = Theme.of(context).colorScheme;
+    final buttonLabel = _applyButtonLabel();
+    final visibleLabel = _applyButtonLabel();
     return SizedBox(
       width: double.infinity,
       child: Semantics(
         button: true,
         enabled: !_isGenerating,
-        label: AppStrings.applyWallpaper,
+        label: buttonLabel,
         child: ElevatedButton(
           onPressed: _isGenerating
               ? null
@@ -1894,10 +1888,22 @@ extension _CustomizePageStateControlHelpers on _CustomizePageState {
                   HapticFeedback.heavyImpact();
                   _saveAndApply();
                 },
+          style: ElevatedButton.styleFrom(
+            minimumSize: Size.fromHeight(compact ? 50 : 54),
+            padding: EdgeInsets.symmetric(
+              horizontal: compact ? 14 : 18,
+              vertical: compact ? 14 : 14,
+            ),
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(compact ? 22 : 26),
+            ),
+          ),
           child: _isGenerating
               ? SizedBox(
-                  width: 24,
-                  height: 24,
+                  width: compact ? 20 : 24,
+                  height: compact ? 20 : 24,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
                     color: scheme.onPrimary,
@@ -1907,15 +1913,19 @@ extension _CustomizePageStateControlHelpers on _CustomizePageState {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.max,
                   children: [
-                    const Icon(Icons.check_circle_outline, size: 22),
-                    AppTheme.w8,
+                    Icon(
+                      Icons.check_circle_outline,
+                      size: compact ? 18 : 22,
+                    ),
+                    SizedBox(width: compact ? 6 : 8),
                     Flexible(
                       child: Text(
-                        AppStrings.applyWallpaper,
+                        visibleLabel,
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          fontSize: AppTheme.fontLarge,
+                          fontSize:
+                              compact ? AppTheme.fontBase : AppTheme.fontLarge,
                           fontWeight: FontWeight.w600,
                           color: scheme.onPrimary,
                         ),

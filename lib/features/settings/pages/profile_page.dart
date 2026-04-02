@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:github_wallpaper/core/theme/app_theme.dart';
@@ -48,8 +48,9 @@ class ProfileCard extends StatelessWidget {
                   radius: 22,
                   backgroundColor: scheme.primary.withValues(alpha: 0.12),
                   backgroundImage: image,
-                  child:
-                      image == null ? Icon(Icons.person, color: scheme.primary) : null,
+                  child: image == null
+                      ? Icon(Icons.person, color: scheme.primary)
+                      : null,
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -387,4 +388,3 @@ class _EditDisplayNamePageState extends State<_EditDisplayNamePage> {
     );
   }
 }
-

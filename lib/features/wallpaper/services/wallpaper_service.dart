@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -10,6 +10,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:synchronized/synchronized.dart';
 import 'package:wallpaper_manager_plus/wallpaper_manager_plus.dart';
 
+import 'package:github_wallpaper/app/product/services/product_analytics.dart';
 import 'package:github_wallpaper/core/constants/firebase_options.dart';
 import 'package:github_wallpaper/core/errors/app_exceptions.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
@@ -26,6 +27,7 @@ String computeStableSignatureHash(String signature) {
 class WallpaperService {
   static final _l = Lock(), _ul = Lock();
   static const _wallpaperChannel = MethodChannel('github_wallpaper/wallpaper');
+  static const _rendererSignatureVersion = MonthHeatmapRenderer.rendererVersion;
 
   static Future<bool> generateAndSetWallpaper({
     required CachedContributionData data,
@@ -65,6 +67,16 @@ class WallpaperService {
       await StorageService.setLastWallpaperTarget(target);
       await StorageService.saveWallpaperResult(hash, wallpaperPath);
       await StorageService.recordWallpaperUpdate();
+      unawaited(
+        ProductAnalytics.track(
+          ProductEventName.wallpaperApplied,
+          properties: {
+            'target': target.name,
+            'forceApply': forceApply,
+            'reusedImage': isUnchanged,
+          },
+        ),
+      );
       AppLog.info('Wallpaper applied successfully (hash: $hash)');
       onProgress?.call(1.0);
       return true;
@@ -233,7 +245,7 @@ class WallpaperService {
         .join(',');
     final configSignature = jsonEncode(c.toJson());
     final signature =
-        '${d.username.toLowerCase()}|${t.name}|$todayKey|$configSignature|$width|$height|$pixelRatio|${safeInsets.left}|${safeInsets.top}|${safeInsets.right}|${safeInsets.bottom}|$daySignature';
+        '$_rendererSignatureVersion|${d.username.toLowerCase()}|${t.name}|$todayKey|$configSignature|$width|$height|$pixelRatio|${safeInsets.left}|${safeInsets.top}|${safeInsets.right}|${safeInsets.bottom}|$daySignature';
     return computeStableSignatureHash(signature);
   }
 }
@@ -317,4 +329,3 @@ class DeviceCompatibilityChecker {
             base.paddingRight + i.right + AppConstants.horizontalBuffer);
   }
 }
-

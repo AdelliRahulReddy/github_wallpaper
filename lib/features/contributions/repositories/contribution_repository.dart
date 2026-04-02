@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -15,7 +15,6 @@ import 'package:github_wallpaper/app/services/telemetry_service.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/features/wallpaper/services/wallpaper_service.dart';
 import 'package:github_wallpaper/features/wallpaper/services/widget_service.dart';
-
 
 class ContributionRepository {
   static final http.Client _c = http.Client();
@@ -125,8 +124,7 @@ class ContributionRepository {
       await StorageService.setHasAuthError(false);
       await StorageService.consumePendingWallpaperRefresh();
       if (isBackground && StorageService.getSyncSuccessNotificationsEnabled()) {
-        final successDayKey =
-            AppDateUtils.formatDate(DateTime.now().toLocal());
+        final successDayKey = AppDateUtils.formatDate(DateTime.now().toLocal());
         if (StorageService.getSyncSuccessLastSentDay() != successDayKey) {
           await NotificationService.showSyncSuccessNotification(
             syncedAt: DateTime.now().toLocal(),
@@ -394,5 +392,3 @@ Future<void> _checkGitHubAuthStatus() async {
 }
 
 void _disposeGitHubClient() => ContributionRepository._c.close();
-
-

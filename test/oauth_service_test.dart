@@ -1,4 +1,4 @@
-﻿import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:github_wallpaper/core/errors/app_exceptions.dart';
 import 'package:github_wallpaper/features/auth/services/oauth_service.dart';
@@ -11,12 +11,14 @@ void main() {
         'username': 'octocat',
         'email': 'octocat@example.com',
         'firebaseCustomToken': 'firebase-token',
+        'internalUserId': 'gw_usr_abcdefghijklmnopqrstuvwx',
       });
 
       expect(session.accessToken, 'gho_123');
       expect(session.username, 'octocat');
       expect(session.email, 'octocat@example.com');
       expect(session.firebaseCustomToken, 'firebase-token');
+      expect(session.internalUserId, 'gw_usr_abcdefghijklmnopqrstuvwx');
     });
 
     test('throws when access token is missing', () {
@@ -87,4 +89,3 @@ void main() {
     });
   });
 }
-

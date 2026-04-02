@@ -9,6 +9,91 @@ String? _cleanString(dynamic value) =>
 double _clampedDouble(dynamic value, double fallback, double min, double max) =>
     ((value is num ? value.toDouble() : fallback).clamp(min, max)).toDouble();
 
+enum WallpaperDensityMode {
+  sparse,
+  normal,
+  power;
+
+  String get label => switch (this) {
+        WallpaperDensityMode.sparse => 'Sparse',
+        WallpaperDensityMode.normal => 'Normal',
+        WallpaperDensityMode.power => 'Power',
+      };
+
+  String get description => switch (this) {
+        WallpaperDensityMode.sparse =>
+          'Cleaner layout with more breathing room.',
+        WallpaperDensityMode.normal => 'Balanced spacing and content density.',
+        WallpaperDensityMode.power =>
+          'Denser layout with stronger info presence.',
+      };
+
+  String get icon => switch (this) {
+        WallpaperDensityMode.sparse => 'S',
+        WallpaperDensityMode.normal => 'N',
+        WallpaperDensityMode.power => 'P',
+      };
+
+  double get scaleMultiplier => switch (this) {
+        WallpaperDensityMode.sparse => 0.95,
+        WallpaperDensityMode.normal => 1.0,
+        WallpaperDensityMode.power => 1.05,
+      };
+
+  double get quoteMultiplier => switch (this) {
+        WallpaperDensityMode.sparse => 0.92,
+        WallpaperDensityMode.normal => 1.0,
+        WallpaperDensityMode.power => 1.08,
+      };
+
+  double get statOpacityMultiplier => switch (this) {
+        WallpaperDensityMode.sparse => 0.88,
+        WallpaperDensityMode.normal => 1.0,
+        WallpaperDensityMode.power => 1.05,
+      };
+
+  int get quickStatLimit => switch (this) {
+        WallpaperDensityMode.sparse => 2,
+        WallpaperDensityMode.normal => 3,
+        WallpaperDensityMode.power => 3,
+      };
+
+  static WallpaperDensityMode fromString(String? value) {
+    return WallpaperDensityMode.values.firstWhere(
+      (mode) => mode.name == value,
+      orElse: () => WallpaperDensityMode.normal,
+    );
+  }
+}
+
+enum WallpaperHeroFocus {
+  auto,
+  grid,
+  quote,
+  stats;
+
+  String get label => switch (this) {
+        WallpaperHeroFocus.auto => 'Auto',
+        WallpaperHeroFocus.grid => 'Grid',
+        WallpaperHeroFocus.quote => 'Quote',
+        WallpaperHeroFocus.stats => 'Stats',
+      };
+
+  String get description => switch (this) {
+        WallpaperHeroFocus.auto => 'Let the active layout decide what leads.',
+        WallpaperHeroFocus.grid => 'Keep the heatmap as the visual hero.',
+        WallpaperHeroFocus.quote => 'Give the quote more breathing room.',
+        WallpaperHeroFocus.stats => 'Make the summary bar more prominent.',
+      };
+
+  static WallpaperHeroFocus fromString(String? value) {
+    return WallpaperHeroFocus.values.firstWhere(
+      (focus) => focus.name == value,
+      orElse: () => WallpaperHeroFocus.auto,
+    );
+  }
+}
+
 enum WallpaperTarget {
   home,
   lock,
@@ -49,6 +134,8 @@ class WallpaperConfig {
   final String customQuote;
   final String themeId;
   final String templateId;
+  final WallpaperDensityMode densityMode;
+  final WallpaperHeroFocus heroFocus;
 
   const WallpaperConfig({
     this.isDarkMode = false,
@@ -72,6 +159,8 @@ class WallpaperConfig {
     this.statTotalCommits = true,
     this.statTopLanguage = true,
     this.templateId = 'minimal_dark',
+    this.densityMode = WallpaperDensityMode.normal,
+    this.heroFocus = WallpaperHeroFocus.auto,
   });
 
   factory WallpaperConfig.defaults() => const WallpaperConfig();
@@ -82,8 +171,7 @@ class WallpaperConfig {
     return WallpaperConfig(
       isDarkMode: json['isDarkMode'] == true,
       verticalPosition: _clampedDouble(json['verticalPosition'], 0.5, 0, 1),
-      horizontalPosition:
-          _clampedDouble(json['horizontalPosition'], 0.5, 0, 1),
+      horizontalPosition: _clampedDouble(json['horizontalPosition'], 0.5, 0, 1),
       scale: _clampedDouble(
         json['scale'],
         0.7,
@@ -102,10 +190,10 @@ class WallpaperConfig {
       paddingBottom: _clampedDouble(json['paddingBottom'], 0, 0, 500),
       paddingLeft: _clampedDouble(json['paddingLeft'], 0, 0, 500),
       paddingRight: _clampedDouble(json['paddingRight'], 0, 0, 500),
-      themeId: (json['themeId'] is String &&
-              (json['themeId'] as String).isNotEmpty)
-          ? json['themeId'] as String
-          : ThemePresets.defaultId,
+      themeId:
+          (json['themeId'] is String && (json['themeId'] as String).isNotEmpty)
+              ? json['themeId'] as String
+              : ThemePresets.defaultId,
       showQuickStatsBar: json['showQuickStatsBar'] != false,
       statCurrentStreak: json['statCurrentStreak'] != false,
       statLongestStreak: json['statLongestStreak'] != false,
@@ -115,6 +203,12 @@ class WallpaperConfig {
               (json['templateId'] as String).isNotEmpty)
           ? json['templateId'] as String
           : 'minimal_dark',
+      densityMode: WallpaperDensityMode.fromString(
+        json['densityMode'] as String?,
+      ),
+      heroFocus: WallpaperHeroFocus.fromString(
+        json['heroFocus'] as String?,
+      ),
     );
   }
 
@@ -140,6 +234,8 @@ class WallpaperConfig {
         'statTotalCommits': statTotalCommits,
         'statTopLanguage': statTopLanguage,
         'templateId': templateId,
+        'densityMode': densityMode.name,
+        'heroFocus': heroFocus.name,
       };
 
   WallpaperConfig copyWith({
@@ -164,6 +260,8 @@ class WallpaperConfig {
     bool? statTotalCommits,
     bool? statTopLanguage,
     String? templateId,
+    WallpaperDensityMode? densityMode,
+    WallpaperHeroFocus? heroFocus,
   }) =>
       WallpaperConfig(
         isDarkMode: isDarkMode ?? this.isDarkMode,
@@ -187,6 +285,8 @@ class WallpaperConfig {
         statTotalCommits: statTotalCommits ?? this.statTotalCommits,
         statTopLanguage: statTopLanguage ?? this.statTopLanguage,
         templateId: templateId ?? this.templateId,
+        densityMode: densityMode ?? this.densityMode,
+        heroFocus: heroFocus ?? this.heroFocus,
       );
 
   @override
@@ -213,7 +313,9 @@ class WallpaperConfig {
           statLongestStreak == other.statLongestStreak &&
           statTotalCommits == other.statTotalCommits &&
           statTopLanguage == other.statTopLanguage &&
-          templateId == other.templateId);
+          templateId == other.templateId &&
+          densityMode == other.densityMode &&
+          heroFocus == other.heroFocus);
 
   @override
   int get hashCode => Object.hashAll([
@@ -238,5 +340,7 @@ class WallpaperConfig {
         statTotalCommits,
         statTopLanguage,
         templateId,
+        densityMode,
+        heroFocus,
       ]);
 }

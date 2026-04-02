@@ -1,18 +1,16 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:smooth_page_indicator/smooth_page_indicator.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
 import 'package:github_wallpaper/features/contributions/services/share_service.dart';
 import 'package:github_wallpaper/features/contributions/widgets/share_card.dart';
 
 // ─────────────────────────────────────────────────────────────
 // WRAPPED PAGE
 // ─────────────────────────────────────────────────────────────
-
 
 class WrappedPage extends StatefulWidget {
   final CachedContributionData data;
@@ -678,8 +676,7 @@ class _RecapSlide extends StatelessWidget {
                         bestStreakDays: data.longestStreak,
                         topRepoName: topRepoName,
                         topLanguageName: topLanguageName,
-                        showBranding:
-                            MembershipEntitlements.shouldWatermarkShares,
+                        showBranding: false,
                       ),
                     ),
                     AppTheme.h16,
@@ -952,5 +949,3 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-
-

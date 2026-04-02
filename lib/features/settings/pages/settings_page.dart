@@ -11,12 +11,8 @@ import 'package:github_wallpaper/core/constants/environment_config.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
-import 'package:github_wallpaper/features/auth/services/oauth_service.dart';
-import 'package:github_wallpaper/features/membership/models/membership_models.dart';
-import 'package:github_wallpaper/features/auth/pages/setup_page.dart';
-import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_access_page.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_paywall_page.dart';
+import 'package:github_wallpaper/features/auth/pages/onboarding_page.dart';
+import 'package:github_wallpaper/features/auth/services/auth_flow_service.dart';
 import 'package:github_wallpaper/features/settings/controllers/settings_controller.dart';
 import 'package:github_wallpaper/features/settings/controllers/theme_controller.dart';
 import 'package:github_wallpaper/features/settings/pages/notifications_page.dart';
@@ -25,10 +21,6 @@ import 'package:github_wallpaper/features/settings/pages/support_page.dart';
 import 'package:github_wallpaper/features/settings/pages/wallpaper_sync_page.dart';
 import 'package:github_wallpaper/features/settings/widgets/settings_widgets.dart';
 import 'package:github_wallpaper/app/services/background_scheduler.dart';
-import 'package:github_wallpaper/features/membership/services/membership_entitlements.dart';
-import 'package:github_wallpaper/features/membership/services/membership_service.dart';
-import 'package:github_wallpaper/app/services/notification_service.dart';
-import 'package:github_wallpaper/features/membership/services/revenuecat_service.dart';
 import 'package:github_wallpaper/features/wallpaper/services/widget_service.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -46,19 +38,8 @@ class SettingsPage extends StatefulWidget {
 
   static Future<bool> showUpdateTokenDialog(BuildContext context) async {
     try {
-      final session = await OAuthService.signInWithGitHub();
-      await StorageService.syncAuthenticatedAppUserId();
-      await StorageService.setToken(session.accessToken);
-      await StorageService.setUsername(session.username);
-      await StorageService.setUserEmail(session.email);
-      await StorageService.setHasAuthError(false);
-      await RevenueCatService.initializeForCurrentUser();
-      final membershipInfo = await MembershipService.refresh(force: true);
-      unawaited(NotificationService.initPushMessaging());
-      await NotificationService.refreshAdminBroadcastSubscription();
-      unawaited(WidgetService.refreshFromCache());
+      await AuthFlowService.connectGitHub();
       if (context.mounted) {
-        context.read<MembershipController>().setMembershipInfo(membershipInfo);
         context.read<SettingsController>().refreshFromStorage();
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -115,17 +96,15 @@ class _SettingsPageState extends State<SettingsPage> {
     await BackgroundScheduler.cancelUpdates();
     await BackgroundScheduler.cancelStreakReminders();
     await StorageService.setHasAuthError(false);
-    await RevenueCatService.logOut();
     await StorageService.logout();
     await WidgetService.clear();
     if (mounted) {
-      context.read<MembershipController>().clear();
       context.read<SettingsController>().refreshFromStorage();
     }
 
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const SetupPage()),
+      MaterialPageRoute(builder: (_) => const GitHubConnectPage()),
       (route) => false,
     );
   }
@@ -290,44 +269,12 @@ class _SettingsPageState extends State<SettingsPage> {
     );
   }
 
-  String _upgradeTileSubtitle(MembershipInfo? info) {
-    if (info == null || info.plan == MembershipPlan.free) {
-      return 'Unlock templates, advanced stats, and Pro tools.';
-    }
-    if (info.plan == MembershipPlan.couponPro) {
-      final expiry = info.proAccessExpiresAt;
-      return expiry == null
-          ? 'Coupon access is active.'
-          : 'Coupon access is active until ${expiry.day}/${expiry.month}/${expiry.year}.';
-    }
-    return 'Pro is already unlocked on this account.';
-  }
-
-  String _membershipEntrySubtitle(MembershipInfo? info) {
-    if (info == null) {
-      return 'Manage billing, restore purchases, and coupon access.';
-    }
-    switch (info.plan) {
-      case MembershipPlan.couponPro:
-        final expiry = info.proAccessExpiresAt;
-        return expiry == null
-            ? 'Coupon access is active.'
-            : 'Coupon access is active until ${expiry.day}/${expiry.month}/${expiry.year}.';
-      case MembershipPlan.pro:
-        return 'Manage your active Pro access and billing.';
-      case MembershipPlan.free:
-        return 'Manage billing, restore purchases, and coupon access.';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final tokens = context.settingsTokens;
     final isConnected = _username != null && !StorageService.hasAuthError();
-    final membershipInfo = context.watch<MembershipController>().info ??
-        StorageService.getCachedMembershipInfo();
     final themeController = context.watch<ThemeController>();
     final themeLabel = switch (themeController.mode) {
       ThemeMode.light => 'Light',
@@ -368,46 +315,6 @@ class _SettingsPageState extends State<SettingsPage> {
                 if (!mounted) return;
                 _loadLocalProfile();
               },
-            ),
-            SettingsSection(
-              title: 'Membership',
-              child: SettingsCard(
-                children: [
-                  SettingsTile(
-                    icon: Icons.workspace_premium_outlined,
-                    title: 'Upgrade to Pro',
-                    subtitle: _upgradeTileSubtitle(membershipInfo),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MembershipPaywallPage(),
-                      ),
-                    ),
-                  ),
-                  SettingsTile(
-                    icon: Icons.receipt_long_outlined,
-                    title: 'Subscription',
-                    subtitle: _membershipEntrySubtitle(membershipInfo),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MembershipAccessPage(),
-                      ),
-                    ),
-                  ),
-                  SettingsTile(
-                    icon: Icons.confirmation_number_outlined,
-                    title: 'Redeem Coupon',
-                    subtitle:
-                        'Apply an admin-issued coupon from the main settings surface.',
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const MembershipAccessPage(
-                          initialAction: MembershipAccessAction.redeemCoupon,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
             SettingsSection(
               title: 'Preferences',
@@ -456,9 +363,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   SettingsTile(
                     icon: Icons.notifications_outlined,
                     title: 'Notifications',
-                    subtitle: MembershipEntitlements.canUseReminders
-                        ? 'Reminders, announcements, and sync alerts'
-                        : 'Announcements and sync alerts',
+                    subtitle: 'Reminders, announcements, and sync alerts',
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
                         builder: (_) => const NotificationsPage(),

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
@@ -112,8 +112,9 @@ class AchievementService {
 
     final currStreak = current.stats.currentStreak;
     final seenMilestone = StorageService.getSeenStreakMilestone();
-    final reached = _streakMilestones.where((m) => m <= currStreak).fold<int>(
-        0, (best, m) => m > best ? m : best);
+    final reached = _streakMilestones
+        .where((m) => m <= currStreak)
+        .fold<int>(0, (best, m) => m > best ? m : best);
 
     if (reached > 0 && reached > seenMilestone) {
       await StorageService.setSeenStreakMilestone(reached);
@@ -141,4 +142,3 @@ class HomeAchievement {
     required this.requirementLabel,
   });
 }
-

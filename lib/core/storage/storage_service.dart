@@ -10,8 +10,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synchronized/synchronized.dart';
 
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
-import 'package:github_wallpaper/features/membership/models/membership_models.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
+import 'package:github_wallpaper/features/wallpaper/models/theme_presets.dart';
+import 'package:github_wallpaper/features/wallpaper/models/wallpaper_templates.dart';
 import 'package:github_wallpaper/features/wallpaper/widgets/ui_render.dart';
 
 class StorageService {
@@ -111,7 +112,7 @@ class StorageService {
 
   static String? getUserEmail() => _s?.getString(AppConstants.keyUserEmail);
 
-  static Future<void> setAppUserId(String? userId) async {
+  static Future<void> setInternalUserId(String? userId) async {
     final nextUserId = userId?.trim();
     final prefs = await init();
     if (nextUserId == null || nextUserId.isEmpty) {
@@ -121,26 +122,62 @@ class StorageService {
     await prefs.setString(AppConstants.keyAppUserId, nextUserId);
   }
 
-  static String? getAppUserId() {
+  static String? getInternalUserId() {
     final value = _s?.getString(AppConstants.keyAppUserId)?.trim();
     if (value == null || value.isEmpty) return null;
     return value;
   }
 
+  static Future<void> clearInternalUserId() => setInternalUserId(null);
+
+  @Deprecated('Use setInternalUserId instead.')
+  static Future<void> setAppUserId(String? userId) => setInternalUserId(userId);
+
+  @Deprecated('Use getInternalUserId instead.')
+  static String? getAppUserId() => getInternalUserId();
+
+  static Future<void> setLegacyAppUserId(String? userId) async {
+    final nextUserId = userId?.trim();
+    final prefs = await init();
+    if (nextUserId == null || nextUserId.isEmpty) {
+      await prefs.remove(AppConstants.keyLegacyAppUserId);
+      return;
+    }
+    await prefs.setString(AppConstants.keyLegacyAppUserId, nextUserId);
+  }
+
+  static String? getLegacyAppUserId() =>
+      _s?.getString(AppConstants.keyLegacyAppUserId)?.trim();
+
+  static Future<void> setLegacyFirebaseUid(String? uid) async {
+    final nextUid = uid?.trim();
+    final prefs = await init();
+    if (nextUid == null || nextUid.isEmpty) {
+      await prefs.remove(AppConstants.keyLegacyFirebaseUid);
+      return;
+    }
+    await prefs.setString(AppConstants.keyLegacyFirebaseUid, nextUid);
+  }
+
+  static String? getLegacyFirebaseUid() =>
+      _s?.getString(AppConstants.keyLegacyFirebaseUid)?.trim();
+
+  static Future<void> setGitHubProviderId(String? providerId) async {
+    final nextProviderId = providerId?.trim();
+    final prefs = await init();
+    if (nextProviderId == null || nextProviderId.isEmpty) {
+      await prefs.remove(AppConstants.keyGitHubProviderId);
+      return;
+    }
+    await prefs.setString(AppConstants.keyGitHubProviderId, nextProviderId);
+  }
+
+  static String? getGitHubProviderId() =>
+      _s?.getString(AppConstants.keyGitHubProviderId)?.trim();
+
+  @Deprecated('Use IdentityService.ensureInternalUserId instead.')
   static Future<String?> syncAuthenticatedAppUserId({User? user}) async {
-    final resolvedUser = user ??
-        (Firebase.apps.isNotEmpty ? FirebaseAuth.instance.currentUser : null);
-    if (resolvedUser == null || resolvedUser.isAnonymous) {
-      return getAppUserId();
-    }
-
-    final userId = resolvedUser.uid.trim();
-    if (userId.isEmpty) {
-      return getAppUserId();
-    }
-
-    await setAppUserId(userId);
-    return userId;
+    return getInternalUserId();
   }
 
   static Future<void> setCachedData(CachedContributionData d) async {
@@ -270,9 +307,13 @@ class StorageService {
   static WallpaperConfig getWallpaperConfig() {
     try {
       final j = _s?.getString(AppConstants.keyWallpaperConfig);
-      return j == null
+      final config = j == null
           ? WallpaperConfig.defaults()
           : WallpaperConfig.fromJson(jsonDecode(j));
+      return config.copyWith(
+        themeId: ThemePresets.fromId(config.themeId).id,
+        templateId: WallpaperTemplates.fromId(config.templateId).id,
+      );
     } catch (_) {
       return WallpaperConfig.defaults();
     }
@@ -510,50 +551,6 @@ class StorageService {
   static String? getCachedAiQuoteDay() =>
       _s?.getString(AppConstants.keyCachedAiQuoteDay);
 
-  static Future<void> setCachedMembershipInfo(MembershipInfo info) async {
-    final prefs = await init();
-    await prefs.setString(
-      AppConstants.keyMembershipInfo,
-      jsonEncode(info.toCacheJson()),
-    );
-    final lastValidatedAt = info.lastValidatedAt;
-    if (lastValidatedAt != null) {
-      await prefs.setString(
-        AppConstants.keyMembershipLastValidatedAt,
-        lastValidatedAt.toIso8601String(),
-      );
-    } else {
-      await prefs.remove(AppConstants.keyMembershipLastValidatedAt);
-    }
-  }
-
-  static MembershipInfo? getCachedMembershipInfo() {
-    try {
-      final raw = _s?.getString(AppConstants.keyMembershipInfo);
-      if (raw == null || raw.trim().isEmpty) return null;
-      return MembershipInfo.fromCacheJson(
-        jsonDecode(raw) as Map<String, dynamic>,
-      );
-    } catch (e, s) {
-      AppLog.error(e, s);
-      unawaited(clearCachedMembershipInfo());
-      return null;
-    }
-  }
-
-  static DateTime? getMembershipLastValidatedAt() {
-    final raw = _s?.getString(AppConstants.keyMembershipLastValidatedAt);
-    return raw == null ? null : DateTime.tryParse(raw)?.toLocal();
-  }
-
-  static Future<void> clearCachedMembershipInfo() async {
-    final prefs = await init();
-    await Future.wait([
-      prefs.remove(AppConstants.keyMembershipInfo),
-      prefs.remove(AppConstants.keyMembershipLastValidatedAt),
-    ]);
-  }
-
   static Future<void> setOnboardingComplete(bool v) async =>
       (await init()).setBool(AppConstants.keyOnboarding, v);
   static bool isOnboardingComplete() =>
@@ -589,6 +586,16 @@ class StorageService {
       (await init()).setBool(AppConstants.keyHasSeenDashboard, v);
   static bool hasSeenDashboard() =>
       _s?.getBool(AppConstants.keyHasSeenDashboard) ?? false;
+  static Future<void> setPostLoginSetupComplete(bool v) async =>
+      (await init()).setBool(AppConstants.keyPostLoginSetupComplete, v);
+  static bool isPostLoginSetupComplete() {
+    final prefs = _s;
+    if (prefs == null) return !isFirstLoginGreetingPending();
+    if (prefs.containsKey(AppConstants.keyPostLoginSetupComplete)) {
+      return prefs.getBool(AppConstants.keyPostLoginSetupComplete) ?? false;
+    }
+    return !isFirstLoginGreetingPending();
+  }
 
   static Future<void> saveDeviceMetrics(
       {required double width,
@@ -638,19 +645,19 @@ class StorageService {
   static bool hasAppliedWallpaper() =>
       _s?.getBool(AppConstants.keyHasAppliedWallpaper) ?? false;
 
-  static Future<void> setLastWallpaperTarget(WallpaperTarget t) async {
+  static Future<void> setLastWallpaperTarget(WallpaperTarget _) async {
     (await init()).setString(
       AppConstants.keyLastWallpaperTarget,
-      t.name,
+      WallpaperTarget.lock.name,
     );
   }
 
   static WallpaperTarget getLastWallpaperTarget() {
     final name = _s?.getString(AppConstants.keyLastWallpaperTarget);
-    return WallpaperTarget.values.firstWhere(
-      (target) => target.name == name,
-      orElse: () => WallpaperTarget.lock,
-    );
+    if (name == WallpaperTarget.lock.name) {
+      return WallpaperTarget.lock;
+    }
+    return WallpaperTarget.lock;
   }
 
   static Future<void> recordWallpaperUpdate([DateTime? dt]) async {
@@ -708,6 +715,9 @@ class StorageService {
     await Future.wait([
       prefs.remove(AppConstants.keyUsername),
       prefs.remove(AppConstants.keyAppUserId),
+      prefs.remove(AppConstants.keyLegacyAppUserId),
+      prefs.remove(AppConstants.keyLegacyFirebaseUid),
+      prefs.remove(AppConstants.keyGitHubProviderId),
       prefs.remove(AppConstants.keyDisplayName),
       prefs.remove(AppConstants.keyUserEmail),
       prefs.remove(AppConstants.keyWallpaperConfig),
@@ -717,6 +727,7 @@ class StorageService {
       prefs.remove(AppConstants.keyLastWallpaperUpdate),
       prefs.remove(AppConstants.keyHasSeenDashboard),
       prefs.remove(AppConstants.keyFirstLoginGreetingPending),
+      prefs.remove(AppConstants.keyPostLoginSetupComplete),
       prefs.remove(AppConstants.keyAutoUpdate),
       prefs.remove(AppConstants.keyAutoApplyAfterSync),
       prefs.remove(AppConstants.keyUpdateScheduleMode),
@@ -754,8 +765,6 @@ class StorageService {
       prefs.remove(AppConstants.keyQuoteTone),
       prefs.remove(AppConstants.keyCachedAiQuote),
       prefs.remove(AppConstants.keyCachedAiQuoteDay),
-      prefs.remove(AppConstants.keyMembershipInfo),
-      prefs.remove(AppConstants.keyMembershipLastValidatedAt),
       prefs.remove(AppConstants.keyHasAuthError),
     ]);
     await _safeSecureDelete(AppConstants.keyToken);

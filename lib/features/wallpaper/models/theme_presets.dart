@@ -1,5 +1,5 @@
 // ══════════════════════════════════════════════════════════════════════════
-// 🎨 THEME PRESETS - Premium Heatmap Color Palettes
+// 🎨 THEME PRESETS - Heatmap Color Palettes
 // ══════════════════════════════════════════════════════════════════════════
 import 'package:flutter/material.dart';
 

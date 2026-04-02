@@ -1,4 +1,4 @@
-﻿import 'dart:async';
+import 'dart:async';
 import 'dart:ui' show PlatformDispatcher;
 
 import 'package:flutter/material.dart';
@@ -15,8 +15,6 @@ import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/constants/firebase_options.dart';
 import 'package:github_wallpaper/core/constants/environment_config.dart'
     as app_config;
-import 'package:github_wallpaper/features/membership/services/membership_service.dart';
-import 'package:github_wallpaper/features/membership/controllers/membership_controller.dart';
 import 'package:github_wallpaper/features/settings/controllers/settings_controller.dart';
 import 'package:github_wallpaper/features/settings/controllers/theme_controller.dart';
 import 'package:github_wallpaper/app/services/background_scheduler.dart';
@@ -26,13 +24,11 @@ import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/app/services/remote_config_service.dart';
 import 'package:github_wallpaper/app/services/notification_service.dart';
 import 'package:github_wallpaper/app/services/telemetry_service.dart';
+import 'package:github_wallpaper/app/product/services/product_analytics.dart';
 import 'package:github_wallpaper/features/wallpaper/services/wallpaper_service.dart';
 import 'package:github_wallpaper/features/wallpaper/services/widget_service.dart';
 import 'package:github_wallpaper/features/auth/pages/onboarding_page.dart';
-import 'package:github_wallpaper/features/auth/pages/setup_page.dart';
 import 'package:github_wallpaper/app/pages/main_nav_page.dart';
-import 'package:github_wallpaper/features/auth/pages/splash_page.dart';
-import 'package:github_wallpaper/features/membership/pages/membership_paywall_page.dart';
 
 void _recordErrorIfConsented(Object error, StackTrace stack,
     {bool fatal = true}) {
@@ -67,6 +63,7 @@ void _recordFlutterErrorIfConsented(FlutterErrorDetails details) {
 void main() {
   runZonedGuarded(() async {
     WidgetsFlutterBinding.ensureInitialized();
+    await StorageService.init();
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
         options: DefaultFirebaseOptions.currentPlatform,
@@ -134,7 +131,6 @@ class _MyAppState extends State<MyApp> {
       providers: [
         ChangeNotifierProvider(create: (_) => SettingsController()),
         ChangeNotifierProvider(create: (_) => ThemeController()),
-        ChangeNotifierProvider(create: (_) => MembershipController()),
       ],
       child: Consumer<ThemeController>(
         builder: (context, themeMode, _) => MaterialApp(
@@ -165,7 +161,6 @@ class _AppInitializerState extends State<AppInitializer> {
   bool _isInitialized = false;
   bool _isLoggedIn = false;
   String? _error;
-  double _initProgress = 0.0;
   String _appVersion = AppStrings.appVersion;
   int _initRunId = 0;
   StreamSubscription<Uri?>? _widgetLaunchSubscription;
@@ -179,7 +174,7 @@ class _AppInitializerState extends State<AppInitializer> {
     _remoteConfig.addListener(_handleRemoteConfigChanged);
     _listenForWidgetLaunches();
     _loadAppVersion();
-    _startInitialization();
+    unawaited(_primeInitialShell());
   }
 
   @override
@@ -253,23 +248,20 @@ class _AppInitializerState extends State<AppInitializer> {
       return;
     }
 
-    final destination = uri.pathSegments.isEmpty
-        ? ''
-        : uri.pathSegments.first.toLowerCase();
+    final destination =
+        uri.pathSegments.isEmpty ? '' : uri.pathSegments.first.toLowerCase();
+    unawaited(
+      ProductAnalytics.track(
+        ProductEventName.widgetTapped,
+        properties: {'destination': destination},
+      ),
+    );
     switch (destination) {
+      case 'home':
+        MainNavPage.navIndex.value = 0;
+        return;
       case 'stats':
         MainNavPage.navIndex.value = 1;
-        return;
-      case 'paywall':
-        await Navigator.of(context).push(
-          MaterialPageRoute(
-            builder: (_) => const MembershipPaywallPage(
-              featureName: 'Widget Insights',
-              featureDescription:
-                  'Unlock the widget tap-through stats view and premium insight panel.',
-            ),
-          ),
-        );
         return;
       case 'setup':
       default:
@@ -309,17 +301,43 @@ class _AppInitializerState extends State<AppInitializer> {
     }
   }
 
+  Future<void> _primeInitialShell() async {
+    await _resolveInitialShell();
+    if (!mounted) return;
+    unawaited(_startInitialization());
+  }
+
+  Future<void> _resolveInitialShell() async {
+    try {
+      final loggedIn = await StorageService.hasAuthenticatedSession();
+      final hasUsableCache = StorageService.getCachedData() != null;
+      final canEnterMainNav =
+          loggedIn && (!StorageService.hasAuthError() || hasUsableCache);
+      if (!mounted) return;
+      setState(() {
+        _isLoggedIn = canEnterMainNav;
+        _isInitialized = true;
+        _error = null;
+      });
+      _flushPendingWidgetLaunch();
+    } catch (e, s) {
+      AppLog.error(e, s);
+      if (!mounted) return;
+      setState(() {
+        _isLoggedIn = false;
+        _isInitialized = true;
+      });
+    }
+  }
+
   Future<void> _startInitialization() async {
     final runId = ++_initRunId;
     try {
       app_config.AppConfig.validateOAuthConfig();
       final success = await BootstrapService.boot(
-        onProgress: (p) {
-          if (!mounted || runId != _initRunId) return;
-          setState(() => _initProgress = p);
-        },
+        onProgress: (_) {},
         onError: (e) {
-          if (!mounted || runId != _initRunId) return;
+          if (!mounted || runId != _initRunId || _isInitialized) return;
           setState(() => _error = e);
         },
       );
@@ -327,9 +345,6 @@ class _AppInitializerState extends State<AppInitializer> {
       if (!mounted || runId != _initRunId) return;
 
       if (success) {
-        if (mounted) {
-          context.read<MembershipController>().refreshFromStorage();
-        }
         unawaited(WidgetService.refreshFromCache());
         final loggedIn = await StorageService.hasAuthenticatedSession();
         final hasUsableCache = StorageService.getCachedData() != null;
@@ -347,10 +362,6 @@ class _AppInitializerState extends State<AppInitializer> {
         });
         _flushPendingWidgetLaunch();
 
-        if (canEnterMainNav) {
-          unawaited(_refreshMembershipState(runId));
-        }
-
         // Initialize WorkManager for guaranteed background updates
         await BackgroundScheduler.initialize();
 
@@ -358,7 +369,8 @@ class _AppInitializerState extends State<AppInitializer> {
         if (hasOperationalSession && StorageService.getAutoUpdate()) {
           await BackgroundScheduler.scheduleUpdates();
         }
-        if (canEnterMainNav && BackgroundScheduler.shouldScheduleReminderChecks()) {
+        if (canEnterMainNav &&
+            BackgroundScheduler.shouldScheduleReminderChecks()) {
           await BackgroundScheduler.scheduleStreakReminders();
         }
 
@@ -369,7 +381,7 @@ class _AppInitializerState extends State<AppInitializer> {
     } catch (e) {
       // The global error handler already logs and reports to Crashlytics.
       // We just need to update the UI state to show the error.
-      if (mounted && runId == _initRunId) {
+      if (mounted && runId == _initRunId && !_isInitialized) {
         setState(() {
           _error = e.toString();
         });
@@ -377,45 +389,28 @@ class _AppInitializerState extends State<AppInitializer> {
     }
   }
 
-  Future<void> _refreshMembershipState(int runId) async {
-    try {
-      final info = await MembershipService.refresh(force: true);
-      if (!mounted || runId != _initRunId) {
-        return;
-      }
-
-      context.read<MembershipController>().setMembershipInfo(info);
-      unawaited(WidgetService.refreshFromCache());
-      if (BackgroundScheduler.shouldScheduleReminderChecks()) {
-        await BackgroundScheduler.scheduleStreakReminders();
-      } else {
-        await BackgroundScheduler.cancelStreakReminders();
-      }
-    } catch (e, s) {
-      AppLog.error('Membership refresh on app start failed: $e', s);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    if (_error != null) {
-      return SplashScreen(
-        progress: _initProgress,
-        appVersion: _appVersion,
-        error: _error,
-        onRetry: () {
+    if (_error != null && !_isInitialized) {
+      return _AdminStateScreen(
+        icon: Icons.sync_problem_rounded,
+        accent: AppTheme.errorRed,
+        title: 'Startup Error',
+        message: _error!,
+        footer: 'Retry initialization to continue into GitWall.',
+        primaryActionLabel: 'Try Again',
+        onPrimaryAction: () {
           setState(() {
             _error = null;
-            _initProgress = 0.0;
             _isInitialized = false;
           });
-          _startInitialization();
+          unawaited(_primeInitialShell());
         },
       );
     }
 
     if (!_isInitialized) {
-      return SplashScreen(progress: _initProgress, appVersion: _appVersion);
+      return const _BootstrapLaunchScreen();
     }
 
     if (_remoteConfig.maintenanceMode) {
@@ -448,9 +443,7 @@ class _AppInitializerState extends State<AppInitializer> {
       return const MainNavPage();
     }
 
-    return StorageService.isOnboardingComplete()
-        ? const SetupPage()
-        : const OnboardingPage();
+    return const GitHubConnectPage();
   }
 
   bool _shouldForceUpdate() {
@@ -509,6 +502,8 @@ class _AdminStateScreen extends StatelessWidget {
   final String title;
   final String message;
   final String footer;
+  final String? primaryActionLabel;
+  final VoidCallback? onPrimaryAction;
 
   const _AdminStateScreen({
     required this.icon,
@@ -516,6 +511,8 @@ class _AdminStateScreen extends StatelessWidget {
     required this.title,
     required this.message,
     required this.footer,
+    this.primaryActionLabel,
+    this.onPrimaryAction,
   });
 
   @override
@@ -575,6 +572,22 @@ class _AdminStateScreen extends StatelessWidget {
                             color: scheme.onSurfaceVariant,
                           ),
                     ),
+                    if (primaryActionLabel != null &&
+                        onPrimaryAction != null) ...[
+                      AppTheme.h20,
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: onPrimaryAction,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: accent,
+                            foregroundColor: scheme.onPrimary,
+                            minimumSize: const Size.fromHeight(52),
+                          ),
+                          child: Text(primaryActionLabel!),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -586,4 +599,21 @@ class _AdminStateScreen extends StatelessWidget {
   }
 }
 
+class _BootstrapLaunchScreen extends StatelessWidget {
+  const _BootstrapLaunchScreen();
 
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      color: AppTheme.darkBg,
+      child: Center(
+        child: Image.asset(
+          'assets/logo.png',
+          width: 112,
+          height: 112,
+          filterQuality: FilterQuality.medium,
+        ),
+      ),
+    );
+  }
+}

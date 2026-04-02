@@ -108,7 +108,8 @@ void main() {
       isLoading: false,
       loadError: null,
       onRefresh: () async {},
-      onOpenStats: () {},
+      onOpenInsights: () {},
+      onOpenStudio: () {},
     );
     final stats = StatsPage(
       data: data,
