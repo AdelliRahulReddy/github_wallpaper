@@ -12,6 +12,7 @@ import 'package:flutter/widgets.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'package:github_wallpaper/core/constants/firebase_options.dart';
+import 'package:github_wallpaper/app/services/notification_catalog.dart';
 import 'package:github_wallpaper/app/services/notification_service.dart';
 import 'package:github_wallpaper/app/services/refresh_result.dart';
 import 'package:github_wallpaper/app/services/telemetry_service.dart';
@@ -74,31 +75,6 @@ Future<void> _runReminderChecks() async {
     return;
   }
 
-  if (StorageService.getStreakReminderEnabled()) {
-    final t = StorageService.getStreakReminderTime();
-    final windowStart =
-        DateTime(now.year, now.month, now.day, t.hour, t.minute);
-    final windowEnd = windowStart.add(const Duration(minutes: 70));
-
-    final dayKey = AppDateUtils.formatDate(now);
-    final alreadySent = StorageService.getStreakReminderLastSentDay() == dayKey;
-    final todayCommits = cached.days
-        .where((d) => AppDateUtils.formatDate(d.date.toLocal()) == dayKey)
-        .fold<int>(0, (sum, d) => sum + d.contributionCount);
-
-    if (!alreadySent &&
-        todayCommits == 0 &&
-        !now.isBefore(windowStart) &&
-        !now.isAfter(windowEnd)) {
-      await NotificationService.showStreakReminderNotification(
-        goalDays: StorageService.getStreakGoalDays(),
-        currentStreak: cached.currentStreak,
-      );
-      await StorageService.setStreakReminderLastSentDay(dayKey);
-      AppLog.info('Streak reminder sent');
-    }
-  }
-
   if (StorageService.getWeeklyDigestEnabled()) {
     final t = StorageService.getWeeklyDigestTime();
     final windowStart =
@@ -136,14 +112,15 @@ Future<void> _runReminderChecks() async {
         final topRepo =
             cached.repositories.isEmpty ? null : cached.repositories.first;
 
-        final title = 'Weekly Digest';
-        final body = topRepo == null
-            ? 'This week: $current commits ($deltaLabel)'
-            : 'This week: $current commits ($deltaLabel) • Top repo: ${topRepo.nameWithOwner}';
+        final digest = NotificationCatalog.weeklyDigestCopy(
+          currentCommits: current,
+          deltaLabel: deltaLabel,
+          topRepoName: topRepo?.nameWithOwner,
+        );
 
         await NotificationService.showWeeklyDigestNotification(
-          title: title,
-          body: body,
+          title: digest.title,
+          body: digest.body,
         );
         await StorageService.setWeeklyDigestLastSentWeek(weekKey);
         AppLog.info('Weekly digest sent');
@@ -314,23 +291,34 @@ class BackgroundScheduler {
     if (!_initialized) {
       await initialize();
     }
-    if (!shouldScheduleReminderChecks()) {
-      await cancelStreakReminders();
-      return;
-    }
     try {
-      await Workmanager().registerPeriodicTask(
-        _streakReminderTaskName,
-        _streakReminderTaskName,
-        frequency:
-            const Duration(minutes: AppConstants.reminderCheckIntervalMinutes),
-        existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
-        backoffPolicy: BackoffPolicy.exponential,
-        backoffPolicyDelay: const Duration(minutes: 15),
+      final cached = StorageService.getCachedData();
+      await NotificationService.syncScheduledStreakReminders(
+        enabled: StorageService.getStreakReminderEnabled(),
+        reminderTime: StorageService.getStreakReminderTime(),
+        goalDays: StorageService.getStreakGoalDays(),
+        currentStreak: cached?.currentStreak ?? 0,
+        hasCommittedToday: (cached?.todayCommits ?? 0) > 0,
       );
-      AppLog.info('Streak reminders scheduled');
+
+      if (StorageService.getWeeklyDigestEnabled()) {
+        await Workmanager().registerPeriodicTask(
+          _streakReminderTaskName,
+          _streakReminderTaskName,
+          frequency: const Duration(
+            minutes: AppConstants.reminderCheckIntervalMinutes,
+          ),
+          existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
+          backoffPolicy: BackoffPolicy.exponential,
+          backoffPolicyDelay: const Duration(minutes: 15),
+        );
+      } else {
+        await Workmanager().cancelByUniqueName(_streakReminderTaskName);
+      }
+
+      AppLog.info('Reminder schedules refreshed');
     } catch (e, s) {
-      AppLog.error('Failed to schedule streak reminders: $e', s);
+      AppLog.error('Failed to refresh reminder schedules: $e', s);
     }
   }
 
@@ -339,6 +327,7 @@ class BackgroundScheduler {
       await initialize();
     }
     try {
+      await NotificationService.cancelScheduledStreakReminders();
       await Workmanager().cancelByUniqueName(_streakReminderTaskName);
       AppLog.info('Streak reminders cancelled');
     } catch (e, s) {

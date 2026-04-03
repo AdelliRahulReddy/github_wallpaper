@@ -2,6 +2,8 @@
 
 Date: April 1, 2026
 
+Status note: this is a dated audit snapshot, not the current architecture index. Use `CODEBASE.md` for the current repository map, `docs/notification_audit_2026-04-03.md` for the latest notification audit, and `docs/admin_control_surface_2026-04-03.md` for the latest admin-surface audit.
+
 ## Scope
 
 This pass covered:

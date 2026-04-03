@@ -9,8 +9,12 @@ import 'package:github_wallpaper/features/contributions/services/share_service.d
 import 'package:github_wallpaper/core/storage/storage_service.dart';
 import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
+import 'package:github_wallpaper/core/ui/animated_counter.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/ui/app_components.dart';
+import 'package:github_wallpaper/core/ui/empty_state.dart';
+import 'package:github_wallpaper/core/ui/press_scale.dart';
+import 'package:github_wallpaper/core/ui/skeleton_loader.dart';
 import 'package:intl/intl.dart';
 
 class HomePage extends StatefulWidget {
@@ -45,17 +49,31 @@ class _HomePageState extends State<HomePage>
   TrendSummary _trend30d = const TrendSummary(current: 0, previous: 0);
   bool _isSharing = false;
   final ScrollController _scrollController = ScrollController();
+  late final AnimationController _topCardsController;
   bool _isHeaderCompact = false;
+  bool _prefersReducedMotion = false;
+  bool _hasPlayedTopCardEntrance = false;
 
   @override
   void initState() {
     super.initState();
+    _topCardsController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 560),
+    );
     _setTrends(widget.data);
     _scrollController.addListener(_handleScroll);
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _syncTopCardMotionPreference();
+  }
+
+  @override
   void dispose() {
+    _topCardsController.dispose();
     _scrollController
       ..removeListener(_handleScroll)
       ..dispose();
@@ -67,6 +85,18 @@ class _HomePageState extends State<HomePage>
     super.didUpdateWidget(oldWidget);
     if (oldWidget.data != widget.data) {
       _setTrends(widget.data);
+    }
+    if (oldWidget.data == null && widget.data != null) {
+      if (_prefersReducedMotion) {
+        _topCardsController.value = 1;
+        _hasPlayedTopCardEntrance = true;
+      } else {
+        _hasPlayedTopCardEntrance = false;
+        _maybePlayTopCardEntrance();
+      }
+    } else if (oldWidget.data != null && widget.data == null) {
+      _topCardsController.value = 0;
+      _hasPlayedTopCardEntrance = false;
     }
   }
 
@@ -95,6 +125,45 @@ class _HomePageState extends State<HomePage>
         _scrollController.offset > AppTheme.spacing12;
     if (shouldCompact == _isHeaderCompact || !mounted) return;
     setState(() => _isHeaderCompact = shouldCompact);
+  }
+
+  void _syncTopCardMotionPreference() {
+    final prefersReducedMotion =
+        MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    if (_prefersReducedMotion == prefersReducedMotion) {
+      if (!_prefersReducedMotion) {
+        _maybePlayTopCardEntrance();
+      }
+      return;
+    }
+
+    _prefersReducedMotion = prefersReducedMotion;
+    if (_prefersReducedMotion) {
+      _topCardsController.value = 1;
+      _hasPlayedTopCardEntrance = true;
+      return;
+    }
+
+    if (widget.data != null && !_hasPlayedTopCardEntrance) {
+      _topCardsController.value = 0;
+      _maybePlayTopCardEntrance();
+    }
+  }
+
+  void _maybePlayTopCardEntrance() {
+    if (_prefersReducedMotion ||
+        widget.data == null ||
+        _hasPlayedTopCardEntrance) {
+      if (_prefersReducedMotion) {
+        _topCardsController.value = 1;
+      }
+      return;
+    }
+
+    _hasPlayedTopCardEntrance = true;
+    _topCardsController
+      ..value = 0
+      ..forward();
   }
 
   void _showDayDetail(ContributionDay day) {
@@ -224,45 +293,12 @@ class _HomePageState extends State<HomePage>
   }
 
   Widget _buildErrorState() {
-    final scheme = Theme.of(context).colorScheme;
-    return Center(
-      child: Padding(
-        padding: AppTheme.pAll32,
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.cloud_off_rounded,
-                size: 48, color: scheme.onSurface.withValues(alpha: 0.35)),
-            AppTheme.h16,
-            Text(
-              AppStrings.loadError,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: scheme.onSurface,
-                fontSize: AppTheme.fontTitle,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-            AppTheme.h8,
-            Text(
-              widget.loadError ?? AppStrings.unknownError,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: scheme.onSurface.withValues(alpha: 0.65),
-                fontSize: AppTheme.fontBody,
-                fontWeight: FontWeight.w600,
-                height: 1.45,
-              ),
-            ),
-            AppTheme.h24,
-            FilledButton.icon(
-              onPressed: widget.onRefresh,
-              icon: const Icon(Icons.refresh_rounded, size: 18),
-              label: const Text(AppStrings.tryAgain),
-            ),
-          ],
-        ),
-      ),
+    return AppEmptyState(
+      icon: Icons.cloud_off_rounded,
+      title: AppStrings.loadError,
+      message: widget.loadError ?? AppStrings.unknownError,
+      ctaLabel: AppStrings.tryAgain,
+      onCta: () => widget.onRefresh(),
     );
   }
 
@@ -287,6 +323,31 @@ class _HomePageState extends State<HomePage>
 }
 
 extension _HomePageStateView on _HomePageState {
+  Widget _buildTopCardReveal({
+    required int order,
+    required Widget child,
+  }) {
+    if (_prefersReducedMotion) return child;
+
+    final start = order * 0.12;
+    final end = (start + 0.44).clamp(0.0, 1.0);
+    final animation = CurvedAnimation(
+      parent: _topCardsController,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+
+    return FadeTransition(
+      opacity: animation,
+      child: SlideTransition(
+        position: Tween<Offset>(
+          begin: Offset(0, 0.04 + (order * 0.01)),
+          end: Offset.zero,
+        ).animate(animation),
+        child: child,
+      ),
+    );
+  }
+
   Widget _buildHomePage(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final viewportHeight = MediaQuery.sizeOf(context).height;
@@ -307,12 +368,17 @@ extension _HomePageStateView on _HomePageState {
       top: AppTheme.spacing12,
       bottom: 0,
     );
+    final adaptiveRecentActivityLimit = viewportHeight >= 880
+        ? 7
+        : viewportHeight >= 740
+            ? 6
+            : 5;
     final preSnapshotGap = (viewportHeight * 0.03).clamp(14.0, 28.0);
     final preStreakGap = (viewportHeight * 0.035).clamp(16.0, 30.0);
     final afterStreakGap = (viewportHeight * 0.06).clamp(24.0, 64.0);
 
     if (widget.isLoading && widget.data == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const HomePageSkeleton();
     }
 
     if (widget.loadError != null && widget.data == null) {
@@ -323,6 +389,9 @@ extension _HomePageStateView on _HomePageState {
     final trend7d = _trend7d;
     final trend30d = _trend30d;
     final weeklyCommitGoal = StorageService.getWeeklyCommitGoal();
+    final recentActivityLimit = StorageService.getRecentActivityLimit(
+      fallback: adaptiveRecentActivityLimit,
+    );
     final lastSync = data != null
         ? (StorageService.getEffectiveLastSync() ?? data.lastUpdated)
         : null;
@@ -343,8 +412,11 @@ extension _HomePageStateView on _HomePageState {
                   data: data,
                   weeklyGoal: weeklyCommitGoal,
                 ),
-            () => _HomeRecentActivityFeedCard(data: data, limit: 5),
-            () => const _HomeQuoteCard(),
+            () => _HomeRecentActivityFeedCard(
+                  data: data,
+                  limit: recentActivityLimit,
+                ),
+            () => _HomeQuoteCard(data: data),
             () => AppTheme.h32,
           ];
 
@@ -475,51 +547,72 @@ extension _HomePageStateView on _HomePageState {
                 SliverPadding(
                   padding: topSectionPadding,
                   sliver: SliverToBoxAdapter(
-                    child: GestureDetector(
-                      onTap: () async {
-                        final updated =
-                            await SettingsPage.showUpdateTokenDialog(context);
-                        if (updated) widget.onRefresh();
-                      },
-                      child: Container(
-                        padding: AppTheme.pAll16,
-                        margin: AppTheme.pOnlyB16,
-                        decoration: BoxDecoration(
-                          color: scheme.errorContainer,
-                          borderRadius: AppTheme.brMedium,
-                          border: Border.all(
-                              color: scheme.error.withValues(alpha: 0.5)),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(Icons.warning_amber_rounded,
-                                color: scheme.onErrorContainer),
-                            AppTheme.w12,
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Action Required: Reconnect GitHub',
-                                    style: TextStyle(
+                    child: PressScale(
+                      child: Semantics(
+                        container: true,
+                        button: true,
+                        label: 'Reconnect GitHub',
+                        value: 'Wallpaper updates are paused.',
+                        hint: 'Open the reconnect flow.',
+                        child: ExcludeSemantics(
+                          child: Material(
+                            color: Colors.transparent,
+                            borderRadius: AppTheme.brMedium,
+                            child: InkWell(
+                              borderRadius: AppTheme.brMedium,
+                              onTap: () async {
+                                final updated =
+                                    await SettingsPage.showUpdateTokenDialog(
+                                        context);
+                                if (updated) widget.onRefresh();
+                              },
+                              child: Container(
+                                padding: AppTheme.pAll16,
+                                margin: AppTheme.pOnlyB16,
+                                decoration: BoxDecoration(
+                                  color: scheme.errorContainer,
+                                  borderRadius: AppTheme.brMedium,
+                                  border: Border.all(
+                                    color: scheme.error.withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.warning_amber_rounded,
                                       color: scheme.onErrorContainer,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: AppTheme.fontBody,
                                     ),
-                                  ),
-                                  AppTheme.h2,
-                                  Text(
-                                    'Wallpaper updates are paused. Tap to reconnect.',
-                                    style: TextStyle(
-                                      color: scheme.onErrorContainer
-                                          .withValues(alpha: 0.8),
-                                      fontSize: AppTheme.fontCaption,
+                                    AppTheme.w12,
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Action Required: Reconnect GitHub',
+                                            style: TextStyle(
+                                              color: scheme.onErrorContainer,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: AppTheme.fontBody,
+                                            ),
+                                          ),
+                                          AppTheme.h2,
+                                          Text(
+                                            'Wallpaper updates are paused. Tap to reconnect.',
+                                            style: TextStyle(
+                                              color: scheme.onErrorContainer
+                                                  .withValues(alpha: 0.8),
+                                              fontSize: AppTheme.fontCaption,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -528,18 +621,13 @@ extension _HomePageStateView on _HomePageState {
               if (data == null)
                 SliverFillRemaining(
                   hasScrollBody: false,
-                  child: Padding(
-                    padding: AppTheme.pagePadding(context),
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      child: Text(
-                        'No data yet.',
-                        style: TextStyle(
-                          color: scheme.onSurface.withValues(alpha: 0.70),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ),
+                  child: AppEmptyState(
+                    icon: Icons.insights_outlined,
+                    title: 'No activity yet',
+                    message:
+                        'Sync GitHub once to populate your Home dashboard and daily progress cards.',
+                    ctaLabel: 'Refresh',
+                    onCta: () => widget.onRefresh(),
                   ),
                 )
               else ...[
@@ -549,23 +637,36 @@ extension _HomePageStateView on _HomePageState {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _HomeTodayHeroCard(
-                          data: data,
-                          isLoading: widget.isLoading,
-                          isSharing: _isSharing,
-                          onRefresh: widget.onRefresh,
-                          onShare: () =>
-                              _openShareSheet(data, trend7d, trend30d),
+                        _buildTopCardReveal(
+                          order: 0,
+                          child: _HomeTodayHeroCard(
+                            data: data,
+                            isLoading: widget.isLoading,
+                            isSharing: _isSharing,
+                            onRefresh: widget.onRefresh,
+                            onOpenStats: widget.openStats,
+                            onShare: () =>
+                                _openShareSheet(data, trend7d, trend30d),
+                          ),
                         ),
                         AppTheme.h16,
-                        _HomeWeeklyGoalCard(
-                          data: data,
-                          weeklyGoal: weeklyCommitGoal,
+                        _buildTopCardReveal(
+                          order: 1,
+                          child: _HomeWeeklyGoalCard(
+                            data: data,
+                            weeklyGoal: weeklyCommitGoal,
+                          ),
                         ),
                         SizedBox(height: preSnapshotGap),
-                        _HomeJourneySnapshotCard(data: data),
+                        _buildTopCardReveal(
+                          order: 2,
+                          child: _HomeJourneySnapshotCard(data: data),
+                        ),
                         SizedBox(height: preStreakGap),
-                        _HomeCurrentStreakCard(data: data),
+                        _buildTopCardReveal(
+                          order: 3,
+                          child: _HomeCurrentStreakCard(data: data),
+                        ),
                         SizedBox(height: afterStreakGap),
                       ],
                     ),
@@ -671,6 +772,7 @@ class _HomeTodayHeroCard extends StatelessWidget {
   final bool isLoading;
   final bool isSharing;
   final Future<void> Function() onRefresh;
+  final VoidCallback onOpenStats;
   final VoidCallback onShare;
 
   const _HomeTodayHeroCard({
@@ -678,6 +780,7 @@ class _HomeTodayHeroCard extends StatelessWidget {
     required this.isLoading,
     required this.isSharing,
     required this.onRefresh,
+    required this.onOpenStats,
     required this.onShare,
   });
 
@@ -687,6 +790,7 @@ class _HomeTodayHeroCard extends StatelessWidget {
     final tt = Theme.of(context).textTheme;
     final today = data.stats.todayContributions;
     final streak = data.stats.currentStreak;
+    final bestStreak = data.stats.longestStreak;
     final streakLabel =
         streak > 0 ? 'Streak alive - $streak days' : 'Start your streak today';
 
@@ -704,34 +808,40 @@ class _HomeTodayHeroCard extends StatelessWidget {
             ),
           ),
           AppTheme.h12,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.bottomLeft,
-                  child: Text(
-                    '$today',
-                    style: tt.displayLarge?.copyWith(
-                      fontWeight: FontWeight.w800,
-                      height: 1.0,
+          Semantics(
+            label: "Today's contribution count",
+            value: '$today commit${today == 1 ? '' : 's'} today',
+            child: ExcludeSemantics(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.bottomLeft,
+                      child: AnimatedCounter(
+                        value: today,
+                        style: tt.displayLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          height: 1.0,
+                        ),
+                      ),
                     ),
                   ),
-                ),
-              ),
-              AppTheme.w12,
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Text(
-                  'commits',
-                  style: tt.titleMedium?.copyWith(
-                    color: scheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                  AppTheme.w12,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Text(
+                      'commits',
+                      style: tt.titleMedium?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ),
-                ),
+                ],
               ),
-            ],
+            ),
           ),
           AppTheme.h16,
           Container(
@@ -763,42 +873,75 @@ class _HomeTodayHeroCard extends StatelessWidget {
               ],
             ),
           ),
+          AppTheme.h12,
+          Wrap(
+            spacing: AppTheme.spacing8,
+            runSpacing: AppTheme.spacing8,
+            children: [
+              _HeroAssistChip(
+                icon: Icons.emoji_events_outlined,
+                label: bestStreak > 0
+                    ? 'Best streak $bestStreak ${bestStreak == 1 ? 'day' : 'days'}'
+                    : 'Best streak starts today',
+                accentColor: scheme.tertiary,
+              ),
+              Semantics(
+                button: true,
+                label: 'View more stats',
+                hint: 'Open the Stats tab',
+                child: ExcludeSemantics(
+                  child: _HeroAssistChip(
+                    icon: Icons.query_stats_rounded,
+                    label: 'View more stats',
+                    accentColor: scheme.primary,
+                    onTap: onOpenStats,
+                  ),
+                ),
+              ),
+            ],
+          ),
           AppTheme.h16,
           Row(
             children: [
               Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: isLoading ? null : onRefresh,
-                  icon: isLoading
-                      ? SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        )
-                      : Icon(Icons.refresh_rounded,
-                          size: AppTheme.iconSM, color: scheme.onSurface),
-                  label: const Text('Refresh'),
-                  style: OutlinedButton.styleFrom(
-                    padding: AppTheme.pSymV16,
-                    side: BorderSide(color: scheme.outlineVariant),
-                    foregroundColor: scheme.onSurface,
+                child: PressScale(
+                  enabled: !isLoading,
+                  child: OutlinedButton.icon(
+                    onPressed: isLoading ? null : onRefresh,
+                    icon: isLoading
+                        ? SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          )
+                        : Icon(Icons.refresh_rounded,
+                            size: AppTheme.iconSM, color: scheme.onSurface),
+                    label: const Text('Refresh'),
+                    style: OutlinedButton.styleFrom(
+                      padding: AppTheme.pSymV16,
+                      side: BorderSide(color: scheme.outlineVariant),
+                      foregroundColor: scheme.onSurface,
+                    ),
                   ),
                 ),
               ),
               AppTheme.w12,
               Expanded(
-                child: FilledButton.icon(
-                  onPressed: isSharing ? null : onShare,
-                  icon: const Icon(Icons.ios_share_rounded,
-                      size: AppTheme.iconSM),
-                  label: const Text('Share'),
-                  style: FilledButton.styleFrom(
-                    padding: AppTheme.pSymV16,
-                    backgroundColor: scheme.primary,
-                    foregroundColor: scheme.onPrimary,
+                child: PressScale(
+                  enabled: !isSharing,
+                  child: FilledButton.icon(
+                    onPressed: isSharing ? null : onShare,
+                    icon: const Icon(Icons.ios_share_rounded,
+                        size: AppTheme.iconSM),
+                    label: const Text('Share'),
+                    style: FilledButton.styleFrom(
+                      padding: AppTheme.pSymV16,
+                      backgroundColor: scheme.primary,
+                      foregroundColor: scheme.onPrimary,
+                    ),
                   ),
                 ),
               ),
@@ -830,66 +973,74 @@ class _HomeWeeklyGoalCard extends StatelessWidget {
       return !day.isBefore(start) && !day.isAfter(today);
     }).fold<int>(0, (s, d) => s + d.contributionCount);
 
-    final safeWeeklyGoal = weeklyGoal.clamp(5, 100);
+    final safeWeeklyGoal = weeklyGoal > 0 ? weeklyGoal : 1;
     final progress = (weeklyTotal / safeWeeklyGoal).clamp(0.0, 1.0);
     final remaining = (safeWeeklyGoal - weeklyTotal).clamp(0, safeWeeklyGoal);
 
-    return AppCard(
-      padding: EdgeInsets.zero,
-      child: Container(
-        padding: AppTheme.pAll20,
-        decoration: BoxDecoration(
-          borderRadius: AppTheme.brLarge,
-          border: Border.all(color: scheme.outlineVariant),
-          color: scheme.primary.withValues(alpha: 0.10),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return Semantics(
+      label: 'Weekly goal',
+      value: remaining == 0
+          ? '$weeklyTotal of $safeWeeklyGoal commits. Goal hit this week.'
+          : '$weeklyTotal of $safeWeeklyGoal commits. $remaining more commits to hit your goal.',
+      child: ExcludeSemantics(
+        child: AppCard(
+          padding: EdgeInsets.zero,
+          child: Container(
+            padding: AppTheme.pAll20,
+            decoration: BoxDecoration(
+              borderRadius: AppTheme.brLarge,
+              border: Border.all(color: scheme.outlineVariant),
+              color: scheme.primary.withValues(alpha: 0.10),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.emoji_events_outlined,
-                    size: 18, color: scheme.primary),
-                AppTheme.w12,
-                Expanded(
-                  child: Text('WEEKLY GOAL',
-                      style: tt.labelSmall?.copyWith(
-                        color: scheme.primary,
-                        letterSpacing: 1.1,
-                        fontWeight: FontWeight.w800,
-                      )),
-                ),
-                Flexible(
-                  child: Text(
-                    '$weeklyTotal/$safeWeeklyGoal commits',
-                    textAlign: TextAlign.right,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: tt.bodySmall?.copyWith(
-                      color: scheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w600,
+                Row(
+                  children: [
+                    Icon(Icons.emoji_events_outlined,
+                        size: 18, color: scheme.primary),
+                    AppTheme.w12,
+                    Expanded(
+                      child: Text('WEEKLY GOAL',
+                          style: tt.labelSmall?.copyWith(
+                            color: scheme.primary,
+                            letterSpacing: 1.1,
+                            fontWeight: FontWeight.w800,
+                          )),
                     ),
+                    Flexible(
+                      child: Text(
+                        '$weeklyTotal/$safeWeeklyGoal commits',
+                        textAlign: TextAlign.right,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: tt.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                AppTheme.h12,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(999),
+                  child: LinearProgressIndicator(
+                    value: progress,
+                    minHeight: 10,
+                    backgroundColor: scheme.surfaceContainerHighest,
                   ),
+                ),
+                AppTheme.h12,
+                Text(
+                  remaining == 0
+                      ? 'Goal hit this week! 💪'
+                      : '$remaining more commits to hit your goal! 💪',
+                  style: tt.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
                 ),
               ],
             ),
-            AppTheme.h12,
-            ClipRRect(
-              borderRadius: BorderRadius.circular(999),
-              child: LinearProgressIndicator(
-                value: progress,
-                minHeight: 10,
-                backgroundColor: scheme.surfaceContainerHighest,
-              ),
-            ),
-            AppTheme.h12,
-            Text(
-              remaining == 0
-                  ? 'Goal hit this week! 💪'
-                  : '$remaining more commits to hit your goal! 💪',
-              style: tt.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -915,60 +1066,71 @@ class _HomeCurrentStreakCard extends StatelessWidget {
             ? 'You matched your best!'
             : '$remaining days away from your best!';
 
-    return AppCard(
-      padding: AppTheme.pAll20,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
+    return Semantics(
+      label: 'Current streak',
+      value: best <= 0
+          ? '$current days. $helperText'
+          : '$current days. Best $best days. $helperText',
+      child: ExcludeSemantics(
+        child: AppCard(
+          padding: AppTheme.pAll20,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Text(
-                  'Current Streak 🔥',
-                  style: tt.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Current Streak 🔥',
+                      style: tt.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant),
+                    ),
+                  ),
+                  Text('Best',
+                      style: tt.bodySmall
+                          ?.copyWith(color: scheme.onSurfaceVariant)),
+                  AppTheme.w8,
+                  Text('${best}d',
+                      style: tt.titleMedium
+                          ?.copyWith(fontWeight: FontWeight.w700)),
+                ],
+              ),
+              AppTheme.h12,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  AnimatedCounter(
+                    value: current,
+                    style:
+                        tt.displaySmall?.copyWith(fontWeight: FontWeight.w800),
+                  ),
+                  AppTheme.w8,
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Text('days',
+                        style: tt.titleMedium
+                            ?.copyWith(color: scheme.onSurfaceVariant)),
+                  ),
+                ],
+              ),
+              AppTheme.h12,
+              ClipRRect(
+                borderRadius: BorderRadius.circular(999),
+                child: LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 10,
+                  backgroundColor: scheme.surfaceContainerHighest,
+                  color: scheme.primary,
                 ),
               ),
-              Text('Best',
-                  style:
-                      tt.bodySmall?.copyWith(color: scheme.onSurfaceVariant)),
-              AppTheme.w8,
-              Text('${best}d',
-                  style: tt.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-            ],
-          ),
-          AppTheme.h12,
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
+              AppTheme.h12,
               Text(
-                '$current',
-                style: tt.displaySmall?.copyWith(fontWeight: FontWeight.w800),
-              ),
-              AppTheme.w8,
-              Padding(
-                padding: const EdgeInsets.only(bottom: 6),
-                child: Text('days',
-                    style: tt.titleMedium
-                        ?.copyWith(color: scheme.onSurfaceVariant)),
+                helperText,
+                style: tt.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
               ),
             ],
           ),
-          AppTheme.h12,
-          ClipRRect(
-            borderRadius: BorderRadius.circular(999),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              backgroundColor: scheme.surfaceContainerHighest,
-              color: scheme.primary,
-            ),
-          ),
-          AppTheme.h12,
-          Text(
-            helperText,
-            style: tt.bodySmall?.copyWith(color: scheme.onSurfaceVariant),
-          ),
-        ],
+        ),
       ),
     );
   }
@@ -983,21 +1145,43 @@ class _HomeJourneySnapshotCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final currentYear = DateTime.now().toLocal().year;
+    final thisYearTotal = data.days
+        .where((day) => day.date.toLocal().year == currentYear)
+        .fold<int>(0, (sum, day) => sum + day.contributionCount);
+    final mostActiveWeekday =
+        data.stats.mostActiveWeekday == AppConstants.fallbackWeekday
+            ? '—'
+            : data.stats.mostActiveWeekday;
 
     final metrics = [
       (
-        label: 'Total',
-        value: PresentationFormatter.formatCompactNumber(
-          data.totalContributions,
-        ),
+        label: 'All-time',
+        value: null,
+        animatedValue: data.totalContributions,
+        formatter: PresentationFormatter.formatCompactNumber,
+        subtitle: 'Total commits',
       ),
       (
-        label: 'Active Days',
-        value: '${data.stats.activeDaysCount}',
+        label: 'This year',
+        value: null,
+        animatedValue: thisYearTotal,
+        formatter: PresentationFormatter.formatCompactNumber,
+        subtitle: '$currentYear total',
       ),
       (
-        label: 'Peak Day',
-        value: '${data.stats.peakDayContributions}',
+        label: 'Active days',
+        value: null,
+        animatedValue: data.stats.activeDaysCount,
+        formatter: (value) => '$value',
+        subtitle: 'Days with commits',
+      ),
+      (
+        label: 'Best weekday',
+        value: mostActiveWeekday,
+        animatedValue: null,
+        formatter: null,
+        subtitle: 'Most productive day',
       ),
     ];
 
@@ -1015,27 +1199,31 @@ class _HomeJourneySnapshotCard extends StatelessWidget {
             ),
           ),
           AppTheme.h12,
-          Row(
-            children: [
-              for (var i = 0; i < metrics.length; i++) ...[
-                Expanded(
-                  child: _SnapshotMetric(
-                    label: metrics[i].label,
-                    value: metrics[i].value,
-                  ),
-                ),
-                if (i != metrics.length - 1) ...[
-                  SizedBox(
-                    height: AppTheme.spacing32,
-                    child: VerticalDivider(
-                      color: scheme.outlineVariant,
-                      thickness: AppTheme.borderWidthHairline,
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final columns = constraints.maxWidth >= 520 ? 4 : 2;
+              final itemWidth =
+                  (constraints.maxWidth - AppTheme.spacing12 * (columns - 1)) /
+                      columns;
+
+              return Wrap(
+                spacing: AppTheme.spacing12,
+                runSpacing: AppTheme.spacing12,
+                children: [
+                  for (final metric in metrics)
+                    SizedBox(
+                      width: itemWidth,
+                      child: _SnapshotMetric(
+                        label: metric.label,
+                        value: metric.value,
+                        animatedValue: metric.animatedValue,
+                        formatter: metric.formatter,
+                        subtitle: metric.subtitle,
+                      ),
                     ),
-                  ),
-                  AppTheme.w8,
                 ],
-              ],
-            ],
+              );
+            },
           ),
         ],
       ),
@@ -1045,39 +1233,144 @@ class _HomeJourneySnapshotCard extends StatelessWidget {
 
 class _SnapshotMetric extends StatelessWidget {
   final String label;
-  final String value;
+  final String? value;
+  final int? animatedValue;
+  final String Function(int value)? formatter;
+  final String subtitle;
 
   const _SnapshotMetric({
     required this.label,
     required this.value,
+    required this.animatedValue,
+    required this.formatter,
+    required this.subtitle,
+  }) : assert(value != null || animatedValue != null);
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final resolvedValue = animatedValue != null
+        ? (formatter?.call(animatedValue!) ?? '$animatedValue')
+        : value!;
+
+    return Semantics(
+      label: label,
+      value: '$resolvedValue. $subtitle',
+      child: ExcludeSemantics(
+        child: Container(
+          padding: AppTheme.pAll16,
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainerHighest,
+            borderRadius: AppTheme.brMedium,
+            border: Border.all(color: scheme.outlineVariant),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              AppTheme.h8,
+              if (animatedValue != null)
+                AnimatedCounter(
+                  value: animatedValue!,
+                  formatter: formatter,
+                  style: tt.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                )
+              else
+                Text(
+                  value!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: tt.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              AppTheme.h6,
+              Text(
+                subtitle,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: tt.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _HeroAssistChip extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color accentColor;
+  final VoidCallback? onTap;
+
+  const _HeroAssistChip({
+    required this.icon,
+    required this.label,
+    required this.accentColor,
+    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
+    final content = Container(
+      padding: EdgeInsets.symmetric(
+        horizontal: AppTheme.spacing12,
+        vertical: AppTheme.spacing8,
+      ),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(999),
+        color: accentColor.withValues(alpha: onTap == null ? 0.12 : 0.10),
+        border: Border.all(
+          color: onTap == null
+              ? accentColor.withValues(alpha: 0.20)
+              : accentColor.withValues(alpha: 0.26),
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: AppTheme.iconSM, color: accentColor),
+          AppTheme.w8,
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: tt.bodySmall?.copyWith(
+                color: onTap == null ? scheme.onSurface : accentColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: tt.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        AppTheme.h8,
-        Text(
-          value,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: tt.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-      ],
+    if (onTap == null) return content;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: content,
+      ),
     );
   }
 }
@@ -1153,13 +1446,15 @@ class _HomeWeekStripSection extends StatelessWidget {
 }
 
 class _HomeQuoteCard extends StatelessWidget {
-  const _HomeQuoteCard();
+  final CachedContributionData data;
+
+  const _HomeQuoteCard({required this.data});
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final tt = Theme.of(context).textTheme;
-    final quote = DailyQuoteService.today();
+    final quote = DailyQuoteService.today(data: data);
 
     return AppCard(
       padding: EdgeInsets.zero,

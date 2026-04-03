@@ -26,10 +26,6 @@ class AppConfig {
     defaultValue:
         'https://us-central1-gitwall-d63cc.cloudfunctions.net/ingestClientLog',
   );
-  static const String geminiApiKey = String.fromEnvironment(
-    'GEMINI_API_KEY',
-    defaultValue: '',
-  );
   static const String supportUsUrl = String.fromEnvironment(
     'SUPPORT_US_URL',
     defaultValue: 'https://buymeacoffee.com/',

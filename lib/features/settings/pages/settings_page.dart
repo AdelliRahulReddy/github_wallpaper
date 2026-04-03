@@ -210,13 +210,12 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                 ),
                 Slider(
-                  min: 5,
-                  max: 100,
-                  divisions: 19,
+                  min: AppConstants.minWeeklyCommitGoal.toDouble(),
+                  max: AppConstants.maxWeeklyCommitGoal.toDouble(),
                   value: tempGoal.toDouble(),
                   label: '$tempGoal',
                   onChanged: (value) {
-                    setSheetState(() => tempGoal = (value / 5).round() * 5);
+                    setSheetState(() => tempGoal = value.round());
                   },
                 ),
                 FilledButton(
@@ -232,6 +231,56 @@ class _SettingsPageState extends State<SettingsPage> {
 
     if (!mounted || result == null) return;
     await prefs.setWeeklyCommitGoal(result);
+  }
+
+  Future<void> _pickRecentActivityLimit(SettingsController prefs) async {
+    var tempLimit = prefs.recentActivityLimit;
+    final result = await showModalBottomSheet<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setSheetState) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(AppTheme.spacing20),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Recent activity',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  '$tempLimit items',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                ),
+                Slider(
+                  min: AppConstants.minRecentActivityLimit.toDouble(),
+                  max: AppConstants.maxRecentActivityLimit.toDouble(),
+                  divisions: AppConstants.maxRecentActivityLimit -
+                      AppConstants.minRecentActivityLimit,
+                  value: tempLimit.toDouble(),
+                  label: '$tempLimit',
+                  onChanged: (value) {
+                    setSheetState(() => tempLimit = value.round());
+                  },
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(context).pop(tempLimit),
+                  child: const Text('Save'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (!mounted || result == null) return;
+    await prefs.setRecentActivityLimit(result);
   }
 
   void _openThemePicker() {
@@ -338,6 +387,21 @@ class _SettingsPageState extends State<SettingsPage> {
                       ),
                     ),
                     onTap: () => _pickWeeklyGoal(
+                      context.read<SettingsController>(),
+                    ),
+                  ),
+                  SettingsTile(
+                    icon: Icons.view_list_outlined,
+                    title: 'Recent activity',
+                    subtitle:
+                        'Choose how many recent commit days appear on Home.',
+                    trailing: Text(
+                      '${context.watch<SettingsController>().recentActivityLimit} items',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                    onTap: () => _pickRecentActivityLimit(
                       context.read<SettingsController>(),
                     ),
                   ),

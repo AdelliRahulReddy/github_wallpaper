@@ -2,6 +2,8 @@
 
 Date: April 1, 2026
 
+Status note: this document is still valid for the current share flow. The current source-of-truth index for the whole repository is `CODEBASE.md`.
+
 ## Overview
 
 The share system now has four core templates:
@@ -14,6 +16,7 @@ The share system now has four core templates:
 All four core templates now export in `Story 9:16` only.
 
 `Wrapped` remains available as a seasonal recap asset and is also story-only.
+It is intentionally not part of the main core template rail in the default share chooser.
 
 ## Product Rationale
 

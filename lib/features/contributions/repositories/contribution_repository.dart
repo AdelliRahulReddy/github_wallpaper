@@ -6,9 +6,10 @@ import 'package:http/http.dart' as http;
 
 import 'package:github_wallpaper/core/errors/app_exceptions.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
-import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/contributions/services/daily_quotes.dart';
+import 'package:github_wallpaper/app/services/background_scheduler.dart';
+import 'package:github_wallpaper/app/services/notification_catalog.dart';
 import 'package:github_wallpaper/app/services/notification_service.dart';
 import 'package:github_wallpaper/app/services/refresh_result.dart';
 import 'package:github_wallpaper/app/services/telemetry_service.dart';
@@ -111,6 +112,9 @@ class ContributionRepository {
         forceRefresh: true,
       );
       await DailyQuoteService.ensureDailyQuote(data: data);
+      if (BackgroundScheduler.shouldScheduleReminderChecks()) {
+        await BackgroundScheduler.scheduleStreakReminders();
+      }
       final target = StorageService.getLastWallpaperTarget();
       if (StorageService.hasAppliedWallpaper() &&
           StorageService.getAutoApplyAfterSync()) {
@@ -333,9 +337,10 @@ Future<void> _dispatchPostSyncNotifications(CachedContributionData data) async {
         streakMilestones,
       );
       if (hitStreak > lastStreak) {
+        final celebration = NotificationCatalog.streakMilestoneCopy(hitStreak);
         await NotificationService.showCelebrationNotification(
-          title: '🔥 $hitStreak‑day streak',
-          body: 'Consistency looks good on you.',
+          title: celebration.title,
+          body: celebration.body,
         );
         await StorageService.setLastCelebratedStreakMilestone(hitStreak);
       }
@@ -346,10 +351,11 @@ Future<void> _dispatchPostSyncNotifications(CachedContributionData data) async {
         totalMilestones,
       );
       if (hitTotal > lastTotal) {
+        final celebration =
+            NotificationCatalog.totalContributionMilestoneCopy(hitTotal);
         await NotificationService.showCelebrationNotification(
-          title:
-              '🚀 ${PresentationFormatter.formatCompactNumber(hitTotal)} contributions',
-          body: 'Big numbers. Bigger momentum.',
+          title: celebration.title,
+          body: celebration.body,
         );
         await StorageService.setLastCelebratedTotalMilestone(hitTotal);
       }

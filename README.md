@@ -1,92 +1,78 @@
 # GitWall
 
-GitWall turns a GitHub contribution graph into a phone wallpaper and a compact personal dashboard. The app fetches GitHub activity, caches it locally, renders wallpaper-safe heatmaps, and gives the user Home, Stats, Customize, Wrapped, and Settings flows around that data. All features are included for every user.
+GitWall is a free Flutter app that turns GitHub activity into a lock-screen-first wallpaper, a compact developer dashboard, shareable recap cards, and a background refresh workflow.
 
-The complete technical reference for the repository now lives in [CODEBASE.md](CODEBASE.md).
+Current product rule: all user-facing features are free. There is no active paywall, membership gate, or subscription flow in the app.
 
-## ✨ Features:
+## What The App Does
 
-- **🖼️ Aesthetic Heatmap Wallpapers** – Convert your GitHub contribution graph into beautiful, customizable wallpapers for both Home and Lock screens.
-- **🔄 Silent Sync** – Wallpapers refresh automatically in the background via WorkManager and FCM without interrupting your workflow.
-- **🎨 Deep Customization** – Adjust scale, opacity, positioning, corner radius, and add custom motivational quotes.
-- **📊 Advanced Insights** – Dedicated dashboard for streaks, contribution stats, weekend analysis, and historical trends.
-- **🛡️ Secure & Private** – Your GitHub tokens are stored locally using Flutter Secure Storage; your data never leaves your device except to fetch contribution stats.
-- **💎 Polished Design System** – Built with a centralized design system ("Single Source of Truth") for a polished, consistent modern look.
-- **🕙 Reactive Sync States** – Instant feedback on "Last Synced" times using standardized UTC logic across the app.
-- **⚠️ Token Expiration Alerts (v1.2)** – Proactively detects expired or revoked GitHub tokens. Shows a warning banner on the dashboard, sends a background notification, and lets you update your token directly from Settings — no logout required.
+- Connects a GitHub account through OAuth and restores a Firebase-backed app session.
+- Fetches contribution data from the GitHub GraphQL API and caches it locally.
+- Selects context-aware motivational quotes from a bundled curated pool instead of calling an AI API at runtime.
+- Renders lock-screen-first wallpapers with safe-area-aware previewing and application.
+- Shows Home, Stats, Customize, and Settings tabs around the cached GitHub activity.
+- Generates story-format share cards for `Daily Flex`, `Repo Focus`, `Streak Milestone`, and `Monthly Snapshot`.
+- Runs background refreshes on Android with WorkManager.
+- Sends local notifications for sync issues, reminders, celebrations, and weekly digest flows.
+- Receives admin broadcast pushes through Firebase Cloud Messaging.
 
-### 🚀 Getting Started
+## Product Notes
+
+- Wallpaper apply flow in Customize is currently lock-screen only.
+- The app keeps a free-only experience across settings, customize, stats, and onboarding flows.
+- Admin tooling exists as a separate web control surface for app config, broadcasts, whitelisting, metrics, and incident visibility.
+
+## Setup
 
 ### Prerequisites
 
-- Flutter SDK `^3.5.0`
-- Android device/emulator for wallpaper features
-- GitHub OAuth app with callback `gitwall://oauth/callback`
+- Flutter SDK `>=3.24.0`
+- Dart SDK `^3.5.0`
+- Android device or emulator for wallpaper and background-sync behavior
 - Firebase project configured for the app
+- GitHub OAuth app with callback `gitwall://oauth/callback`
 
-### Quick Setup
+### Quick Start
 
-1. Clone the repository
+1. Clone the repository.
    ```bash
    git clone https://github.com/AdelliRahulReddy/github_wallpaper.git
    cd github_wallpaper
    ```
-2. Install dependencies.
+2. Install packages.
    ```bash
    flutter pub get
    ```
-3. Configure Firebase for the project.
-   - Run `flutterfire configure` if needed.
+3. Configure Firebase.
    - Ensure `lib/core/constants/firebase_options.dart` matches your Firebase project.
+   - Ensure Cloud Functions and Firestore rules are deployed if you need auth exchange, admin broadcasts, and remote config.
 4. Configure GitHub OAuth.
-   - Register the callback `gitwall://oauth/callback` in your GitHub OAuth app.
-   - Confirm the values in `lib/core/constants/environment_config.dart` match your deployment.
-   - See [CODEBASE.md](CODEBASE.md) for the full auth/backend configuration map.
+   - Register `gitwall://oauth/callback`.
+   - Align the values in `lib/core/constants/environment_config.dart` with your deployment.
 5. Run the app.
    ```bash
    flutter run
    ```
 
-## Tech Stack
+## Main Tech
 
-- Flutter + Dart for the app UI and app logic
-- GitHub GraphQL API for contribution data
-- Firebase for auth/session support, config, telemetry, and backend functions
-- `flutter_secure_storage` and `shared_preferences` for local persistence
-- WorkManager for background refresh scheduling
-- `flutter_local_notifications` for reminders and milestone notifications
-- Android wallpaper APIs for wallpaper apply flow
-- Home Widget integration for companion widget updates
+- Flutter + Dart
+- GitHub GraphQL API
+- Firebase Auth, Firestore, Messaging, Crashlytics, and Cloud Functions
+- `flutter_secure_storage` + `shared_preferences`
+- WorkManager
+- `flutter_local_notifications`
+- Android wallpaper APIs + `wallpaper_manager_plus`
+- Home Widget integration
 
-## Project Structure
+## Docs
 
-```text
-github_wallpaper/
-├── assets/                     # Images, icons, and bundled assets
-├── CODEBASE.md                 # Full architecture, history, and file reference
-├── functions/                  # Firebase Cloud Functions
-├── lib/
-│   ├── app/                    # Startup shell, product-state assembly, app services
-│   ├── core/                   # Constants, theme, errors, storage, and utilities
-│   └── features/               # Auth, contributions, settings, and wallpaper modules
-│   └── main.dart               # Flutter entrypoint
-├── test/                       # Unit and widget tests
-└── web/                        # Web shell assets
-```
-
-## Lib Map
-
-For the file-by-file explanation of the current `lib/` folder and the rest of the repository, see [CODEBASE.md](CODEBASE.md).
-
-## Main Product Areas
-
-- `lib/app/app_entry.dart`: app startup, maintenance/update gates, and global provider wiring
-- `lib/app/pages/main_nav_page.dart`: logged-in 4-tab shell
-- `lib/features/contributions/pages/`: dashboard, stats, and wrapped experiences
-- `lib/features/wallpaper/pages/customize_page.dart`: wallpaper preview and customization
-- `lib/features/settings/pages/`: profile, notifications, support, and sync preferences
-- `lib/features/wallpaper/services/wallpaper_service.dart`: wallpaper generation and apply pipeline
-- `lib/features/contributions/repositories/contribution_repository.dart`: GitHub fetch and sync logic
+- [CODEBASE.md](CODEBASE.md): current repository index and architecture map
+- [docs/quote_system_2026-04-03.md](docs/quote_system_2026-04-03.md): local smart-quote catalog, scoring, and fallback design
+- [docs/notification_audit_2026-04-03.md](docs/notification_audit_2026-04-03.md): notification inventory, issues, and validation
+- [docs/admin_control_surface_2026-04-03.md](docs/admin_control_surface_2026-04-03.md): admin dashboard capabilities, limits, and cleanup notes
+- [docs/share_template_system_2026-04-01.md](docs/share_template_system_2026-04-01.md): share-template system design
+- [docs/codebase_audit_2026-04-01.md](docs/codebase_audit_2026-04-01.md): historical remediation audit
 
 ## License
 

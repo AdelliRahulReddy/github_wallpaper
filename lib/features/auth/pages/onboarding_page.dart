@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'package:github_wallpaper/app/pages/main_nav_page.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
+import 'package:github_wallpaper/core/ui/press_scale.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/auth/services/auth_flow_service.dart';
 import 'package:github_wallpaper/features/auth/services/oauth_service.dart';
@@ -16,14 +17,6 @@ class GitHubConnectPage extends StatefulWidget {
 
   @override
   State<GitHubConnectPage> createState() => _GitHubConnectPageState();
-}
-
-@Deprecated('Use GitHubConnectPage')
-class OnboardingPage extends GitHubConnectPage {
-  const OnboardingPage({
-    super.key,
-    int initialPage = 0,
-  }) : super();
 }
 
 class _GitHubConnectPageState extends State<GitHubConnectPage> {
@@ -237,87 +230,97 @@ class _SingleActionBar extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 12),
-              AnimatedContainer(
-                duration: AppTheme.durationNormal,
-                width: double.infinity,
-                height: 56,
-                decoration: BoxDecoration(
-                  gradient: busy
-                      ? null
-                      : LinearGradient(
-                          colors: [
-                            AppTheme.primaryBlue,
-                            accent,
-                          ],
-                          begin: Alignment.centerLeft,
-                          end: Alignment.centerRight,
-                        ),
-                  color: busy ? accent.withValues(alpha: 0.42) : null,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: busy
-                      ? null
-                      : [
-                          BoxShadow(
-                            color: AppTheme.primaryBlue.withValues(alpha: 0.22),
-                            blurRadius: 22,
-                            offset: const Offset(0, 12),
+              PressScale(
+                enabled: !busy,
+                child: AnimatedContainer(
+                  duration: AppTheme.durationNormal,
+                  width: double.infinity,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    gradient: busy
+                        ? null
+                        : LinearGradient(
+                            colors: [
+                              AppTheme.primaryBlue,
+                              accent,
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
                           ),
-                        ],
-                ),
-                child: FilledButton.icon(
-                  onPressed: busy ? null : onPressed,
-                  style: FilledButton.styleFrom(
-                    backgroundColor: Colors.transparent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.transparent,
-                    disabledForegroundColor:
-                        Colors.white.withValues(alpha: 0.78),
-                    shadowColor: Colors.transparent,
-                    elevation: 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                    ),
-                    textStyle: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 0.2,
-                    ),
-                  ).copyWith(
-                    overlayColor: WidgetStatePropertyAll(
-                      Colors.white.withValues(alpha: 0.08),
-                    ),
+                    color: busy ? accent.withValues(alpha: 0.42) : null,
+                    borderRadius: BorderRadius.circular(18),
+                    boxShadow: busy
+                        ? null
+                        : [
+                            BoxShadow(
+                              color:
+                                  AppTheme.primaryBlue.withValues(alpha: 0.22),
+                              blurRadius: 22,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
                   ),
-                  icon: buttonIcon,
-                  label: Text(buttonLabel),
+                  child: FilledButton.icon(
+                    onPressed: busy ? null : onPressed,
+                    style: FilledButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      disabledBackgroundColor: Colors.transparent,
+                      disabledForegroundColor:
+                          Colors.white.withValues(alpha: 0.78),
+                      shadowColor: Colors.transparent,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(18),
+                      ),
+                      textStyle: textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 0.2,
+                      ),
+                    ).copyWith(
+                      overlayColor: WidgetStatePropertyAll(
+                        Colors.white.withValues(alpha: 0.08),
+                      ),
+                    ),
+                    icon: buttonIcon,
+                    label: Text(buttonLabel),
+                  ),
                 ),
               ),
               const SizedBox(height: 10),
               AnimatedSwitcher(
                 duration: AppTheme.durationNormal,
-                child: Row(
-                  key: ValueKey<String>(helperText),
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      isPreparing
-                          ? Icons.sync_rounded
-                          : isConnecting
-                              ? Icons.open_in_new_rounded
-                              : Icons.lock_outline_rounded,
-                      size: 14,
-                      color: scheme.onSurface.withValues(alpha: 0.58),
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        helperText,
-                        textAlign: TextAlign.center,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: scheme.onSurface.withValues(alpha: 0.60),
-                          fontWeight: FontWeight.w600,
+                child: Semantics(
+                  liveRegion: busy,
+                  label: helperText,
+                  child: ExcludeSemantics(
+                    child: Row(
+                      key: ValueKey<String>(helperText),
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          isPreparing
+                              ? Icons.sync_rounded
+                              : isConnecting
+                                  ? Icons.open_in_new_rounded
+                                  : Icons.lock_outline_rounded,
+                          size: 14,
+                          color: scheme.onSurface.withValues(alpha: 0.58),
                         ),
-                      ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            helperText,
+                            textAlign: TextAlign.center,
+                            style: textTheme.bodySmall?.copyWith(
+                              color: scheme.onSurface.withValues(alpha: 0.60),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                  ],
+                  ),
                 ),
               ),
             ],

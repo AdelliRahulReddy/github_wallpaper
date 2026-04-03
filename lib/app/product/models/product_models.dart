@@ -124,7 +124,7 @@ class PreferenceState {
 }
 
 enum EntitledFeature {
-  aiQuotes,
+  smartQuotes,
   advancedStats,
   wrapped,
   reminders,

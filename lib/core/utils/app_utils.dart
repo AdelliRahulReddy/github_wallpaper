@@ -377,20 +377,14 @@ class AppStrings {
   static const systemClockArea = 'Lockscreen clock';
   static const gestureArea = 'Gesture zone';
   static const wallpaperResolution = 'Wallpaper:';
-  static const autoFitWidth = 'Auto Fit Width';
-  static const autoFixDevice = 'Auto Fix for Device';
   static const textOverlay = 'Text Overlay';
   static const customQuote = 'Custom Quote';
   static const quoteHint = 'Enter your motivation...';
-  static const quoteSize = 'Quote Size';
-  static const quoteOpacity = 'Quote Opacity';
   static const scale = 'Scale';
-  static const opacity = 'Opacity';
   static const cornerRadius = 'Corner Radius';
   static const layoutNote =
       'GitWall keeps the layout clear of the clock, status icons, and bottom gesture area. Position controls adjust the content inside that safe space.';
   static const positionVertical = 'Position (Vertical, within safe area)';
-  static const positionHorizontal = 'Position (Horizontal, within safe area)';
 
   // Settings Page
   static const settings = 'Settings';
@@ -586,6 +580,7 @@ class AppConstants {
       keySafeInsetRight = 'safe_right';
   static const String keyStreakGoalDays = 'streak_goal_days_v1';
   static const String keyWeeklyCommitGoal = 'weekly_commit_goal_v1';
+  static const String keyRecentActivityLimit = 'recent_activity_limit_v1';
   static const String keyStreakReminderEnabled = 'streak_reminder_enabled_v1';
   static const String keyStreakReminderHour = 'streak_reminder_hour_v1';
   static const String keyStreakReminderMinute = 'streak_reminder_minute_v1';
@@ -616,6 +611,11 @@ class AppConstants {
   static const String keySeenStreakMilestone = 'seen_streak_milestone_v1';
   static const String keyCodingLevel = 'coding_level_v1';
   static const String keyQuoteTone = 'quote_tone_v1';
+  static const String keyCachedQuote = 'cached_quote_v2';
+  static const String keyCachedQuoteDay = 'cached_quote_day_v2';
+  static const String keyCachedQuoteState = 'cached_quote_state_v2';
+  static const String keyQuoteHistory = 'quote_history_v2';
+  static const String keyQuoteActivitySnapshot = 'quote_activity_snapshot_v2';
   static const String keyCachedAiQuote = 'cached_ai_quote_v1';
   static const String keyCachedAiQuoteDay = 'cached_ai_quote_day_v1';
   static const String keyHasAuthError = 'has_auth_error_v1';
@@ -652,6 +652,12 @@ class AppConstants {
   static const double minWallpaperScale = 0.1, maxWallpaperScale = 10.0;
   static const double quickNumberTileMinHeight = 125.0;
   static const int wallpaperScaleDivisions = 40;
+  static const int minWeeklyCommitGoal = 1;
+  static const int maxWeeklyCommitGoal = 365;
+  static const int defaultWeeklyCommitGoal = 20;
+  static const int minRecentActivityLimit = 5;
+  static const int maxRecentActivityLimit = 20;
+  static const int defaultRecentActivityLimit = 6;
   static bool isValidContributionLevel(int l) => l >= 0 && l <= 4;
 }
 

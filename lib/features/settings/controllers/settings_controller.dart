@@ -18,6 +18,7 @@ class SettingsController extends SafeChangeNotifier {
   bool adminBroadcastNotificationsEnabled =
       StorageService.getAdminBroadcastNotificationsEnabled();
   int weeklyCommitGoal = StorageService.getWeeklyCommitGoal();
+  int recentActivityLimit = StorageService.getRecentActivityLimit();
   TimeOfDay weeklyDigestTime = StorageService.getWeeklyDigestTime();
   String? email = StorageService.getUserEmail();
 
@@ -32,6 +33,7 @@ class SettingsController extends SafeChangeNotifier {
     adminBroadcastNotificationsEnabled =
         StorageService.getAdminBroadcastNotificationsEnabled();
     weeklyCommitGoal = StorageService.getWeeklyCommitGoal();
+    recentActivityLimit = StorageService.getRecentActivityLimit();
     weeklyDigestTime = StorageService.getWeeklyDigestTime();
     email = StorageService.getUserEmail();
     notifySafely();
@@ -48,6 +50,7 @@ class SettingsController extends SafeChangeNotifier {
     await StorageService.setStreakReminderEnabled(value);
     if (value) {
       await NotificationService.requestPermissions();
+      await NotificationService.ensureExactAlarmPermission(interactive: true);
     }
 
     final shouldRun = StorageService.getStreakReminderEnabled() ||
@@ -164,6 +167,12 @@ class SettingsController extends SafeChangeNotifier {
     weeklyCommitGoal = value;
     notifySafely();
     await StorageService.setWeeklyCommitGoal(value);
+  }
+
+  Future<void> setRecentActivityLimit(int value) async {
+    recentActivityLimit = value;
+    notifySafely();
+    await StorageService.setRecentActivityLimit(value);
   }
 
   Future<void> refreshEmailFromGitHub() async {

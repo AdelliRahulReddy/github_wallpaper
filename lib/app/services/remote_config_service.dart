@@ -24,10 +24,7 @@ class RemoteConfigService extends ChangeNotifier {
     'force_update_enabled': false,
     'force_update_min_version': '1.0.0',
     'force_update_message': 'Please update GitWall',
-    'ai_quotes_enabled': true,
-    'ai_quotes_quota_exceeded': false,
-    'debug_mode_enabled': false,
-    'onboarding_version': 1,
+    'smart_quotes_enabled': true,
   };
 
   Future<void> init() async {
@@ -103,17 +100,25 @@ class RemoteConfigService extends ChangeNotifier {
     return _appConfig[key] ?? _defaultAppConfig[key];
   }
 
-  bool get aiQuotesEnabled =>
-      getAppValue('ai_quotes_enabled') &&
-      !getAppValue('ai_quotes_quota_exceeded');
+  bool get smartQuotesEnabled {
+    final smartValue = getAppValue('smart_quotes_enabled');
+    if (smartValue is bool) return smartValue;
+
+    final legacyEnabled = getAppValue('ai_quotes_enabled');
+    final legacyQuotaExceeded = getAppValue('ai_quotes_quota_exceeded');
+    if (legacyEnabled is bool) {
+      return legacyEnabled && legacyQuotaExceeded != true;
+    }
+    return true;
+  }
+
+  bool get aiQuotesEnabled => smartQuotesEnabled;
 
   bool get maintenanceMode => getAppValue('maintenance_mode');
   String get maintenanceMessage => getAppValue('maintenance_message');
   bool get forceUpdateEnabled => getAppValue('force_update_enabled');
   String get forceUpdateMinVersion => getAppValue('force_update_min_version');
   String get forceUpdateMessage => getAppValue('force_update_message');
-  bool get debugModeEnabled => getAppValue('debug_mode_enabled');
-  int get onboardingVersion => getAppValue('onboarding_version');
 
   @override
   void dispose() {

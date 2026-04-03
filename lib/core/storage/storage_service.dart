@@ -10,6 +10,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:synchronized/synchronized.dart';
 
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
+import 'package:github_wallpaper/features/contributions/models/quote_models.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/wallpaper/models/theme_presets.dart';
 import 'package:github_wallpaper/features/wallpaper/models/wallpaper_templates.dart';
@@ -130,12 +131,6 @@ class StorageService {
 
   static Future<void> clearInternalUserId() => setInternalUserId(null);
 
-  @Deprecated('Use setInternalUserId instead.')
-  static Future<void> setAppUserId(String? userId) => setInternalUserId(userId);
-
-  @Deprecated('Use getInternalUserId instead.')
-  static String? getAppUserId() => getInternalUserId();
-
   static Future<void> setLegacyAppUserId(String? userId) async {
     final nextUserId = userId?.trim();
     final prefs = await init();
@@ -174,11 +169,6 @@ class StorageService {
 
   static String? getGitHubProviderId() =>
       _s?.getString(AppConstants.keyGitHubProviderId)?.trim();
-
-  @Deprecated('Use IdentityService.ensureInternalUserId instead.')
-  static Future<String?> syncAuthenticatedAppUserId({User? user}) async {
-    return getInternalUserId();
-  }
 
   static Future<void> setCachedData(CachedContributionData d) async {
     _memCache = d;
@@ -273,6 +263,12 @@ class StorageService {
       prefs.remove(AppConstants.keyWallpaperPath),
       prefs.remove(AppConstants.keyLastWallpaperTarget),
       prefs.remove(AppConstants.keyLastWallpaperUpdate),
+      prefs.remove(AppConstants.keyCachedQuote),
+      prefs.remove(AppConstants.keyCachedQuoteDay),
+      prefs.remove(AppConstants.keyCachedQuoteState),
+      prefs.remove(AppConstants.keyQuoteActivitySnapshot),
+      prefs.remove(AppConstants.keyCachedAiQuote),
+      prefs.remove(AppConstants.keyCachedAiQuoteDay),
       prefs.remove(_kRef),
       _safeSecureDelete(AppConstants.keyCachedDataSensitive),
     ]);
@@ -385,12 +381,36 @@ class StorageService {
       _s?.getInt(AppConstants.keyStreakGoalDays) ?? 30;
 
   static Future<void> setWeeklyCommitGoal(int commits) async {
-    final value = commits.clamp(5, 100);
+    final value = commits.clamp(
+      AppConstants.minWeeklyCommitGoal,
+      AppConstants.maxWeeklyCommitGoal,
+    );
     await (await init()).setInt(AppConstants.keyWeeklyCommitGoal, value);
   }
 
   static int getWeeklyCommitGoal() =>
-      (_s?.getInt(AppConstants.keyWeeklyCommitGoal) ?? 20).clamp(5, 100);
+      (_s?.getInt(AppConstants.keyWeeklyCommitGoal) ??
+              AppConstants.defaultWeeklyCommitGoal)
+          .clamp(
+        AppConstants.minWeeklyCommitGoal,
+        AppConstants.maxWeeklyCommitGoal,
+      );
+
+  static Future<void> setRecentActivityLimit(int limit) async {
+    final value = limit.clamp(
+      AppConstants.minRecentActivityLimit,
+      AppConstants.maxRecentActivityLimit,
+    );
+    await (await init()).setInt(AppConstants.keyRecentActivityLimit, value);
+  }
+
+  static int getRecentActivityLimit({
+    int fallback = AppConstants.defaultRecentActivityLimit,
+  }) =>
+      (_s?.getInt(AppConstants.keyRecentActivityLimit) ?? fallback).clamp(
+        AppConstants.minRecentActivityLimit,
+        AppConstants.maxRecentActivityLimit,
+      );
 
   static Future<void> setStreakReminderEnabled(bool enabled) async =>
       (await init()).setBool(AppConstants.keyStreakReminderEnabled, enabled);
@@ -538,18 +558,120 @@ class StorageService {
   static String getQuoteTone() =>
       _s?.getString(AppConstants.keyQuoteTone) ?? 'Motivational';
 
-  static Future<void> setCachedAiQuote(
-      {required String quote, required String dayKey}) async {
+  static Future<void> setCachedQuote({
+    required String quote,
+    required String dayKey,
+  }) async {
     final p = await init();
+    await p.setString(AppConstants.keyCachedQuote, quote);
+    await p.setString(AppConstants.keyCachedQuoteDay, dayKey);
     await p.setString(AppConstants.keyCachedAiQuote, quote);
     await p.setString(AppConstants.keyCachedAiQuoteDay, dayKey);
   }
 
-  static String? getCachedAiQuote() =>
+  static String? getCachedQuote() =>
+      _s?.getString(AppConstants.keyCachedQuote) ??
       _s?.getString(AppConstants.keyCachedAiQuote);
 
-  static String? getCachedAiQuoteDay() =>
+  static String? getCachedQuoteDay() =>
+      _s?.getString(AppConstants.keyCachedQuoteDay) ??
       _s?.getString(AppConstants.keyCachedAiQuoteDay);
+
+  static Future<void> setCachedQuoteState(QuoteSelectionState state) async {
+    final p = await init();
+    await p.setString(
+      AppConstants.keyCachedQuoteState,
+      jsonEncode(state.toJson()),
+    );
+    await setCachedQuote(quote: state.quote, dayKey: state.dayKey);
+  }
+
+  static QuoteSelectionState? getCachedQuoteState() {
+    final raw = _s?.getString(AppConstants.keyCachedQuoteState);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final json = jsonDecode(raw);
+      if (json is! Map) return null;
+      return QuoteSelectionState.fromJson(json.cast<String, dynamic>());
+    } catch (e, s) {
+      AppLog.error(e, s);
+      return null;
+    }
+  }
+
+  static Future<void> setQuoteHistory(List<String> quoteIds) async {
+    final next = quoteIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList(growable: false);
+    await (await init()).setString(
+      AppConstants.keyQuoteHistory,
+      jsonEncode(next),
+    );
+  }
+
+  static List<String> getQuoteHistory() {
+    final raw = _s?.getString(AppConstants.keyQuoteHistory);
+    if (raw == null || raw.isEmpty) return const <String>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! List) return const <String>[];
+      return decoded
+          .map((value) => '$value'.trim())
+          .where((value) => value.isNotEmpty)
+          .toList(growable: false);
+    } catch (e, s) {
+      AppLog.error(e, s);
+      return const <String>[];
+    }
+  }
+
+  static Future<void> pushQuoteHistory(
+    String quoteId, {
+    int maxEntries = 24,
+  }) async {
+    final normalized = quoteId.trim();
+    if (normalized.isEmpty) return;
+    final current = getQuoteHistory()
+        .where((entry) => entry != normalized)
+        .toList(growable: true);
+    current.insert(0, normalized);
+    if (current.length > maxEntries) {
+      current.removeRange(maxEntries, current.length);
+    }
+    await setQuoteHistory(current);
+  }
+
+  static Future<void> setQuoteActivitySnapshot(
+    QuoteActivityProfile profile,
+  ) async {
+    await (await init()).setString(
+      AppConstants.keyQuoteActivitySnapshot,
+      jsonEncode(profile.toJson()),
+    );
+  }
+
+  static QuoteActivityProfile? getQuoteActivitySnapshot() {
+    final raw = _s?.getString(AppConstants.keyQuoteActivitySnapshot);
+    if (raw == null || raw.isEmpty) return null;
+    try {
+      final json = jsonDecode(raw);
+      if (json is! Map) return null;
+      return QuoteActivityProfile.fromJson(json.cast<String, dynamic>());
+    } catch (e, s) {
+      AppLog.error(e, s);
+      return null;
+    }
+  }
+
+  static Future<void> setCachedAiQuote(
+      {required String quote, required String dayKey}) async {
+    await setCachedQuote(quote: quote, dayKey: dayKey);
+  }
+
+  static String? getCachedAiQuote() => getCachedQuote();
+
+  static String? getCachedAiQuoteDay() => getCachedQuoteDay();
 
   static Future<void> setOnboardingComplete(bool v) async =>
       (await init()).setBool(AppConstants.keyOnboarding, v);
@@ -763,6 +885,11 @@ class StorageService {
       prefs.remove(AppConstants.keySeenStreakMilestone),
       prefs.remove(AppConstants.keyCodingLevel),
       prefs.remove(AppConstants.keyQuoteTone),
+      prefs.remove(AppConstants.keyCachedQuote),
+      prefs.remove(AppConstants.keyCachedQuoteDay),
+      prefs.remove(AppConstants.keyCachedQuoteState),
+      prefs.remove(AppConstants.keyQuoteHistory),
+      prefs.remove(AppConstants.keyQuoteActivitySnapshot),
       prefs.remove(AppConstants.keyCachedAiQuote),
       prefs.remove(AppConstants.keyCachedAiQuoteDay),
       prefs.remove(AppConstants.keyHasAuthError),

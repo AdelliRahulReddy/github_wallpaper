@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:github_wallpaper/core/theme/app_theme.dart';
+import 'package:github_wallpaper/core/ui/empty_state.dart';
+import 'package:github_wallpaper/core/ui/press_scale.dart';
+import 'package:github_wallpaper/core/ui/skeleton_loader.dart';
 import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/contributions/models/contribution_models.dart';
 import 'package:github_wallpaper/features/contributions/widgets/stats_sections.dart';
@@ -167,83 +170,40 @@ extension _StatsPageStateView on _StatsPageState {
     final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
 
     if (widget.isLoading && widget.data == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const StatsPageSkeleton();
     }
 
     if (widget.loadError != null && widget.data == null) {
-      return Center(
-        child: Padding(
-          padding: AppTheme.pAll24,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.cloud_off_rounded,
-                size: 48,
-                color: scheme.onSurface.withValues(alpha: 0.35),
-              ),
-              AppTheme.h16,
-              Text(
-                AppStrings.loadError,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: scheme.onSurface,
-                  fontSize: AppTheme.fontTitle,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              AppTheme.h8,
-              Text(
-                widget.loadError ?? AppStrings.unknownError,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: scheme.onSurface.withValues(alpha: 0.65),
-                  fontSize: AppTheme.fontBody,
-                  fontWeight: FontWeight.w600,
-                  height: 1.45,
-                ),
-              ),
-              AppTheme.h24,
-              FilledButton.icon(
-                onPressed: widget.onRefresh,
-                icon: const Icon(Icons.refresh_rounded, size: 18),
-                label: const Text(AppStrings.tryAgain),
-              ),
-            ],
-          ),
-        ),
+      return AppEmptyState(
+        icon: Icons.cloud_off_rounded,
+        title: AppStrings.loadError,
+        message: widget.loadError ?? AppStrings.unknownError,
+        ctaLabel: AppStrings.tryAgain,
+        onCta: () => widget.onRefresh(),
       );
     }
 
     if (widget.data == null) {
-      return Center(
-        child: Padding(
-          padding: AppTheme.pAll24,
-          child: Text(
-            'No data yet.',
-            style: TextStyle(
-              color: scheme.onSurface.withValues(alpha: 0.70),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+      return AppEmptyState(
+        icon: Icons.query_stats_outlined,
+        title: 'No stats yet',
+        message:
+            'Sync GitHub once to unlock contribution trends, streak history, and yearly breakdowns.',
+        ctaLabel: 'Refresh',
+        onCta: () => widget.onRefresh(),
       );
     }
 
     final data = widget.data!;
     final years = _availableYears(data);
     if (years.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: AppTheme.pAll24,
-          child: Text(
-            'No stats yet.',
-            style: TextStyle(
-              color: scheme.onSurface.withValues(alpha: 0.70),
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
+      return AppEmptyState(
+        icon: Icons.query_stats_outlined,
+        title: 'No stats yet',
+        message:
+            'Your synced contribution history does not include any chartable days yet.',
+        ctaLabel: 'Refresh',
+        onCta: () => widget.onRefresh(),
       );
     }
     final nowYear = DateTime.now().toLocal().year;
@@ -330,36 +290,56 @@ extension _StatsPageStateView on _StatsPageState {
                       ),
                     ),
                   ),
-                  InkWell(
-                    borderRadius: BorderRadius.circular(999),
-                    onTap: () => _pickYear(years, selectedYear),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppTheme.spacing12,
-                        vertical: AppTheme.spacing8,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: scheme.outlineVariant),
-                        color: scheme.surfaceContainerHighest,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Text(
-                            '$selectedYear',
-                            style: TextStyle(
-                              color: scheme.onSurface,
-                              fontWeight: FontWeight.w700,
+                  Semantics(
+                    container: true,
+                    button: true,
+                    label: 'Select stats year',
+                    value: '$selectedYear',
+                    hint: 'Open year picker',
+                    child: ExcludeSemantics(
+                      child: PressScale(
+                        child: Material(
+                          color: Colors.transparent,
+                          borderRadius: BorderRadius.circular(999),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: () => _pickYear(years, selectedYear),
+                            child: Container(
+                              constraints: const BoxConstraints(
+                                minHeight: AppTheme.spacing48,
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppTheme.spacing12,
+                                vertical: AppTheme.spacing8,
+                              ),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(999),
+                                border:
+                                    Border.all(color: scheme.outlineVariant),
+                                color: scheme.surfaceContainerHighest,
+                              ),
+                              alignment: Alignment.center,
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    '$selectedYear',
+                                    style: TextStyle(
+                                      color: scheme.onSurface,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Icon(
+                                    Icons.expand_more_rounded,
+                                    size: AppTheme.iconSM,
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          const SizedBox(width: 6),
-                          Icon(
-                            Icons.expand_more_rounded,
-                            size: AppTheme.iconSM,
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   ),

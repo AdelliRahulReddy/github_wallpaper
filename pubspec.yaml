@@ -46,7 +46,8 @@ dependencies:
   home_widget: ^0.7.0                 # Home screen widgets (Android/iOS)
   provider: ^6.1.2                    # State management (ChangeNotifier)
   flutter_appauth: ^12.0.0            # GitHub OAuth (PKCE)
-  google_generative_ai: ^0.4.6        # Gemini AI integration
+  timezone: ^0.9.4                    # Local notification scheduling timezone support
+  flutter_timezone: ^4.1.0            # Device timezone for exact reminder scheduling
 
   # ══════════════════════════════════════════════════════════════════════════
   # UI/UX ENHANCEMENTS

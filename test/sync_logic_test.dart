@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/contributions/services/contribution_metrics.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/services.dart';
@@ -51,6 +52,33 @@ void main() {
 
       await StorageService.setIncludePrivateRepos(true);
       expect(StorageService.getIncludePrivateRepos(), isTrue);
+    });
+
+    test('StorageService clamps weekly goal and recent activity limits',
+        () async {
+      await StorageService.setWeeklyCommitGoal(0);
+      expect(
+        StorageService.getWeeklyCommitGoal(),
+        AppConstants.minWeeklyCommitGoal,
+      );
+
+      await StorageService.setWeeklyCommitGoal(999);
+      expect(
+        StorageService.getWeeklyCommitGoal(),
+        AppConstants.maxWeeklyCommitGoal,
+      );
+
+      await StorageService.setRecentActivityLimit(2);
+      expect(
+        StorageService.getRecentActivityLimit(),
+        AppConstants.minRecentActivityLimit,
+      );
+
+      await StorageService.setRecentActivityLimit(99);
+      expect(
+        StorageService.getRecentActivityLimit(),
+        AppConstants.maxRecentActivityLimit,
+      );
     });
 
     test('StorageService handles logout correctly', () async {

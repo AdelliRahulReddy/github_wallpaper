@@ -2,30 +2,25 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform;
-import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_timezone/flutter_timezone.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:http/http.dart' as http;
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:timezone/data/latest_all.dart' as tz_data;
+import 'package:timezone/timezone.dart' as tz;
 import 'package:url_launcher/url_launcher.dart';
 
+import 'package:github_wallpaper/app/services/notification_catalog.dart';
 import 'package:github_wallpaper/core/constants/environment_config.dart';
 import 'package:github_wallpaper/core/constants/firebase_options.dart';
-import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/core/storage/storage_service.dart';
+import 'package:github_wallpaper/core/utils/app_utils.dart';
 import 'package:github_wallpaper/features/auth/services/identity_service.dart';
-
-const String adminBroadcastTopic = 'all_users_broadcast';
-const AndroidNotificationChannel _adminBroadcastChannel =
-    AndroidNotificationChannel(
-  'admin_broadcast_channel',
-  'Admin Broadcasts',
-  description: 'Messages sent instantly from the GitWall admin dashboard',
-  importance: Importance.high,
-);
 
 @pragma('vm:entry-point')
 Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -47,32 +42,54 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   static bool _initialized = false;
   static bool _pushInitialized = false;
+  static bool _timeZoneInitialized = false;
 
   static Future<void> init() async {
     if (_initialized) return;
-    const AndroidInitializationSettings initAndroid =
-        AndroidInitializationSettings('ic_stat_gitwall');
 
-    final DarwinInitializationSettings initDarwin =
-        DarwinInitializationSettings(
+    await _ensureTimeZoneConfigured();
+
+    const initAndroid = AndroidInitializationSettings('ic_stat_gitwall');
+    const initDarwin = DarwinInitializationSettings(
       requestAlertPermission: false,
       requestBadgePermission: false,
       requestSoundPermission: false,
     );
-
-    final InitializationSettings initSettings = InitializationSettings(
-        android: initAndroid, iOS: initDarwin, macOS: initDarwin);
+    const initSettings = InitializationSettings(
+      android: initAndroid,
+      iOS: initDarwin,
+      macOS: initDarwin,
+    );
 
     await _plugin.initialize(initSettings);
     final android = _plugin.resolvePlatformSpecificImplementation<
         AndroidFlutterLocalNotificationsPlugin>();
-    await android?.createNotificationChannel(_adminBroadcastChannel);
+    for (final spec in NotificationCatalog.allSpecs) {
+      await android?.createNotificationChannel(spec.androidChannel);
+    }
+
     _initialized = true;
     AppLog.info('NotificationService initialized');
   }
 
+  static Future<void> _ensureTimeZoneConfigured() async {
+    if (_timeZoneInitialized) return;
+
+    try {
+      tz_data.initializeTimeZones();
+      final timeZoneName = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(timeZoneName));
+      _timeZoneInitialized = true;
+      AppLog.info('Notification timezone configured: $timeZoneName');
+    } catch (e, s) {
+      AppLog.error('Failed to configure notification timezone: $e', s);
+      _timeZoneInitialized = true;
+    }
+  }
+
   static Future<void> requestPermissions() async {
     if (!_initialized) await init();
+
     try {
       final android = _plugin.resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>();
@@ -80,6 +97,7 @@ class NotificationService {
     } catch (e, s) {
       AppLog.error(e, s);
     }
+
     try {
       final ios = _plugin.resolvePlatformSpecificImplementation<
           IOSFlutterLocalNotificationsPlugin>();
@@ -87,6 +105,7 @@ class NotificationService {
     } catch (e, s) {
       AppLog.error(e, s);
     }
+
     try {
       await FirebaseMessaging.instance.requestPermission(
         alert: true,
@@ -98,6 +117,32 @@ class NotificationService {
     }
 
     await _syncAdminBroadcastTopicSubscription();
+  }
+
+  static Future<bool> ensureExactAlarmPermission(
+      {bool interactive = false}) async {
+    if (!_initialized) await init();
+
+    if (!Platform.isAndroid) {
+      return true;
+    }
+
+    try {
+      final android = _plugin.resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin>();
+      final canSchedule = await android?.canScheduleExactNotifications();
+      if (canSchedule != false) {
+        return true;
+      }
+      if (!interactive) {
+        return false;
+      }
+      final requested = await android?.requestExactAlarmsPermission();
+      return requested ?? false;
+    } catch (e, s) {
+      AppLog.error(e, s);
+      return false;
+    }
   }
 
   static Future<void> initPushMessaging() async {
@@ -173,15 +218,29 @@ class NotificationService {
     }
 
     await acknowledgeBroadcastEvent(message, 'received');
-    await showAdminBroadcastNotification(
-      title: _remoteMessageTitle(message),
-      body: _remoteMessageBody(message),
+
+    final content = NotificationCatalog.remoteAdminBroadcastCopy(message);
+    final shouldDisplayLocally =
+        NotificationCatalog.shouldDisplayAdminBroadcastLocally(
+      message: message,
     );
+
+    if (shouldDisplayLocally) {
+      await showAdminBroadcastNotification(
+        title: content.title,
+        body: content.body,
+        notificationId: NotificationCatalog.resolveAdminBroadcastNotificationId(
+          broadcastId: '${message.data['broadcast_id'] ?? ''}'.trim(),
+          messageId: message.messageId,
+        ),
+      );
+    }
+
     await acknowledgeBroadcastEvent(message, 'displayed');
   }
 
   static bool _isAdminBroadcast(RemoteMessage message) {
-    return message.data['type'] == 'admin_broadcast';
+    return message.data['type'] == NotificationCatalog.adminBroadcastType;
   }
 
   static Future<AuthorizationStatus>
@@ -197,8 +256,7 @@ class NotificationService {
   }
 
   static bool isAuthorizationAllowed(AuthorizationStatus status) {
-    return status == AuthorizationStatus.authorized ||
-        status == AuthorizationStatus.provisional;
+    return NotificationCatalog.isAuthorizationAllowed(status);
   }
 
   static Future<void> setAdminBroadcastNotificationsEnabled(
@@ -222,20 +280,27 @@ class NotificationService {
           await IdentityService.canUseAuthenticatedAppSession(
         user: user,
       );
-      final canSubscribe = user != null &&
-          hasValidAppSession &&
-          !user.isAnonymous &&
-          StorageService.getAdminBroadcastNotificationsEnabled() &&
-          isAuthorizationAllowed(permissionStatus);
+      final canSubscribe = NotificationCatalog.shouldSubscribeToAdminBroadcasts(
+        hasSignedInUser: user != null,
+        hasValidAppSession: hasValidAppSession,
+        isAnonymousUser: user?.isAnonymous ?? true,
+        broadcastsEnabled:
+            StorageService.getAdminBroadcastNotificationsEnabled(),
+        permissionStatus: permissionStatus,
+      );
 
       if (canSubscribe) {
-        await FirebaseMessaging.instance.subscribeToTopic(adminBroadcastTopic);
-        AppLog.info('Subscribed to topic: $adminBroadcastTopic');
+        await FirebaseMessaging.instance
+            .subscribeToTopic(NotificationCatalog.adminBroadcastTopic);
+        AppLog.info(
+          'Subscribed to topic: ${NotificationCatalog.adminBroadcastTopic}',
+        );
       } else {
         await FirebaseMessaging.instance
-            .unsubscribeFromTopic(adminBroadcastTopic);
+            .unsubscribeFromTopic(NotificationCatalog.adminBroadcastTopic);
         AppLog.info(
-            'Admin broadcasts unavailable. Unsubscribed from $adminBroadcastTopic');
+          'Admin broadcasts unavailable. Unsubscribed from ${NotificationCatalog.adminBroadcastTopic}',
+        );
       }
     } catch (e, s) {
       AppLog.error(e, s);
@@ -264,61 +329,25 @@ class NotificationService {
     return false;
   }
 
-  static String _remoteMessageTitle(RemoteMessage message) {
-    final title = message.notification?.title ?? message.data['title'];
-    return '$title'.trim().isNotEmpty ? '$title'.trim() : 'GitWall update';
-  }
-
-  static String _remoteMessageBody(RemoteMessage message) {
-    final body = message.notification?.body ?? message.data['body'];
-    return '$body'.trim().isNotEmpty
-        ? '$body'.trim()
-        : 'A new message was sent from GitWall admin.';
-  }
-
   static Future<void> showAuthErrorNotification() async {
     if (!_initialized) await init();
-
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'auth_error_channel',
-      'Authentication Errors',
-      channelDescription: 'Notifications for expired GitHub tokens',
-      importance: Importance.high,
-      priority: Priority.high,
-      color: Color(0xFF0D1117),
-      icon: 'ic_stat_gitwall',
-    );
-
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
-
+    final content = NotificationCatalog.authErrorCopy();
     await _plugin.show(
-      1001,
-      'GitHub authentication required',
-      'Sync paused. Reconnect GitHub from settings.',
-      platformDetails,
+      NotificationCatalog.authError.notificationId,
+      content.title,
+      content.body,
+      NotificationCatalog.authError.platformDetails,
     );
   }
 
   static Future<void> showSyncFailureNotification() async {
     if (!_initialized) await init();
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'sync_failure_channel',
-      'Sync Failures',
-      channelDescription: 'Notifications for failed background sync attempts',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: 'ic_stat_gitwall',
-    );
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
+    final content = NotificationCatalog.syncFailureCopy();
     await _plugin.show(
-      1002,
-      'GitWall sync failed',
-      'Using cached data. We will retry in the next cycle.',
-      platformDetails,
+      NotificationCatalog.syncFailure.notificationId,
+      content.title,
+      content.body,
+      NotificationCatalog.syncFailure.platformDetails,
     );
   }
 
@@ -326,34 +355,12 @@ class NotificationService {
     required DateTime syncedAt,
   }) async {
     if (!_initialized) await init();
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'sync_success_channel',
-      'Sync Completed',
-      channelDescription:
-          'Notifications when GitWall finishes a background refresh',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      icon: 'ic_stat_gitwall',
-    );
-    const DarwinNotificationDetails darwinDetails = DarwinNotificationDetails();
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: darwinDetails,
-      macOS: darwinDetails,
-    );
-
-    final localTime = syncedAt.toLocal();
-    final hour = localTime.hour % 12 == 0 ? 12 : localTime.hour % 12;
-    final minute = localTime.minute.toString().padLeft(2, '0');
-    final suffix = localTime.hour >= 12 ? 'PM' : 'AM';
-    final formattedTime = '$hour:$minute $suffix';
-
+    final content = NotificationCatalog.syncSuccessCopy(syncedAt);
     await _plugin.show(
-      1003,
-      'GitWall synced successfully',
-      'Your latest GitHub activity was refreshed at $formattedTime.',
-      platformDetails,
+      NotificationCatalog.syncSuccess.notificationId,
+      content.title,
+      content.body,
+      NotificationCatalog.syncSuccess.platformDetails,
     );
   }
 
@@ -362,134 +369,171 @@ class NotificationService {
     required int currentStreak,
   }) async {
     if (!_initialized) await init();
-
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'streak_reminder_channel',
-      'Streak Reminders',
-      channelDescription: 'Reminders to keep your GitHub streak alive',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: 'ic_stat_gitwall',
+    final content = NotificationCatalog.streakReminderCopy(
+      goalDays: goalDays,
+      currentStreak: currentStreak,
     );
-
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
-
-    final title = 'Save your streak';
-    final body = currentStreak >= goalDays
-        ? 'You hit your goal streak. Keep it going with a commit today.'
-        : 'No commits yet today. Commit now to keep your $currentStreak‑day streak alive.';
-
     await _plugin.show(
-      2001,
-      title,
-      body,
-      platformDetails,
+      NotificationCatalog.streakReminder.notificationId,
+      content.title,
+      content.body,
+      NotificationCatalog.streakReminder.platformDetails,
+    );
+    await StorageService.setStreakReminderLastSentDay(
+      AppDateUtils.formatDate(DateTime.now().toLocal()),
     );
   }
 
-  static Future<void> showStreakSavedNotification(
-      {required int currentStreak}) async {
-    if (!_initialized) await init();
-
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'streak_saved_channel',
-      'Streak Saved',
-      channelDescription:
-          'Positive confirmations when you keep your streak alive',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      icon: 'ic_stat_gitwall',
+  @visibleForTesting
+  static List<DateTime> computeScheduledStreakReminderDates({
+    required DateTime now,
+    required TimeOfDay reminderTime,
+    required bool hasCommittedToday,
+    int horizonDays = NotificationCatalog.scheduledStreakReminderHorizonDays,
+  }) {
+    final localNow = now.toLocal();
+    final today = DateTime(localNow.year, localNow.month, localNow.day);
+    final todayReminder = DateTime(
+      localNow.year,
+      localNow.month,
+      localNow.day,
+      reminderTime.hour,
+      reminderTime.minute,
     );
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
 
-    await _plugin.show(
-      2002,
-      'Streak saved',
-      'Nice. Your $currentStreak‑day streak stays alive.',
-      platformDetails,
-    );
-  }
+    var startOffset = 0;
+    if (hasCommittedToday || !localNow.isBefore(todayReminder)) {
+      startOffset = 1;
+    }
 
-  static Future<void> showCelebrationNotification(
-      {required String title, required String body}) async {
-    if (!_initialized) await init();
-
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'celebrations_channel',
-      'Celebrations',
-      channelDescription: 'Milestones for streaks and contributions',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      icon: 'ic_stat_gitwall',
-    );
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
-
-    await _plugin.show(
-      2003,
-      title,
-      body,
-      platformDetails,
+    return List<DateTime>.generate(
+      horizonDays,
+      (index) => today.add(Duration(days: startOffset + index)),
+      growable: false,
     );
   }
 
-  static Future<void> showWeeklyDigestNotification(
-      {required String title, required String body}) async {
+  static Future<void> syncScheduledStreakReminders({
+    required bool enabled,
+    required TimeOfDay reminderTime,
+    required int goalDays,
+    required int currentStreak,
+    required bool hasCommittedToday,
+    DateTime? now,
+  }) async {
+    if (!_initialized) await init();
+    await cancelScheduledStreakReminders();
+
+    if (!enabled) return;
+
+    final canUseExact = await ensureExactAlarmPermission();
+    final content = NotificationCatalog.scheduledStreakReminderCopy(
+      goalDays: goalDays,
+    );
+    final scheduleMode = canUseExact
+        ? AndroidScheduleMode.exactAllowWhileIdle
+        : AndroidScheduleMode.inexactAllowWhileIdle;
+
+    final reminderDates = computeScheduledStreakReminderDates(
+      now: now ?? DateTime.now(),
+      reminderTime: reminderTime,
+      hasCommittedToday: hasCommittedToday,
+    );
+
+    for (var index = 0; index < reminderDates.length; index++) {
+      final day = reminderDates[index];
+      final scheduledAt = tz.TZDateTime(
+        tz.local,
+        day.year,
+        day.month,
+        day.day,
+        reminderTime.hour,
+        reminderTime.minute,
+      );
+      final id = NotificationCatalog.scheduledStreakReminderBaseId + index;
+      final payload = jsonEncode({
+        'type': 'streak_reminder',
+        'goalDays': goalDays,
+        'currentStreak': currentStreak,
+        'scheduledFor': scheduledAt.toIso8601String(),
+      });
+
+      await _plugin.zonedSchedule(
+        id,
+        content.title,
+        content.body,
+        scheduledAt,
+        NotificationCatalog.streakReminder.platformDetails,
+        androidScheduleMode: scheduleMode,
+        uiLocalNotificationDateInterpretation:
+            UILocalNotificationDateInterpretation.wallClockTime,
+        payload: payload,
+      );
+    }
+  }
+
+  static Future<void> cancelScheduledStreakReminders() async {
     if (!_initialized) await init();
 
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'weekly_digest_channel',
-      'Weekly Digest',
-      channelDescription: 'Weekly summary of your GitHub activity',
-      importance: Importance.defaultImportance,
-      priority: Priority.defaultPriority,
-      icon: 'ic_stat_gitwall',
-    );
-    const NotificationDetails platformDetails =
-        NotificationDetails(android: androidDetails);
+    for (var index = 0;
+        index < NotificationCatalog.scheduledStreakReminderHorizonDays;
+        index++) {
+      await _plugin.cancel(
+        NotificationCatalog.scheduledStreakReminderBaseId + index,
+      );
+    }
+  }
 
+  static Future<void> showStreakSavedNotification({
+    required int currentStreak,
+  }) async {
+    if (!_initialized) await init();
+    final content = NotificationCatalog.streakSavedCopy(currentStreak);
     await _plugin.show(
-      2004,
+      NotificationCatalog.streakSaved.notificationId,
+      content.title,
+      content.body,
+      NotificationCatalog.streakSaved.platformDetails,
+    );
+  }
+
+  static Future<void> showCelebrationNotification({
+    required String title,
+    required String body,
+  }) async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      NotificationCatalog.celebrations.notificationId,
       title,
       body,
-      platformDetails,
+      NotificationCatalog.celebrations.platformDetails,
+    );
+  }
+
+  static Future<void> showWeeklyDigestNotification({
+    required String title,
+    required String body,
+  }) async {
+    if (!_initialized) await init();
+    await _plugin.show(
+      NotificationCatalog.weeklyDigest.notificationId,
+      title,
+      body,
+      NotificationCatalog.weeklyDigest.platformDetails,
     );
   }
 
   static Future<void> showAdminBroadcastNotification({
     required String title,
     required String body,
+    int? notificationId,
   }) async {
     if (!_initialized) await init();
-
-    const AndroidNotificationDetails androidDetails =
-        AndroidNotificationDetails(
-      'admin_broadcast_channel',
-      'Admin Broadcasts',
-      channelDescription:
-          'Messages sent instantly from the GitWall admin dashboard',
-      importance: Importance.high,
-      priority: Priority.high,
-      icon: 'ic_stat_gitwall',
-    );
-    const DarwinNotificationDetails darwinDetails = DarwinNotificationDetails();
-    const NotificationDetails platformDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: darwinDetails,
-      macOS: darwinDetails,
-    );
-
     await _plugin.show(
-      DateTime.now().millisecondsSinceEpoch ~/ 1000,
+      notificationId ?? NotificationCatalog.adminBroadcast.notificationId,
       title,
       body,
-      platformDetails,
+      NotificationCatalog.adminBroadcast.platformDetails,
     );
   }
 
@@ -507,7 +551,8 @@ class NotificationService {
       if (user == null ||
           !await IdentityService.canUseAuthenticatedAppSession(user: user)) {
         AppLog.info(
-            'Skipping admin broadcast ack for $broadcastId because no valid GitWall app session exists yet.');
+          'Skipping admin broadcast ack for $broadcastId because no valid GitWall app session exists yet.',
+        );
         return;
       }
 

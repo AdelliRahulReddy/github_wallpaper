@@ -105,6 +105,7 @@ void main() {
     expect(find.text('Restore Purchase'), findsNothing);
     expect(find.text('Subscription'), findsNothing);
     expect(find.text('Redeem Coupon'), findsNothing);
+    expect(find.text('Recent activity'), findsOneWidget);
 
     final supportTile = find.widgetWithText(ListTile, 'Support');
     await tester.ensureVisible(supportTile);
@@ -168,5 +169,27 @@ void main() {
       find.textContaining('contributions in $previousYear'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Stats year selector exposes explicit semantics', (tester) async {
+    final data = buildData();
+    final semanticsHandle = tester.ensureSemantics();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: StatsPage(
+          data: data,
+          isLoading: false,
+          loadError: null,
+          onRefresh: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('Select stats year'), findsOneWidget);
+
+    semanticsHandle.dispose();
   });
 }

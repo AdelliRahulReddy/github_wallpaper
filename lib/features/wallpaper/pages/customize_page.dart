@@ -43,7 +43,6 @@ class _CustomizePageState extends State<CustomizePage> {
   bool _isRefreshingDeviceProfile = false;
   bool _autoUpdateEnabled = false;
   bool _autoApplyAfterSyncEnabled = false;
-  bool _safePreviewEnabled = true;
   late final PageController _themeController;
 
   @override
@@ -53,7 +52,6 @@ class _CustomizePageState extends State<CustomizePage> {
     _quoteController = TextEditingController(text: _config.customQuote);
     _autoUpdateEnabled = StorageService.getAutoUpdate();
     _autoApplyAfterSyncEnabled = StorageService.getAutoApplyAfterSync();
-    _safePreviewEnabled = false;
     _themeController = PageController(
       initialPage: _themeIndexFor(_config.themeId),
       viewportFraction: 0.86,
@@ -78,6 +76,13 @@ class _CustomizePageState extends State<CustomizePage> {
     return config.copyWith(
       themeId: ThemePresets.fromId(config.themeId).id,
       templateId: WallpaperTemplates.fromId(config.templateId).id,
+      statCurrentStreak:
+          config.showQuickStatsBar ? true : config.statCurrentStreak,
+      statLongestStreak:
+          config.showQuickStatsBar ? true : config.statLongestStreak,
+      statTotalCommits:
+          config.showQuickStatsBar ? true : config.statTotalCommits,
+      statTopLanguage: config.showQuickStatsBar ? true : config.statTopLanguage,
     );
   }
 
@@ -139,8 +144,8 @@ class _CustomizePageState extends State<CustomizePage> {
       if (result.usedFallback) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content:
-                Text('Live quote unavailable. Used your daily fallback quote.'),
+            content: Text(
+                'Smart quote unavailable. Used your daily fallback quote.'),
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -160,7 +165,8 @@ class _CustomizePageState extends State<CustomizePage> {
     HapticFeedback.selectionClick();
     var next = template.apply(_config).copyWith(templateId: template.id);
     if (template.seedQuoteIfEmpty && next.customQuote.isEmpty) {
-      next = next.copyWith(customQuote: DailyQuoteService.today());
+      next = next.copyWith(
+          customQuote: DailyQuoteService.today(data: widget.data));
     }
     _updateConfig(
       next,
@@ -278,6 +284,8 @@ class _CustomizePageState extends State<CustomizePage> {
       resolved = newConfig.copyWith(templateId: 'custom');
     }
 
+    resolved = _normalizedConfig(resolved);
+
     final didThemeChange = resolved.themeId != _config.themeId;
     if (syncQuoteField && _quoteController.text != resolved.customQuote) {
       _quoteController.value = TextEditingValue(
@@ -289,14 +297,6 @@ class _CustomizePageState extends State<CustomizePage> {
     setState(() => _config = resolved);
     if (didThemeChange) {
       _syncThemeGalleryToCurrentSelection();
-    }
-  }
-
-  Future<void> _toggleSafePreview(bool value) async {
-    HapticFeedback.selectionClick();
-    await StorageService.setSafePreviewEnabled(value);
-    if (mounted) {
-      setState(() => _safePreviewEnabled = value);
     }
   }
 
@@ -322,11 +322,6 @@ class _CustomizePageState extends State<CustomizePage> {
         setState(() => _isRefreshingDeviceProfile = false);
       }
     }
-  }
-
-  Future<void> _refreshDeviceProfile() async {
-    HapticFeedback.lightImpact();
-    await _ensureDeviceMetrics(forceRefresh: true);
   }
 
   bool get _autoWallpaperEnabled =>
@@ -674,11 +669,6 @@ extension _CustomizePageStatePreview on _CustomizePageState {
                                 child: const SizedBox.expand(),
                               ),
                             ),
-                            if (_safePreviewEnabled)
-                              _buildSystemUiGuides(
-                                previewHeight / wallpaperHeight,
-                                WallpaperTarget.lock,
-                              ),
                           ],
                         ),
                       ),
@@ -744,30 +734,9 @@ extension _CustomizePageStateTemplates on _CustomizePageState {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  'Templates',
-                  style: tt.titleLarge?.copyWith(color: scheme.onSurface),
-                ),
-              ),
-              TextButton.icon(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  _updateConfig(
-                    _config.copyWith(autoFitWidth: true),
-                    preserveTemplateSelection: true,
-                  );
-                  _fitToWidth(preserveTemplateSelection: true);
-                },
-                icon: const Icon(Icons.fit_screen_rounded, size: 16),
-                label: const Text('Auto-fit'),
-                style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
-              ),
-            ],
+          Text(
+            'Templates',
+            style: tt.titleLarge?.copyWith(color: scheme.onSurface),
           ),
           const SizedBox(height: 14),
           SizedBox(
@@ -1318,54 +1287,19 @@ extension _CustomizePageStateControls on _CustomizePageState {
 
   Widget _buildCustomizationSection() {
     final scheme = Theme.of(context).colorScheme;
-    final showAdvanced = !_config.autoFitWidth;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Quick Adjust',
-                style: TextStyle(
-                  fontSize: AppTheme.fontBase,
-                  fontWeight: FontWeight.w800,
-                  color: scheme.onSurface,
-                ),
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: scheme.primary.withValues(alpha: 0.10),
-                borderRadius: BorderRadius.circular(999),
-                border:
-                    Border.all(color: scheme.primary.withValues(alpha: 0.20)),
-              ),
-              child: Text(
-                _config.autoFitWidth ? 'Auto-fit' : 'Manual',
-                style: TextStyle(
-                  fontSize: AppTheme.fontSmall,
-                  fontWeight: FontWeight.w900,
-                  color: scheme.primary,
-                ),
-              ),
-            ),
-          ],
+        Text(
+          'Quick Adjust',
+          style: TextStyle(
+            fontSize: AppTheme.fontBase,
+            fontWeight: FontWeight.w800,
+            color: scheme.onSurface,
+          ),
         ),
         AppTheme.h12,
-        _buildSlider(
-          label: AppStrings.opacity,
-          value: _config.opacity,
-          min: 0.3,
-          max: 1.0,
-          divisions: 7,
-          onChanged: (value) {
-            _updateConfig(_config.copyWith(opacity: value));
-          },
-        ),
-        const SizedBox(height: 14),
         _buildSlider(
           label: AppStrings.cornerRadius,
           value: _config.cornerRadius,
@@ -1376,7 +1310,7 @@ extension _CustomizePageStateControls on _CustomizePageState {
             _updateConfig(_config.copyWith(cornerRadius: value));
           },
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 16),
         const Divider(),
         const SizedBox(height: 10),
         _buildTextOverlaySection(scheme),
@@ -1385,7 +1319,7 @@ extension _CustomizePageStateControls on _CustomizePageState {
         const SizedBox(height: 14),
         const Divider(),
         const SizedBox(height: 10),
-        _buildAdvancedLayoutSection(scheme, showAdvanced),
+        _buildAdvancedLayoutSection(scheme),
       ],
     );
   }
@@ -1450,9 +1384,7 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
                   )
                 : const Icon(Icons.auto_awesome, size: 16),
             label: Text(
-              _isGeneratingQuote
-                  ? 'Generating Quote...'
-                  : 'Generate Live Quote',
+              _isGeneratingQuote ? 'Refreshing Quote...' : 'Refresh Quote',
               style: const TextStyle(fontSize: AppTheme.fontBody),
             ),
             style: TextButton.styleFrom(
@@ -1461,42 +1393,19 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
             ),
           ),
         ),
-        if (_config.customQuote.isNotEmpty) ...[
-          AppTheme.h8,
-          _buildSlider(
-            label: AppStrings.quoteSize,
-            value: _config.quoteFontSize,
-            min: 10.0,
-            max: 40.0,
-            divisions: 15,
-            onChanged: (value) {
-              _updateConfig(_config.copyWith(quoteFontSize: value));
-            },
-          ),
-          AppTheme.h12,
-          _buildSlider(
-            label: AppStrings.quoteOpacity,
-            value: _config.quoteOpacity,
-            min: 0.1,
-            max: 1.0,
-            divisions: 9,
-            onChanged: (value) {
-              _updateConfig(_config.copyWith(quoteOpacity: value));
-            },
-          ),
-        ],
         AppTheme.h8,
       ],
     );
   }
 
   Widget _buildStatsBarControls(ColorScheme scheme) {
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
                 'Show bottom info bar',
                 style: TextStyle(
                   fontSize: AppTheme.fontBase,
@@ -1504,139 +1413,39 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
                   color: scheme.onSurface,
                 ),
               ),
-            ),
-            Switch(
-              value: _config.showQuickStatsBar,
-              activeThumbColor: scheme.primary,
-              onChanged: (value) {
-                HapticFeedback.selectionClick();
-                _updateConfig(_config.copyWith(showQuickStatsBar: value));
-              },
-            ),
-          ],
+              AppTheme.h4,
+              Text(
+                'Uses the default activity stats for the current template.',
+                style: TextStyle(
+                  fontSize: AppTheme.fontCaption,
+                  color: scheme.onSurface.withValues(alpha: 0.68),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
         ),
-        AppTheme.h8,
-        _buildMetricToggle(
-          label: 'Current streak',
-          value: _config.statCurrentStreak,
-          enabled: _config.showQuickStatsBar,
-          onChanged: (value) =>
-              _updateConfig(_config.copyWith(statCurrentStreak: value)),
-        ),
-        AppTheme.h8,
-        _buildMetricToggle(
-          label: 'Longest streak',
-          value: _config.statLongestStreak,
-          enabled: _config.showQuickStatsBar,
-          onChanged: (value) =>
-              _updateConfig(_config.copyWith(statLongestStreak: value)),
-        ),
-        AppTheme.h8,
-        _buildMetricToggle(
-          label: 'Total commits',
-          value: _config.statTotalCommits,
-          enabled: _config.showQuickStatsBar,
-          onChanged: (value) =>
-              _updateConfig(_config.copyWith(statTotalCommits: value)),
-        ),
-        AppTheme.h8,
-        _buildMetricToggle(
-          label: 'Top language',
-          value: _config.statTopLanguage,
-          enabled: _config.showQuickStatsBar,
-          onChanged: (value) =>
-              _updateConfig(_config.copyWith(statTopLanguage: value)),
+        AppTheme.w12,
+        Switch(
+          value: _config.showQuickStatsBar,
+          activeThumbColor: scheme.primary,
+          onChanged: (value) {
+            HapticFeedback.selectionClick();
+            _updateConfig(_config.copyWith(showQuickStatsBar: value));
+          },
         ),
       ],
     );
   }
 
-  Widget _buildPreviewToolsSection(ColorScheme scheme) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: AppTheme.brLarge,
-        border: Border.all(
-          color: scheme.outline.withValues(alpha: 0.18),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Preview tools',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontBase,
-                        fontWeight: FontWeight.w700,
-                        color: scheme.onSurface,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Guides show where Android system UI can cover the wallpaper.',
-                      style: TextStyle(
-                        fontSize: AppTheme.fontCaption,
-                        color: scheme.onSurface.withValues(alpha: 0.65),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _safePreviewEnabled,
-                activeThumbColor: scheme.primary,
-                onChanged: _toggleSafePreview,
-              ),
-            ],
-          ),
-          AppTheme.h8,
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed:
-                  _isRefreshingDeviceProfile ? null : _refreshDeviceProfile,
-              icon: _isRefreshingDeviceProfile
-                  ? SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: scheme.primary,
-                      ),
-                    )
-                  : const Icon(Icons.refresh_rounded, size: 16),
-              label: Text(
-                _isRefreshingDeviceProfile
-                    ? 'Refreshing fit...'
-                    : 'Refresh device fit',
-                style: const TextStyle(fontSize: AppTheme.fontBody),
-              ),
-              style: TextButton.styleFrom(
-                padding: AppTheme.pZero,
-                visualDensity: VisualDensity.compact,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAdvancedLayoutSection(ColorScheme scheme, bool showAdvanced) {
+  Widget _buildAdvancedLayoutSection(ColorScheme scheme) {
     return ExpansionTile(
-      key: ValueKey('advanced-layout-${_config.autoFitWidth}'),
+      key: const ValueKey('advanced-layout-manual'),
       tilePadding: EdgeInsets.zero,
       childrenPadding: EdgeInsets.zero,
-      initiallyExpanded: showAdvanced,
+      initiallyExpanded: true,
       title: Text(
-        'Advanced Layout',
+        'Layout',
         style: TextStyle(
           fontSize: AppTheme.fontBase,
           fontWeight: FontWeight.w800,
@@ -1644,9 +1453,7 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
         ),
       ),
       subtitle: Text(
-        _config.autoFitWidth
-            ? 'Auto-fit keeps the layout inside the safe area'
-            : 'Manual scale and position controls',
+        'Scale and position update the preview in real time.',
         style: TextStyle(
           fontSize: AppTheme.fontCaption,
           color: scheme.onSurface.withValues(alpha: 0.7),
@@ -1654,53 +1461,6 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
         ),
       ),
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Expanded(
-              child: Text(
-                AppStrings.autoFitWidth,
-                style: TextStyle(
-                  fontSize: AppTheme.fontBase,
-                  fontWeight: FontWeight.w700,
-                  color: scheme.onSurface,
-                ),
-              ),
-            ),
-            Switch(
-              value: _config.autoFitWidth,
-              activeThumbColor: scheme.primary,
-              onChanged: (value) {
-                HapticFeedback.selectionClick();
-                _updateConfig(_config.copyWith(autoFitWidth: value));
-                if (value) {
-                  _fitToWidth();
-                }
-              },
-            ),
-          ],
-        ),
-        Align(
-          alignment: Alignment.centerLeft,
-          child: TextButton.icon(
-            onPressed: () {
-              HapticFeedback.lightImpact();
-              _fitToWidth();
-            },
-            icon: const Icon(Icons.fit_screen, size: 16),
-            label: const Text(
-              AppStrings.autoFixDevice,
-              style: TextStyle(fontSize: AppTheme.fontBody),
-            ),
-            style: TextButton.styleFrom(
-              padding: AppTheme.pZero,
-              visualDensity: VisualDensity.compact,
-            ),
-          ),
-        ),
-        AppTheme.h12,
-        _buildPreviewToolsSection(scheme),
-        AppTheme.h12,
         Text(
           AppStrings.scale,
           style: TextStyle(
@@ -1723,11 +1483,14 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
             min: AppConstants.minWallpaperScale,
             max: AppConstants.maxWallpaperScale,
             divisions: 75,
-            onChanged: _config.autoFitWidth
-                ? null
-                : (value) {
-                    _updateConfig(_config.copyWith(scale: value));
-                  },
+            onChanged: (value) {
+              _updateConfig(
+                _config.copyWith(
+                  autoFitWidth: false,
+                  scale: value,
+                ),
+              );
+            },
           ),
         ),
         AppTheme.h12,
@@ -1746,18 +1509,12 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
           max: 1.0,
           divisions: 10,
           onChanged: (value) {
-            _updateConfig(_config.copyWith(verticalPosition: value));
-          },
-        ),
-        AppTheme.h20,
-        _buildSlider(
-          label: AppStrings.positionHorizontal,
-          value: _config.horizontalPosition,
-          min: 0.0,
-          max: 1.0,
-          divisions: 10,
-          onChanged: (value) {
-            _updateConfig(_config.copyWith(horizontalPosition: value));
+            _updateConfig(
+              _config.copyWith(
+                autoFitWidth: false,
+                verticalPosition: value,
+              ),
+            );
           },
         ),
         AppTheme.h8,
@@ -1767,42 +1524,6 @@ extension _CustomizePageStateControlSections on _CustomizePageState {
 }
 
 extension _CustomizePageStateControlHelpers on _CustomizePageState {
-  Widget _buildMetricToggle({
-    required String label,
-    required bool value,
-    required bool enabled,
-    required ValueChanged<bool> onChanged,
-  }) {
-    final scheme = Theme.of(context).colorScheme;
-    return Opacity(
-      opacity: enabled ? 1.0 : 0.5,
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                fontSize: AppTheme.fontBody,
-                fontWeight: FontWeight.w700,
-                color: scheme.onSurface,
-              ),
-            ),
-          ),
-          Switch(
-            value: value,
-            activeThumbColor: scheme.primary,
-            onChanged: !enabled
-                ? null
-                : (v) {
-                    HapticFeedback.selectionClick();
-                    onChanged(v);
-                  },
-          ),
-        ],
-      ),
-    );
-  }
-
   // ══════════════════════════════════════════════════════════════════════
   // SLIDER WIDGET
   // ══════════════════════════════════════════════════════════════════════
@@ -1934,195 +1655,6 @@ extension _CustomizePageStateControlHelpers on _CustomizePageState {
                   ],
                 ),
         ),
-      ),
-    );
-  }
-}
-
-extension _CustomizePageStateGuides on _CustomizePageState {
-  Widget _buildSystemUiGuides(
-    double previewScale,
-    WallpaperTarget target,
-  ) {
-    final scheme = Theme.of(context).colorScheme;
-    final tt = Theme.of(context).textTheme;
-    final safeInsets = StorageService.getSafeInsets();
-    if (safeInsets == EdgeInsets.zero) return const SizedBox.shrink();
-    final dims = StorageService.getDimensions();
-    final screenHeight = dims?['height'] ?? AppConstants.defaultWallpaperHeight;
-    final isLockStyle = target != WallpaperTarget.home;
-    final topGuideColor =
-        isLockStyle ? AppTheme.errorRed : AppTheme.primaryBlue;
-    final topGuideLabel =
-        isLockStyle ? AppStrings.systemClockArea : AppStrings.statusBarArea;
-    final topGuideIcon =
-        isLockStyle ? Icons.lock_clock_rounded : Icons.phone_android_rounded;
-    final topGuideHeight = DeviceCompatibilityChecker.reservedTopPx(
-          screenHeight: screenHeight,
-          safeInsets: safeInsets,
-          target: target,
-        ) *
-        previewScale;
-    final bottomGuideHeight = DeviceCompatibilityChecker.reservedBottomPx(
-          screenHeight: screenHeight,
-          safeInsets: safeInsets,
-          target: target,
-        ) *
-        previewScale;
-    final showTopLabel = topGuideHeight >= 28;
-    final showBottomLabel = bottomGuideHeight >= 28;
-
-    return IgnorePointer(
-      child: Stack(
-        children: [
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            height: topGuideHeight,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    topGuideColor.withValues(alpha: 0.16),
-                    topGuideColor.withValues(alpha: 0.04),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: !showTopLabel
-                    ? const SizedBox.shrink()
-                    : LayoutBuilder(
-                        builder: (context, c) {
-                          final maxWidth =
-                              (c.maxWidth - 24).clamp(0.0, c.maxWidth);
-                          return ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: maxWidth),
-                            child: Container(
-                              margin: EdgeInsets.only(
-                                bottom: (8 * previewScale).clamp(6, 12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: scheme.surface.withValues(alpha: 0.88),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: topGuideColor.withValues(alpha: 0.25),
-                                ),
-                                boxShadow: AppTheme.shadow(scheme.shadow,
-                                    opacity: 0.08, blur: 18),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    topGuideIcon,
-                                    size: 14,
-                                    color: topGuideColor,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      topGuideLabel,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: tt.labelSmall?.copyWith(
-                                        color: topGuideColor,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 0,
-            left: 0,
-            right: 0,
-            height: bottomGuideHeight,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.bottomCenter,
-                  end: Alignment.topCenter,
-                  colors: [
-                    AppTheme.primaryBlue.withValues(alpha: 0.16),
-                    AppTheme.primaryBlue.withValues(alpha: 0.04),
-                    Colors.transparent,
-                  ],
-                ),
-              ),
-              child: Align(
-                alignment: Alignment.topCenter,
-                child: !showBottomLabel
-                    ? const SizedBox.shrink()
-                    : LayoutBuilder(
-                        builder: (context, c) {
-                          final maxWidth =
-                              (c.maxWidth - 24).clamp(0.0, c.maxWidth);
-                          return ConstrainedBox(
-                            constraints: BoxConstraints(maxWidth: maxWidth),
-                            child: Container(
-                              margin: EdgeInsets.only(
-                                top: (8 * previewScale).clamp(6, 12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 6,
-                              ),
-                              decoration: BoxDecoration(
-                                color: scheme.surface.withValues(alpha: 0.88),
-                                borderRadius: BorderRadius.circular(999),
-                                border: Border.all(
-                                  color: AppTheme.primaryBlue
-                                      .withValues(alpha: 0.25),
-                                ),
-                                boxShadow: AppTheme.shadow(scheme.shadow,
-                                    opacity: 0.08, blur: 18),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    Icons.swipe_up_rounded,
-                                    size: 14,
-                                    color: AppTheme.primaryBlue,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Flexible(
-                                    child: Text(
-                                      AppStrings.gestureArea,
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      textAlign: TextAlign.center,
-                                      style: tt.labelSmall?.copyWith(
-                                        color: AppTheme.primaryBlue,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }

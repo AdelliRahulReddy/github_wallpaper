@@ -1,7 +1,6 @@
 const crypto = require("node:crypto");
 const logger = require("firebase-functions/logger");
 const { onRequest } = require("firebase-functions/v2/https");
-const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const { initializeApp } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
@@ -12,49 +11,17 @@ initializeApp();
 
 const GITHUB_CLIENT_ID = defineSecret("GITHUB_CLIENT_ID");
 const GITHUB_CLIENT_SECRET = defineSecret("GITHUB_CLIENT_SECRET");
-const GEMINI_API_KEY = defineSecret("GEMINI_API_KEY");
 const ADMIN_BROADCAST_TOPIC = "all_users_broadcast";
+const ADMIN_BROADCAST_TYPE = "admin_broadcast";
+const ADMIN_BROADCAST_CHANNEL_ID = "admin_broadcast_channel";
+const ADMIN_BROADCAST_MAX_TITLE_LENGTH = 80;
+const ADMIN_BROADCAST_MAX_BODY_LENGTH = 240;
+const ADMIN_BROADCAST_FAILURE_MESSAGE = "Admin broadcast failed";
 const USERS_COLLECTION = "users";
 const EMAIL_LINKS_COLLECTION = "identity_links_email";
 const GITHUB_LINKS_COLLECTION = "identity_links_github";
 const LEGACY_LINKS_COLLECTION = "legacy_identity_links";
 const CANONICAL_USER_PREFIX = "gw_usr_";
-const GEMINI_MODEL = "gemini-2.0-flash-lite";
-const GEMINI_GENERATE_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
-const QUOTE_RETENTION_DAYS = 7;
-const DAILY_QUOTES_COLLECTION = "daily_quotes";
-const QUOTE_REQUEST_DELAY_MS = 450;
-const QUOTE_REQUEST_MAX_ATTEMPTS = 5;
-const QUOTE_MAX_WORDS = 20;
-const QUOTE_PROFILE_DIMENSIONS = {
-  streak: [
-    { key: "0d", label: "0 days" },
-    { key: "1_3d", label: "1-3 days" },
-    { key: "4_7d", label: "4-7 days" },
-    { key: "8_14d", label: "8-14 days" },
-    { key: "15_30d", label: "15-30 days" },
-    { key: "31_60d", label: "31-60 days" },
-    { key: "61_100d", label: "61-100 days" },
-    { key: "100pd", label: "100+ days" },
-  ],
-  tone: [
-    { key: "Friendly", label: "Friendly" },
-    { key: "Motivational", label: "Motivational" },
-    { key: "Roast", label: "Roast" },
-  ],
-  level: [
-    { key: "New", label: "New" },
-    { key: "Beginner", label: "Beginner" },
-    { key: "Regular", label: "Regular" },
-    { key: "Hardcore", label: "Hardcore" },
-  ],
-  commits: [
-    { key: "0c", label: "0" },
-    { key: "1_2c", label: "1-2" },
-    { key: "3_5c", label: "3-5" },
-    { key: "6pc", label: "6+" },
-  ],
-};
 const githubApiHeaders = {
   Accept: "application/vnd.github+json",
   "X-GitHub-Api-Version": "2022-11-28",
@@ -64,69 +31,6 @@ exports.ping = onRequest((req, res) => {
   logger.info("GitWall functions active");
   res.status(200).send("ok");
 });
-
-exports.generateDailyQuotes = onSchedule(
-  {
-    schedule: "0 0 * * *",
-    timeZone: "Asia/Kolkata",
-    timeoutSeconds: 540,
-    memory: "512MiB",
-    secrets: [GEMINI_API_KEY],
-  },
-  async () => {
-    const apiKey = GEMINI_API_KEY.value().trim();
-    if (!apiKey) {
-      logger.error(
-        "Daily quote generation skipped: GEMINI_API_KEY is not configured.",
-      );
-      return;
-    }
-
-    const db = getFirestore("default");
-    const now = new Date();
-    const docId = formatDateKey(now);
-    const profiles = buildQuoteProfiles();
-    const quotes = {};
-
-    logger.info("Starting daily quote generation", {
-      date: docId,
-      profiles: profiles.length,
-      model: GEMINI_MODEL,
-      throttleMs: QUOTE_REQUEST_DELAY_MS,
-    });
-
-    for (const [index, profile] of profiles.entries()) {
-      if (index > 0) {
-        await sleep(QUOTE_REQUEST_DELAY_MS);
-      }
-      quotes[profile.key] = await generateQuoteForProfile(profile, apiKey);
-    }
-
-    await db
-      .collection(DAILY_QUOTES_COLLECTION)
-      .doc(docId)
-      .set(
-        {
-          ...quotes,
-          _meta: {
-            profile_count: profiles.length,
-            model: GEMINI_MODEL,
-            quote_max_words: QUOTE_MAX_WORDS,
-          },
-          generated_at: FieldValue.serverTimestamp(),
-          updated_at: FieldValue.serverTimestamp(),
-        },
-        { merge: true },
-      );
-
-    await cleanupOldDailyQuotes(db, now);
-
-    logger.info("Daily quote generation completed", {
-      date: docId,
-      profiles: profiles.length,
-    });
-  },
-);
 
 exports.exchangeGitHubCode = onRequest(
   {
@@ -217,17 +121,21 @@ exports.sendAdminBroadcast = onRequest(
         return;
       }
 
-      if (title.length > 80) {
+      if (title.length > ADMIN_BROADCAST_MAX_TITLE_LENGTH) {
         res
           .status(400)
-          .json({ message: "title must be 80 characters or fewer" });
+          .json({
+            message: `title must be ${ADMIN_BROADCAST_MAX_TITLE_LENGTH} characters or fewer`,
+          });
         return;
       }
 
-      if (message.length > 240) {
+      if (message.length > ADMIN_BROADCAST_MAX_BODY_LENGTH) {
         res
           .status(400)
-          .json({ message: "body must be 240 characters or fewer" });
+          .json({
+            message: `body must be ${ADMIN_BROADCAST_MAX_BODY_LENGTH} characters or fewer`,
+          });
         return;
       }
 
@@ -261,7 +169,7 @@ exports.sendAdminBroadcast = onRequest(
           body: message,
         },
         data: {
-          type: "admin_broadcast",
+          type: ADMIN_BROADCAST_TYPE,
           broadcast_id: notificationRef.id,
           title,
           body: message,
@@ -271,7 +179,7 @@ exports.sendAdminBroadcast = onRequest(
         android: {
           priority: "high",
           notification: {
-            channelId: "admin_broadcast_channel",
+            channelId: ADMIN_BROADCAST_CHANNEL_ID,
           },
         },
         apns: {
@@ -316,7 +224,7 @@ exports.sendAdminBroadcast = onRequest(
               status: "failed",
               failed_at: FieldValue.serverTimestamp(),
               updated_at: FieldValue.serverTimestamp(),
-              error_message: error.message || "Admin broadcast failed",
+              error_message: error.message || ADMIN_BROADCAST_FAILURE_MESSAGE,
             },
             { merge: true },
           )
@@ -330,7 +238,7 @@ exports.sendAdminBroadcast = onRequest(
 
       logger.error("Admin broadcast failed", sanitizeForLogs(error));
       res.status(error.statusCode || 500).json({
-        message: error.message || "Admin broadcast failed",
+        message: error.message || ADMIN_BROADCAST_FAILURE_MESSAGE,
         details: error.details || null,
         notificationId: notificationRef?.id || null,
       });
@@ -1211,214 +1119,4 @@ function sanitizeForLogs(error) {
         ? error.stack.split("\n").slice(0, 3).join("\n")
         : null,
   };
-}
-
-function buildQuoteProfiles() {
-  const profiles = [];
-
-  for (const streak of QUOTE_PROFILE_DIMENSIONS.streak) {
-    for (const tone of QUOTE_PROFILE_DIMENSIONS.tone) {
-      for (const level of QUOTE_PROFILE_DIMENSIONS.level) {
-        for (const commits of QUOTE_PROFILE_DIMENSIONS.commits) {
-          profiles.push({
-            key: [streak.key, tone.key, level.key, commits.key].join("_"),
-            streakKey: streak.key,
-            streakLabel: streak.label,
-            toneKey: tone.key,
-            toneLabel: tone.label,
-            levelKey: level.key,
-            levelLabel: level.label,
-            commitsKey: commits.key,
-            commitsLabel: commits.label,
-          });
-        }
-      }
-    }
-  }
-
-  return profiles;
-}
-
-async function generateQuoteForProfile(profile, apiKey) {
-  const prompt = [
-    `Write one short quote (max ${QUOTE_MAX_WORDS} words) for a developer.`,
-    `Streak: ${profile.streakLabel}. Tone: ${profile.toneLabel}. Level: ${profile.levelLabel}. Commits today: ${profile.commitsLabel}.`,
-    "Only return the quote text. No quotation marks. No explanation.",
-  ].join("\n");
-
-  for (let attempt = 1; attempt <= QUOTE_REQUEST_MAX_ATTEMPTS; attempt += 1) {
-    try {
-      const response = await fetch(
-        `${GEMINI_GENERATE_URL}?key=${encodeURIComponent(apiKey)}`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: prompt }],
-              },
-            ],
-            generationConfig: {
-              temperature: 0.9,
-              maxOutputTokens: 80,
-            },
-          }),
-        },
-      );
-
-      const payload = await safeJson(response);
-      if (!response.ok) {
-        const retryable = response.status === 429 || response.status >= 500;
-        if (retryable && attempt < QUOTE_REQUEST_MAX_ATTEMPTS) {
-          const waitMs = quoteBackoffMs(attempt, payload);
-          logger.warn("Retrying Gemini quote generation", {
-            key: profile.key,
-            attempt,
-            status: response.status,
-            waitMs,
-          });
-          await sleep(waitMs);
-          continue;
-        }
-
-        throw buildGeminiError(response.status, payload);
-      }
-
-      const rawText = extractGeminiText(payload);
-      if (rawText) {
-        return sanitizeQuoteText(rawText);
-      }
-
-      throw new Error("Gemini returned an empty quote response.");
-    } catch (error) {
-      if (attempt < QUOTE_REQUEST_MAX_ATTEMPTS) {
-        const waitMs = quoteBackoffMs(attempt);
-        logger.warn("Retrying Gemini quote generation after error", {
-          key: profile.key,
-          attempt,
-          waitMs,
-          error: sanitizeForLogs(error),
-        });
-        await sleep(waitMs);
-        continue;
-      }
-
-      logger.error("Falling back to deterministic quote", {
-        key: profile.key,
-        error: sanitizeForLogs(error),
-      });
-      return deterministicFallbackQuote(profile);
-    }
-  }
-
-  return deterministicFallbackQuote(profile);
-}
-
-function extractGeminiText(payload) {
-  const candidates = Array.isArray(payload?.candidates)
-    ? payload.candidates
-    : [];
-  for (const candidate of candidates) {
-    const parts = Array.isArray(candidate?.content?.parts)
-      ? candidate.content.parts
-      : [];
-    for (const part of parts) {
-      const text = `${part?.text ?? ""}`.trim();
-      if (text) {
-        return text;
-      }
-    }
-  }
-  return "";
-}
-
-function sanitizeQuoteText(rawText) {
-  const cleaned = `${rawText ?? ""}`
-    .replace(/\s+/g, " ")
-    .replace(/^["'`]+|["'`]+$/g, "")
-    .trim();
-
-  if (!cleaned) {
-    return "Keep building. Small honest progress still counts today.";
-  }
-
-  const words = cleaned.split(/\s+/).filter(Boolean);
-  if (words.length <= QUOTE_MAX_WORDS) {
-    return cleaned;
-  }
-
-  return words.slice(0, QUOTE_MAX_WORDS).join(" ");
-}
-
-function deterministicFallbackQuote(profile) {
-  const tone = profile.toneKey;
-  const commits = profile.commitsKey;
-
-  if (tone === "Roast") {
-    return commits === "0c"
-      ? "Your graph called. It wants effort, not another dramatic planning session."
-      : "Fine, you committed. Try making the next change useful too.";
-  }
-
-  if (tone === "Friendly") {
-    return commits === "0c"
-      ? "A small real improvement today is enough. Pick one task and move it forward."
-      : "Nice work. You are safe today, so choose one meaningful next step.";
-  }
-
-  return commits === "0c"
-    ? "Start with one real task today. Consistency grows from honest work."
-    : "Momentum is already here. Push one meaningful improvement before you close today.";
-}
-
-function quoteBackoffMs(attempt, payload) {
-  const headerRetry = Number(payload?.error?.details?.retryDelaySeconds);
-  if (Number.isFinite(headerRetry) && headerRetry > 0) {
-    return Math.max(Math.floor(headerRetry * 1000), QUOTE_REQUEST_DELAY_MS);
-  }
-  return Math.min(QUOTE_REQUEST_DELAY_MS * 2 ** attempt, 8000);
-}
-
-function buildGeminiError(statusCode, payload) {
-  const error = new Error(
-    payload?.error?.message || `Gemini request failed (${statusCode})`,
-  );
-  error.statusCode = statusCode;
-  error.details = JSON.stringify(payload);
-  return error;
-}
-
-async function cleanupOldDailyQuotes(db, now) {
-  const cutoffDate = new Date(now);
-  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - QUOTE_RETENTION_DAYS);
-  const cutoffKey = formatDateKey(cutoffDate);
-  const snapshot = await db.collection(DAILY_QUOTES_COLLECTION).get();
-
-  const deletions = snapshot.docs
-    .filter((doc) => doc.id < cutoffKey)
-    .map((doc) => doc.ref.delete());
-
-  if (deletions.length > 0) {
-    await Promise.all(deletions);
-  }
-
-  logger.info("Daily quote cleanup completed", {
-    retainedFrom: cutoffKey,
-    deletedCount: deletions.length,
-  });
-}
-
-function formatDateKey(date) {
-  const year = date.getUTCFullYear();
-  const month = `${date.getUTCMonth() + 1}`.padStart(2, "0");
-  const day = `${date.getUTCDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
-}
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
 }

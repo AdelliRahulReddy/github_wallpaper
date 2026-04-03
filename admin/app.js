@@ -30,9 +30,11 @@ const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp, "default");
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: "select_account" });
+const firestoreCollections = constants.firestore.collections;
+const firestoreDocs = constants.firestore.docs;
 
 const UNAUTHORIZED_ADMIN_MESSAGE =
-  "This Google account is not currently authorized as a web admin. Add admins/<your email> with enabled: true in Firestore first.";
+  `This Google account is not currently authorized as a web admin. Add ${firestoreCollections.admins}/<your email> with enabled: true in Firestore first.`;
 const DEFAULT_AUTH_HELPER_MESSAGE =
   "Sign in once with your approved Google admin account and this dashboard will restore the session automatically.";
 
@@ -95,6 +97,8 @@ const state = {
 
 const authPersistenceReady = initializeAuthPersistence();
 
+configureBroadcastForm();
+
 elements.startSignInButton.addEventListener("click", startGoogleSignIn);
 elements.signOutButton.addEventListener("click", handleSignOut);
 elements.adminForm.addEventListener("submit", handleAdminSubmit);
@@ -109,6 +113,14 @@ window.addEventListener("online", handleConnectivityChange);
 window.addEventListener("offline", handleConnectivityChange);
 
 void bootstrapAuth();
+
+function configureBroadcastForm() {
+  const broadcastConfig = constants.notifications.adminBroadcast;
+  elements.broadcastTitle.maxLength = broadcastConfig.maxTitleLength;
+  elements.broadcastBody.maxLength = broadcastConfig.maxBodyLength;
+  elements.broadcastTitle.placeholder = broadcastConfig.titlePlaceholder;
+  elements.broadcastBody.placeholder = broadcastConfig.bodyPlaceholder;
+}
 
 function resetLiveState() {
   state.authorized = false;
@@ -168,7 +180,10 @@ async function handleSignOut() {
 async function loadDashboard() {
   await assertAdmin();
   clearSubscriptions();
-  subscribeDoc("app_config", doc(db, "config", "app_config"));
+  subscribeDoc(
+    firestoreDocs.appConfig,
+    doc(db, firestoreCollections.config, firestoreDocs.appConfig),
+  );
   subscribeBroadcasts();
   subscribeMetrics();
   subscribeAdmins();
@@ -179,7 +194,9 @@ async function loadDashboard() {
 
 async function assertAdmin() {
   try {
-    const adminDoc = await getDoc(doc(db, "admins", state.currentAdminId));
+    const adminDoc = await getDoc(
+      doc(db, firestoreCollections.admins, state.currentAdminId),
+    );
     if (!adminDoc.exists() || adminDoc.data()?.enabled === false) {
       throw new Error(UNAUTHORIZED_ADMIN_MESSAGE);
     }
@@ -211,7 +228,11 @@ function subscribeDoc(key, ref) {
 function subscribeMetrics() {
   state.unsubscribers.push(
     onSnapshot(
-      doc(db, "admin_metrics", "summary"),
+      doc(
+        db,
+        firestoreCollections.adminMetrics,
+        firestoreDocs.metricsSummary,
+      ),
       (snapshot) => {
         state.metrics = snapshot.exists() ? snapshot.data() : {};
         renderMetrics();
@@ -226,7 +247,7 @@ function subscribeMetrics() {
 function subscribeAdmins() {
   state.unsubscribers.push(
     onSnapshot(
-      collection(db, "admins"),
+      collection(db, firestoreCollections.admins),
       (snapshot) => {
         state.admins = snapshot.docs
           .map((item) => ({ id: item.id, ...item.data() }))
@@ -244,7 +265,11 @@ function subscribeAdmins() {
 function subscribeUsers() {
   state.unsubscribers.push(
     onSnapshot(
-      query(collection(db, "users"), orderBy("createdAt", "desc"), limit(200)),
+      query(
+        collection(db, firestoreCollections.users),
+        orderBy("createdAt", "desc"),
+        limit(200),
+      ),
       (snapshot) => {
         state.users = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
         renderUsers();
@@ -260,7 +285,11 @@ function subscribeUsers() {
 function subscribeBroadcasts() {
   state.unsubscribers.push(
     onSnapshot(
-      query(collection(db, "admin_notifications"), orderBy("created_at", "desc"), limit(20)),
+      query(
+        collection(db, firestoreCollections.adminNotifications),
+        orderBy("created_at", "desc"),
+        limit(20),
+      ),
       (snapshot) => {
         state.broadcasts = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
         renderBroadcasts();
@@ -275,7 +304,11 @@ function subscribeBroadcasts() {
 function subscribeIncidentFeeds() {
   state.unsubscribers.push(
     onSnapshot(
-      query(collection(db, "admin_crash_reports"), orderBy("timestamp", "desc"), limit(20)),
+      query(
+        collection(db, firestoreCollections.adminCrashReports),
+        orderBy("timestamp", "desc"),
+        limit(20),
+      ),
       (snapshot) => {
         state.crashReports = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
         renderList(
@@ -293,7 +326,11 @@ function subscribeIncidentFeeds() {
 
   state.unsubscribers.push(
     onSnapshot(
-      query(collection(db, "logs"), orderBy("timestamp", "desc"), limit(25)),
+      query(
+        collection(db, firestoreCollections.logs),
+        orderBy("timestamp", "desc"),
+        limit(25),
+      ),
       (snapshot) => {
         state.logs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
         renderList(elements.logList, state.logs, "No telemetry logs found yet. Realtime logs will appear here automatically.");
@@ -338,7 +375,7 @@ function render() {
   elements.sessionName.textContent = state.currentUserName || "Google admin";
   elements.sessionEmail.textContent = state.currentUserEmail || "No verified email";
   elements.sessionMode.textContent = buildRealtimeSessionLabel();
-  renderConfigSection("app_config");
+  renderConfigSection(firestoreDocs.appConfig);
   renderAdmins();
   renderUsers();
   renderBroadcasts();
@@ -369,7 +406,7 @@ function renderSummary() {
     { label: "Session", value: state.authorized ? "Live" : "Signed out", meta: "Realtime admin connection" },
     { label: "Admins", value: String(state.admins.length), meta: "Whitelisted operators" },
     { label: "Users", value: String(derivedMetrics.visible_users ?? 0), meta: "Visible user records" },
-    { label: "Maintenance", value: state.docs.app_config?.maintenance_mode ? "On" : "Off", meta: "App availability flag" },
+    { label: "Maintenance", value: state.docs[firestoreDocs.appConfig]?.maintenance_mode ? "On" : "Off", meta: "App availability flag" },
     { label: "Crashes", value: String(derivedMetrics.visible_crash_reports ?? 0), meta: "Visible crash reports" },
     { label: "Sync Failures", value: String(derivedMetrics.sync_failures_visible ?? 0), meta: "Visible telemetry failures" },
   ];
@@ -389,7 +426,7 @@ function renderSummary() {
 
 function renderConfigSection(key) {
   const targets = {
-    app_config: elements.appConfigFields,
+    [firestoreDocs.appConfig]: elements.appConfigFields,
   };
   const target = targets[key];
   target.innerHTML = schemas[key].map((field) => renderField(key, field, state.drafts[key]?.[field.key])).join("");
@@ -629,7 +666,7 @@ async function saveConfig(docKey) {
   try {
     const normalized = normalizeConfigPayload(docKey, state.drafts[docKey]);
     await setDoc(
-      doc(db, "config", docKey),
+      doc(db, firestoreCollections.config, docKey),
       {
         ...normalized,
         updated_at: serverTimestamp(),
@@ -700,7 +737,7 @@ async function handleAdminSubmit(event) {
   }
 
   try {
-    const ref = doc(db, "admins", email);
+    const ref = doc(db, firestoreCollections.admins, email);
     const existing = await getDoc(ref);
     await setDoc(
       ref,
@@ -743,7 +780,7 @@ async function deleteAdmin(adminId) {
   }
 
   try {
-    await deleteDoc(doc(db, "admins", adminId));
+    await deleteDoc(doc(db, firestoreCollections.admins, adminId));
     showBanner(`Deleted ${adminId}.`, "success");
   } catch (error) {
     showBanner(extractErrorMessage(error), "danger");
@@ -751,6 +788,7 @@ async function deleteAdmin(adminId) {
 }
 
 async function sendAdminBroadcast() {
+  const broadcastConfig = constants.notifications.adminBroadcast;
   const title = elements.broadcastTitle.value.trim();
   const body = elements.broadcastBody.value.trim();
 
@@ -761,6 +799,22 @@ async function sendAdminBroadcast() {
 
   if (!body) {
     showBanner("Broadcast message is required.", "danger");
+    return;
+  }
+
+  if (title.length > broadcastConfig.maxTitleLength) {
+    showBanner(
+      `Broadcast title must be ${broadcastConfig.maxTitleLength} characters or fewer.`,
+      "danger",
+    );
+    return;
+  }
+
+  if (body.length > broadcastConfig.maxBodyLength) {
+    showBanner(
+      `Broadcast message must be ${broadcastConfig.maxBodyLength} characters or fewer.`,
+      "danger",
+    );
     return;
   }
 

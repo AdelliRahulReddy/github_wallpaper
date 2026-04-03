@@ -258,6 +258,48 @@ void main() {
     expect(previewRatio, closeTo(0.5, 0.05));
   });
 
+  testWidgets('Customize keeps only simplified controls', (tester) async {
+    await setupStorage();
+    await StorageService.saveWallpaperConfig(
+      WallpaperConfig.defaults().copyWith(
+        customQuote: 'Consistency leaves the strongest signature.',
+        showQuickStatsBar: true,
+      ),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.lightTheme(),
+        home: Scaffold(
+          body: CustomizePage(
+            data: buildData(),
+            onSetWallpaper: (_) async => true,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Corner Radius'), findsOneWidget);
+    expect(find.text('Show bottom info bar'), findsOneWidget);
+    expect(find.text('Opacity'), findsNothing);
+    expect(find.text('Quote Size'), findsNothing);
+    expect(find.text('Quote Opacity'), findsNothing);
+    expect(find.text('Current streak'), findsNothing);
+    expect(find.text('Longest streak'), findsNothing);
+    expect(find.text('Total commits'), findsNothing);
+    expect(find.text('Top language'), findsNothing);
+    expect(find.text('Auto-fit'), findsNothing);
+    expect(find.text('Auto Fit Width'), findsNothing);
+    expect(find.text('Auto Fix for Device'), findsNothing);
+
+    await tester.tap(find.text('Layout'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Preview tools'), findsNothing);
+    expect(find.text('Position (Horizontal, within safe area)'), findsNothing);
+  });
+
   testWidgets('Customize portrait split keeps preview near 50-50',
       (tester) async {
     await setupStorage();
@@ -494,6 +536,63 @@ void main() {
     }
   });
 
+  test('Lock renderer responds to exposed quick adjust config changes',
+      () async {
+    await setupStorage();
+    final data = buildData();
+    final baseConfig = WallpaperConfig.defaults().copyWith(
+      isDarkMode: true,
+      themeId: 'tokyo_night',
+      templateId: 'large_quote',
+      densityMode: WallpaperDensityMode.power,
+      heroFocus: WallpaperHeroFocus.quote,
+      customQuote: 'Consistency leaves the strongest signature.',
+      showQuickStatsBar: true,
+      statCurrentStreak: true,
+      statLongestStreak: false,
+      statTotalCommits: true,
+      statTopLanguage: false,
+    );
+
+    Future<String> renderSignature(WallpaperConfig config) async {
+      final bytes = await generateWallpaperTask({
+        'data': jsonEncode(data.toJson()),
+        'config': jsonEncode(config.toJson()),
+        'target': WallpaperTarget.lock.name,
+        'width': 1080.0,
+        'height': 2400.0,
+        'pixelRatio': 1.0,
+      });
+      return base64Encode(bytes);
+    }
+
+    final baseline = await renderSignature(baseConfig);
+    final withoutStats =
+        await renderSignature(baseConfig.copyWith(showQuickStatsBar: false));
+    final roundedPoster = await renderSignature(
+      baseConfig.copyWith(
+        cornerRadius: 8.0,
+      ),
+    );
+    final scaledPoster = await renderSignature(
+      baseConfig.copyWith(
+        autoFitWidth: false,
+        scale: 1.65,
+      ),
+    );
+    final shiftedPoster = await renderSignature(
+      baseConfig.copyWith(
+        autoFitWidth: false,
+        verticalPosition: 0.8,
+      ),
+    );
+
+    expect(withoutStats, isNot(baseline));
+    expect(roundedPoster, isNot(baseline));
+    expect(scaledPoster, isNot(baseline));
+    expect(shiftedPoster, isNot(baseline));
+  });
+
   test('lock calendar aligns to current month grid with Monday start', () {
     final data = buildDataAround(DateTime.utc(2025, 9, 1));
     final cells = MonthHeatmapRenderer.buildCalendarCells(
@@ -614,7 +713,7 @@ void main() {
 
     expect(
       label,
-      'October 2025 calendar from September 29, 2025 to November 2, 2025. Today is Today, Wednesday, October 15, 2025, 0 contributions.',
+      'October 2025 calendar from October 1, 2025 to October 31, 2025. Today is Today, Wednesday, October 15, 2025, 0 contributions.',
     );
   });
 }

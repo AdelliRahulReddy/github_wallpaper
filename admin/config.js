@@ -11,6 +11,32 @@ export const firebaseConfig = {
 export const constants = {
   functionsBase: "https://us-central1-gitwall-d63cc.cloudfunctions.net",
   firestoreDatabaseId: "default",
+  firestore: {
+    collections: {
+      config: "config",
+      admins: "admins",
+      users: "users",
+      adminNotifications: "admin_notifications",
+      adminMetrics: "admin_metrics",
+      adminCrashReports: "admin_crash_reports",
+      logs: "logs",
+    },
+    docs: {
+      appConfig: "app_config",
+      metricsSummary: "summary",
+    },
+  },
+  notifications: {
+    adminBroadcast: {
+      topic: "all_users_broadcast",
+      maxTitleLength: 80,
+      maxBodyLength: 240,
+      defaultTitle: "GitWall update",
+      titlePlaceholder: "GitWall update",
+      bodyPlaceholder:
+        "Write the notification that should reach all users instantly.",
+    },
+  },
 };
 
 export const schemas = {
@@ -32,14 +58,11 @@ export const schemas = {
       label: "Force update message",
       type: "string",
     },
-    { key: "ai_quotes_enabled", label: "AI quotes enabled", type: "boolean" },
     {
-      key: "ai_quotes_quota_exceeded",
-      label: "AI quota exceeded",
+      key: "smart_quotes_enabled",
+      label: "Smart quotes enabled",
       type: "boolean",
     },
-    { key: "debug_mode_enabled", label: "Debug mode enabled", type: "boolean" },
-    { key: "onboarding_version", label: "Onboarding version", type: "number" },
   ],
 };
 
@@ -50,9 +73,6 @@ export const defaults = {
     force_update_enabled: false,
     force_update_min_version: "1.0.0",
     force_update_message: "Please update GitWall",
-    ai_quotes_enabled: true,
-    ai_quotes_quota_exceeded: false,
-    debug_mode_enabled: false,
-    onboarding_version: 1,
+    smart_quotes_enabled: true,
   },
 };

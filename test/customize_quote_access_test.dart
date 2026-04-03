@@ -79,7 +79,7 @@ void main() {
     await prefs.clear();
   });
 
-  testWidgets('Customize exposes live quote generation without tiers',
+  testWidgets('Customize exposes smart quote refresh without tiers',
       (tester) async {
     await tester.binding.setSurfaceSize(const Size(1200, 2000));
     addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -102,7 +102,7 @@ void main() {
     await tester.tap(textOverlay, warnIfMissed: false);
     await tester.pumpAndSettle();
 
-    expect(find.text('Generate Live Quote'), findsOneWidget);
+    expect(find.text('Refresh Quote'), findsOneWidget);
     expect(find.byIcon(Icons.lock_rounded), findsNothing);
   });
 }

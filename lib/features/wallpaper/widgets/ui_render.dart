@@ -36,7 +36,7 @@ class WallpaperCalendarCell {
 class MonthHeatmapRenderer {
   static final _lT = AppThemeExt(isLight: true),
       _dT = AppThemeExt(isLight: false);
-  static const rendererVersion = '2026-04-02-lock-clarity-v2';
+  static const rendererVersion = '2026-04-03-lock-month-only-v3';
   static void clearCaches() => RenderUtils.clearCaches();
 
   static double _focusScaleMultiplier(WallpaperHeroFocus focus) =>
@@ -283,7 +283,7 @@ class MonthHeatmapRenderer {
     );
     if (target != WallpaperTarget.home) {
       return '${_monthYearAccessibilityLabel(calendarWindow.focusMonthStart)} calendar '
-          'from ${_longDateLabel(first)} to ${_longDateLabel(last)}. '
+          'from ${_longDateLabel(calendarWindow.focusMonthStart)} to ${_longDateLabel(calendarWindow.focusMonthEnd)}. '
           'Today is ${todayCell.accessibilityLabel}.';
     }
     return 'Rolling activity calendar from ${_longDateLabel(first)} to ${_longDateLabel(last)}. '
@@ -355,35 +355,21 @@ class MonthHeatmapRenderer {
       }
 
       drawBeam(
-        center: Offset(size.width * 0.82, size.height * 0.18),
-        width: size.width * 0.78,
-        height: size.height * 0.17,
-        rotation: -0.54,
-        start: primary.withValues(alpha: glowAlpha * 0.34),
+        center: Offset(size.width * 0.80, size.height * 0.20),
+        width: size.width * 0.72,
+        height: size.height * 0.16,
+        rotation: -0.48,
+        start: primary.withValues(alpha: glowAlpha * 0.22),
         end: Colors.transparent,
       );
       drawBeam(
-        center: Offset(size.width * 0.18, size.height * 0.82),
-        width: size.width * 0.62,
-        height: size.height * 0.14,
-        rotation: -0.54,
-        start: secondary.withValues(alpha: glowAlpha * 0.24),
+        center: Offset(size.width * 0.24, size.height * 0.78),
+        width: size.width * 0.52,
+        height: size.height * 0.12,
+        rotation: -0.44,
+        start: secondary.withValues(alpha: glowAlpha * 0.14),
         end: Colors.transparent,
       );
-
-      final linePaint = Paint()
-        ..strokeWidth = 1.0
-        ..color = Colors.white.withValues(
-          alpha: config.isDarkMode ? 0.05 : 0.07,
-        );
-      for (int i = 0; i < 6; i++) {
-        final startX = size.width * (0.08 + (i * 0.17));
-        canvas.drawLine(
-          Offset(startX, 0),
-          Offset(startX + (size.width * 0.08), size.height),
-          linePaint,
-        );
-      }
     }
 
     final heroGlowCenter = target == WallpaperTarget.home
@@ -401,8 +387,11 @@ class MonthHeatmapRenderer {
           heroGlowCenter,
           size.width * (target == WallpaperTarget.home ? 0.42 : 0.48),
           [
-            primary.withValues(alpha: glowAlpha),
-            secondary.withValues(alpha: glowAlpha * 0.55),
+            primary.withValues(
+                alpha: target == WallpaperTarget.home
+                    ? glowAlpha
+                    : glowAlpha * 0.72),
+            secondary.withValues(alpha: glowAlpha * 0.42),
             Colors.transparent,
           ],
           const [0.0, 0.42, 1.0],
@@ -654,13 +643,20 @@ class MonthHeatmapRenderer {
     required Canvas canvas,
     required Rect rect,
     required double radius,
+    required WallpaperConfig config,
     required bool isDarkMode,
     required bool isHome,
     required bool isFullWidth,
     required Color accent,
   }) {
+    final surfaceOpacity =
+        (0.28 + (config.opacity * 0.72)).clamp(0.28, 1.0).toDouble();
+    final resolvedRadius =
+        math.max(8.0, radius + (config.cornerRadius * (isHome ? 1.0 : 1.3)));
     final shadowPath = Path()
-      ..addRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)));
+      ..addRRect(
+        RRect.fromRectAndRadius(rect, Radius.circular(resolvedRadius)),
+      );
     if (!isFullWidth) {
       canvas.drawShadow(
         shadowPath,
@@ -671,18 +667,24 @@ class MonthHeatmapRenderer {
     }
 
     final baseColor = isDarkMode
-        ? const Color(0xFF0F1511)
-            .withValues(alpha: isFullWidth ? 0.58 : (isHome ? 0.66 : 0.76))
-        : Colors.white
-            .withValues(alpha: isFullWidth ? 0.86 : (isHome ? 0.88 : 0.94));
+        ? const Color(0xFF0F1511).withValues(
+            alpha:
+                (isFullWidth ? 0.58 : (isHome ? 0.66 : 0.76)) * surfaceOpacity,
+          )
+        : Colors.white.withValues(
+            alpha:
+                (isFullWidth ? 0.86 : (isHome ? 0.88 : 0.94)) * surfaceOpacity,
+          );
     final secondaryColor = isDarkMode
-        ? const Color(0xFF0B100C)
-            .withValues(alpha: isFullWidth ? 0.68 : (isHome ? 0.72 : 0.82))
-        : const Color(0xFFF6F8FA).withValues(alpha: 0.96);
+        ? const Color(0xFF0B100C).withValues(
+            alpha:
+                (isFullWidth ? 0.68 : (isHome ? 0.72 : 0.82)) * surfaceOpacity,
+          )
+        : const Color(0xFFF6F8FA).withValues(alpha: 0.96 * surfaceOpacity);
 
     final panelRRect = RRect.fromRectAndRadius(
       rect,
-      Radius.circular(radius),
+      Radius.circular(resolvedRadius),
     );
     canvas.drawRRect(
       panelRRect,
@@ -694,7 +696,9 @@ class MonthHeatmapRenderer {
             baseColor,
             secondaryColor,
             accent.withValues(
-                alpha: isHome ? 0.08 : (isFullWidth ? 0.07 : 0.12)),
+              alpha: (isHome ? 0.08 : (isFullWidth ? 0.07 : 0.12)) *
+                  surfaceOpacity,
+            ),
           ],
           const [0.0, 0.68, 1.0],
         ),
@@ -703,12 +707,14 @@ class MonthHeatmapRenderer {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
           rect.deflate(10),
-          Radius.circular(radius - 10),
+          Radius.circular(math.max(2.0, resolvedRadius - 10)),
         ),
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 1.0
-          ..color = Colors.white.withValues(alpha: isDarkMode ? 0.08 : 0.14),
+          ..color = Colors.white.withValues(
+            alpha: (isDarkMode ? 0.08 : 0.14) * surfaceOpacity,
+          ),
       );
     }
     canvas.drawRRect(
@@ -717,7 +723,7 @@ class MonthHeatmapRenderer {
         ..style = PaintingStyle.stroke
         ..strokeWidth = isHome ? 1.2 : 1.4
         ..color = accent.withValues(
-          alpha: isFullWidth ? 0.14 : (isHome ? 0.16 : 0.22),
+          alpha: (isFullWidth ? 0.14 : (isHome ? 0.16 : 0.22)) * surfaceOpacity,
         ),
     );
     canvas.drawRRect(
@@ -728,14 +734,16 @@ class MonthHeatmapRenderer {
           rect.width - 4,
           rect.height * 0.42,
         ),
-        Radius.circular(radius - 2),
+        Radius.circular(math.max(4.0, resolvedRadius - 2)),
       ),
       Paint()
         ..shader = ui.Gradient.linear(
           rect.topLeft,
           Offset(rect.left, rect.top + rect.height * 0.42),
           [
-            Colors.white.withValues(alpha: isDarkMode ? 0.06 : 0.20),
+            Colors.white.withValues(
+              alpha: (isDarkMode ? 0.06 : 0.20) * surfaceOpacity,
+            ),
             Colors.transparent,
           ],
         ),
@@ -918,6 +926,8 @@ class MonthHeatmapRenderer {
 
     final accent = themeLevels[themeLevels.length - 1];
     final secondary = themeLevels[themeLevels.length > 2 ? 2 : 1];
+    final surfaceOpacity =
+        (0.28 + (config.opacity * 0.72)).clamp(0.28, 1.0).toDouble();
     final padLeft = config.paddingLeft;
     final padRight = config.paddingRight;
     final padTop = config.paddingTop;
@@ -926,6 +936,10 @@ class MonthHeatmapRenderer {
     final availableHeight = size.height - padTop - padBottom;
     final textColor =
         config.isDarkMode ? AppTheme.lightSurface : AppTheme.lightText;
+    final templateId = WallpaperTemplates.canonicalId(config.templateId);
+    final showQuoteBand = config.customQuote.trim().isNotEmpty ||
+        config.heroFocus == WallpaperHeroFocus.quote ||
+        templateId == 'large_quote';
     final monthSummary =
         _buildMonthActivitySummary(data, calendarWindow.focusMonthStart);
     final focusMonthStart = calendarWindow.focusMonthStart;
@@ -938,60 +952,16 @@ class MonthHeatmapRenderer {
     final syncLabel =
         'Updated ${PresentationFormatter.formatTimeAgoCompact(data.lastUpdated)}';
     final quote = _resolvedLockPosterQuote(data, config);
-    final monthDays = data.days
-        .where(
-          (day) =>
-              day.date.year == focusMonthStart.year &&
-              day.date.month == focusMonthStart.month,
-        )
-        .toList(growable: false);
-    ContributionDay? peakDay;
-    for (final day in monthDays) {
-      if (peakDay == null ||
-          day.contributionCount > peakDay.contributionCount ||
-          (day.contributionCount == peakDay.contributionCount &&
-              day.date.isBefore(peakDay.date))) {
-        peakDay = day;
-      }
-    }
-    final topLanguage =
-        data.topLanguages.isNotEmpty ? data.topLanguages.first : null;
-    final averagePerActiveDay = monthSummary.stats.activeDaysCount == 0
-        ? 0.0
-        : monthSummary.stats.totalContributions /
-            monthSummary.stats.activeDaysCount;
-    final peakLabel = peakDay == null || peakDay.contributionCount <= 0
-        ? 'Peak still loading'
-        : 'Peak ${peakDay.contributionCount} on ${_shortMonthLabelFor(peakDay.date)} ${peakDay.date.day}';
-    final insightLine = [
-      peakLabel,
-      'Avg ${averagePerActiveDay.toStringAsFixed(1)}/active day',
-      topLanguage == null ? 'Mixed stack' : topLanguage.name,
-    ].join('  •  ');
-    final stats = <_QuickStat>[
-      _QuickStat(
-        label: 'MONTH',
-        value: PresentationFormatter.formatCompactNumber(
-          monthSummary.stats.totalContributions,
-        ),
-      ),
-      _QuickStat(
-        label: 'DAYS',
-        value: '${monthSummary.stats.activeDaysCount}',
-      ),
-      _QuickStat(
-        label: 'STREAK',
-        value: '${data.currentStreak}d',
-      ),
-      _QuickStat(
-        label: 'PEAK',
-        value: '${monthSummary.stats.peakDayContributions}',
-      ),
-    ];
+    final stats = _buildQuickStats(
+      data,
+      config,
+      WallpaperTarget.lock,
+      calendarWindow.focusMonthStart,
+    );
 
     var scale = config.autoFitWidth
         ? (availableWidth / 390.0).clamp(0.88, 1.18).toDouble()
-        : config.scale.clamp(0.78, 1.16).toDouble();
+        : config.scale.clamp(0.55, 1.85).toDouble();
     double posterWidth = 0.0;
     double posterHeight = 0.0;
     double panelPadH = 0.0;
@@ -1008,13 +978,11 @@ class MonthHeatmapRenderer {
     double heatmapStageHeight = 0.0;
     double statsHeight = 0.0;
     double heatmapLabelHeight = 0.0;
-    double heatmapFooterHeight = 0.0;
     double quoteBandHeight = 0.0;
     double quoteBandPadH = 0.0;
     TextPainter? lockBadgePainter;
     TextPainter? heatmapHeadingPainter;
     TextPainter? heatmapSublinePainter;
-    TextPainter? footerPainter;
     TextPainter? monthPainter;
     TextPainter? yearPainter;
     TextPainter? metaPainter;
@@ -1025,7 +993,6 @@ class MonthHeatmapRenderer {
       lockBadgePainter?.dispose();
       heatmapHeadingPainter?.dispose();
       heatmapSublinePainter?.dispose();
-      footerPainter?.dispose();
       monthPainter?.dispose();
       yearPainter?.dispose();
       metaPainter?.dispose();
@@ -1034,7 +1001,6 @@ class MonthHeatmapRenderer {
       lockBadgePainter = null;
       heatmapHeadingPainter = null;
       heatmapSublinePainter = null;
-      footerPainter = null;
       monthPainter = null;
       yearPainter = null;
       metaPainter = null;
@@ -1046,25 +1012,25 @@ class MonthHeatmapRenderer {
       disposePainters();
       posterWidth = fitWithin(availableWidth * 0.97, 356.0, availableWidth);
       panelPadH = 22.0 * scale;
-      panelPadV = 28.0 * scale;
-      sectionGap = 12.0 * scale;
-      lockBadgeHeight = (27.0 * scale).clamp(22.0, 36.0).toDouble();
-      topMetaGap = 10.0 * scale;
+      panelPadV = 24.0 * scale;
+      sectionGap = 10.0 * scale;
+      lockBadgeHeight = (24.0 * scale).clamp(20.0, 32.0).toDouble();
+      topMetaGap = 8.0 * scale;
       weekdayHeaderHeight = (10.0 * scale).clamp(8.0, 15.0).toDouble();
       cellGap = (4.5 * scale).clamp(3.0, 7.0).toDouble();
       heatmapStagePad = 14.0 * scale;
-      quoteBandPadH = 18.0 * scale;
+      quoteBandPadH = 16.0 * scale;
 
       final contentWidth = posterWidth - (panelPadH * 2);
       final heatmapInnerWidth = contentWidth - (heatmapStagePad * 2);
 
       lockBadgePainter = _layoutText(
-        'ACTIVITY POSTER',
+        'MONTHLY SNAPSHOT',
         TextStyle(
           color: textColor.withValues(alpha: 0.86),
-          fontSize: (10.5 * scale).clamp(8.0, 16.0),
+          fontSize: (10.0 * scale).clamp(8.0, 15.0),
           fontWeight: FontWeight.w900,
-          letterSpacing: 0.9,
+          letterSpacing: 0.8,
         ),
         contentWidth * 0.42,
         maxLines: 1,
@@ -1094,44 +1060,46 @@ class MonthHeatmapRenderer {
         maxLines: 1,
       );
       metaPainter = _layoutText(
-        '@$identityLabel  •  ${monthSummary.stats.activeDaysCount} active days  •  $syncLabel',
+        '@$identityLabel  •  $syncLabel',
         TextStyle(
-          color: textColor.withValues(alpha: 0.66),
-          fontSize: (11.0 * scale).clamp(8.5, 16.0),
+          color: textColor.withValues(alpha: 0.68),
+          fontSize: (10.5 * scale).clamp(8.5, 15.0),
           fontWeight: FontWeight.w600,
           height: 1.2,
         ),
         contentWidth,
         maxLines: 1,
       );
-      statsHeight = (_statsBarHeightBase(stats.length) * scale * 1.20)
-          .clamp(28.0, 68.0)
-          .toDouble();
+      statsHeight = config.showQuickStatsBar && stats.isNotEmpty
+          ? (_statsBarHeightBase(stats.length) * scale * 1.12)
+              .clamp(28.0, 68.0)
+              .toDouble()
+          : 0.0;
       boxSize = ((heatmapInnerWidth - (6 * cellGap)) / 7)
           .clamp(20.0, 46.0)
           .toDouble();
       gridWidth = (7 * (boxSize + cellGap)) - cellGap;
       gridHeight = (rows * (boxSize + cellGap)) - cellGap;
       heatmapHeadingPainter = _layoutText(
-        'ACTIVITY MATRIX',
+        '$monthTitle ACTIVITY',
         TextStyle(
-          color: textColor.withValues(alpha: 0.82),
+          color: textColor.withValues(alpha: 0.84),
           fontSize: (10.5 * scale).clamp(8.0, 15.0),
           fontWeight: FontWeight.w900,
-          letterSpacing: 0.8,
+          letterSpacing: 0.7,
         ),
-        contentWidth * 0.44,
+        contentWidth * 0.56,
         maxLines: 1,
       );
       heatmapSublinePainter = _layoutText(
-        '${monthSummary.stats.totalContributions} commits  •  ${monthSummary.stats.mostActiveWeekday}',
+        '${monthSummary.stats.totalContributions} commits this month',
         TextStyle(
-          color: textColor.withValues(alpha: 0.56),
-          fontSize: (10.0 * scale).clamp(7.5, 14.0),
+          color: textColor.withValues(alpha: 0.58),
+          fontSize: (9.5 * scale).clamp(7.5, 13.0),
           fontWeight: FontWeight.w700,
           letterSpacing: 0.2,
         ),
-        contentWidth * 0.5,
+        contentWidth * 0.38,
         textAlign: TextAlign.right,
         maxLines: 1,
       );
@@ -1139,62 +1107,55 @@ class MonthHeatmapRenderer {
         heatmapHeadingPainter!.height,
         heatmapSublinePainter!.height,
       );
-      footerPainter = _layoutText(
-        insightLine,
-        TextStyle(
-          color: textColor.withValues(alpha: 0.64),
-          fontSize: (10.0 * scale).clamp(7.5, 14.0),
-          fontWeight: FontWeight.w700,
-          height: 1.18,
-        ),
-        heatmapInnerWidth,
-        textAlign: TextAlign.center,
-        maxLines: 2,
-      );
-      heatmapFooterHeight = footerPainter!.height;
       heatmapStageHeight = (heatmapStagePad * 2) +
           heatmapLabelHeight +
           (12.0 * scale) +
           weekdayHeaderHeight +
           (10.0 * scale) +
-          gridHeight +
-          (12.0 * scale) +
-          heatmapFooterHeight;
-      quotePainter = _layoutText(
-        quote,
-        TextStyle(
-          color: textColor.withValues(alpha: 0.92),
-          fontSize: ((15.0 * scale) *
-                  _quoteFontMultiplier(
-                    config.densityMode,
-                    WallpaperHeroFocus.quote,
-                  ))
-              .clamp(12.0, 28.0),
-          fontWeight: FontWeight.w600,
-          fontStyle: FontStyle.italic,
-          height: 1.24,
-          letterSpacing: -0.1,
-        ),
-        fitWithin(contentWidth - (quoteBandPadH * 2), 60.0, contentWidth),
-        textAlign: TextAlign.left,
-        maxLines: 4,
-      );
-      quoteMarkPainter = _layoutText(
-        '“',
-        TextStyle(
-          color: accent.withValues(alpha: config.isDarkMode ? 0.26 : 0.18),
-          fontSize: (48.0 * scale).clamp(28.0, 72.0),
-          fontWeight: FontWeight.w900,
-          height: 1.0,
-        ),
-        contentWidth,
-        textAlign: TextAlign.left,
-        maxLines: 1,
-      );
-      quoteBandHeight = math.max(
-        (86.0 * scale).clamp(74.0, 124.0),
-        quotePainter!.height + (32.0 * scale),
-      );
+          gridHeight;
+      if (showQuoteBand) {
+        quotePainter = _layoutText(
+          quote,
+          TextStyle(
+            color: textColor.withValues(
+              alpha: (config.quoteOpacity * 0.92).clamp(0.0, 1.0),
+            ),
+            fontSize: ((config.quoteFontSize * scale) *
+                    _quoteFontMultiplier(
+                      config.densityMode,
+                      WallpaperHeroFocus.quote,
+                    ))
+                .clamp(11.0, 22.0),
+            fontWeight: FontWeight.w600,
+            fontStyle: FontStyle.italic,
+            height: 1.22,
+            letterSpacing: -0.08,
+          ),
+          fitWithin(contentWidth - (quoteBandPadH * 2), 60.0, contentWidth),
+          textAlign: TextAlign.left,
+          maxLines: 2,
+        );
+        quoteMarkPainter = _layoutText(
+          '“',
+          TextStyle(
+            color: accent.withValues(alpha: config.isDarkMode ? 0.18 : 0.12),
+            fontSize: (36.0 * scale).clamp(24.0, 54.0),
+            fontWeight: FontWeight.w900,
+            height: 1.0,
+          ),
+          contentWidth,
+          textAlign: TextAlign.left,
+          maxLines: 1,
+        );
+        quoteBandHeight = math.max(
+          (60.0 * scale).clamp(52.0, 88.0),
+          quotePainter!.height + (24.0 * scale),
+        );
+      } else {
+        quotePainter = null;
+        quoteMarkPainter = null;
+        quoteBandHeight = 0.0;
+      }
 
       posterHeight = (panelPadV * 2) +
           lockBadgeHeight +
@@ -1204,10 +1165,9 @@ class MonthHeatmapRenderer {
           metaPainter!.height +
           sectionGap +
           statsHeight +
-          sectionGap +
+          (statsHeight > 0 ? sectionGap : 0.0) +
           heatmapStageHeight +
-          sectionGap +
-          quoteBandHeight;
+          (showQuoteBand ? sectionGap + quoteBandHeight : 0.0);
 
       final maxAllowedHeight = availableHeight * 0.90;
       if (posterHeight <= maxAllowedHeight || pass == 3) {
@@ -1216,12 +1176,14 @@ class MonthHeatmapRenderer {
       scale *= (maxAllowedHeight / posterHeight).clamp(0.82, 0.96);
     }
 
-    final posterX = padLeft + ((availableWidth - posterWidth) / 2);
-    final yAlignment =
-        (0.18 + ((config.verticalPosition - 0.5) * 0.05)).clamp(0.14, 0.24);
+    final maxPosterX = math.max(padLeft, size.width - padRight - posterWidth);
+    final posterX =
+        (padLeft + ((availableWidth - posterWidth) * config.horizontalPosition))
+            .clamp(padLeft, maxPosterX);
     final maxPosterY = math.max(padTop, size.height - padBottom - posterHeight);
     final posterY =
-        (padTop + ((availableHeight - posterHeight) * yAlignment)).clamp(
+        (padTop + ((availableHeight - posterHeight) * config.verticalPosition))
+            .clamp(
       padTop,
       maxPosterY,
     );
@@ -1231,7 +1193,8 @@ class MonthHeatmapRenderer {
     _drawPosterPanel(
       canvas: canvas,
       rect: posterRect,
-      radius: 34.0 * scale,
+      radius: (16.0 * scale) + (config.cornerRadius * scale * 2.6),
+      config: config,
       isDarkMode: config.isDarkMode,
       isHome: false,
       isFullWidth: false,
@@ -1321,23 +1284,26 @@ class MonthHeatmapRenderer {
     );
     currentY += 4.0 * scale;
 
-    _drawQuickStatsBar(
-      canvas: canvas,
-      x: contentX,
-      y: currentY,
-      width: contentWidth,
-      scale: scale,
-      config: config.copyWith(heroFocus: WallpaperHeroFocus.stats),
-      items: stats,
-      accent: accent,
-    );
-    currentY += statsHeight + sectionGap;
+    if (config.showQuickStatsBar && stats.isNotEmpty) {
+      _drawQuickStatsBar(
+        canvas: canvas,
+        x: contentX,
+        y: currentY,
+        width: contentWidth,
+        scale: scale,
+        config: config.copyWith(heroFocus: WallpaperHeroFocus.stats),
+        items: stats,
+        accent: accent,
+      );
+      currentY += statsHeight + sectionGap;
+    }
 
     final heatmapRect =
         Rect.fromLTWH(contentX, currentY, contentWidth, heatmapStageHeight);
+    final heatmapRadius = (28.0 * scale) + (config.cornerRadius * scale * 0.85);
     final heatmapRRect = RRect.fromRectAndRadius(
       heatmapRect,
-      Radius.circular(28.0 * scale),
+      Radius.circular(heatmapRadius),
     );
     canvas.drawRRect(
       heatmapRRect,
@@ -1347,12 +1313,17 @@ class MonthHeatmapRenderer {
           heatmapRect.bottomRight,
           [
             config.isDarkMode
-                ? const Color(0xFF0E1419).withValues(alpha: 0.92)
-                : Colors.white.withValues(alpha: 0.86),
+                ? const Color(0xFF0E1419)
+                    .withValues(alpha: 0.92 * surfaceOpacity)
+                : Colors.white.withValues(alpha: 0.86 * surfaceOpacity),
             config.isDarkMode
-                ? const Color(0xFF131C22).withValues(alpha: 0.96)
-                : const Color(0xFFF5F7FB).withValues(alpha: 0.92),
-            accent.withValues(alpha: config.isDarkMode ? 0.09 : 0.05),
+                ? const Color(0xFF131C22)
+                    .withValues(alpha: 0.96 * surfaceOpacity)
+                : const Color(0xFFF5F7FB)
+                    .withValues(alpha: 0.92 * surfaceOpacity),
+            accent.withValues(
+              alpha: (config.isDarkMode ? 0.09 : 0.05) * surfaceOpacity,
+            ),
           ],
           const [0.0, 0.72, 1.0],
         ),
@@ -1362,7 +1333,9 @@ class MonthHeatmapRenderer {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = (1.2 * scale).clamp(0.9, 1.8)
-        ..color = accent.withValues(alpha: config.isDarkMode ? 0.14 : 0.10),
+        ..color = accent.withValues(
+          alpha: (config.isDarkMode ? 0.14 : 0.10) * surfaceOpacity,
+        ),
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
@@ -1372,14 +1345,16 @@ class MonthHeatmapRenderer {
           heatmapRect.width - 2,
           heatmapRect.height * 0.34,
         ),
-        Radius.circular(26.0 * scale),
+        Radius.circular(math.max(4.0, heatmapRadius - (2.0 * scale))),
       ),
       Paint()
         ..shader = ui.Gradient.linear(
           heatmapRect.topLeft,
           Offset(heatmapRect.left, heatmapRect.top + heatmapRect.height * 0.34),
           [
-            Colors.white.withValues(alpha: config.isDarkMode ? 0.08 : 0.22),
+            Colors.white.withValues(
+              alpha: (config.isDarkMode ? 0.08 : 0.22) * surfaceOpacity,
+            ),
             Colors.transparent,
           ],
         ),
@@ -1436,7 +1411,11 @@ class MonthHeatmapRenderer {
         config.isDarkMode ? const Color(0xFF1A2026) : const Color(0xFFF8FAFC);
     final outlineColor = (config.isDarkMode ? Colors.white : Colors.black)
         .withValues(alpha: config.isDarkMode ? 0.14 : 0.10);
-    final cellRadius = Radius.circular(7.5 * scale);
+    final cellRadiusValue = ((2.5 + (config.cornerRadius * 1.7)) * scale).clamp(
+      2.0,
+      boxSize * 0.42,
+    );
+    final cellRadius = Radius.circular(cellRadiusValue.toDouble());
     final cellPaint = Paint()..style = PaintingStyle.fill;
     final cellBorder = Paint()
       ..style = PaintingStyle.stroke
@@ -1458,9 +1437,13 @@ class MonthHeatmapRenderer {
       final rrect = RRect.fromRectAndRadius(rect, cellRadius);
       final isOverflowCell = !cell.isInFocusMonth;
       if (isOverflowCell) {
-        cellPaint.color = overflowCellColor;
+        cellPaint.color = overflowCellColor.withValues(
+          alpha: (config.isDarkMode ? 0.22 : 0.45) * config.opacity,
+        );
       } else if (cell.contributionCount <= 0) {
-        cellPaint.color = emptyCellColor;
+        cellPaint.color = emptyCellColor.withValues(
+          alpha: (config.isDarkMode ? 0.65 : 0.88) * config.opacity,
+        );
       } else {
         final level = RenderUtils.getContributionLevel(
           cell.contributionCount,
@@ -1472,12 +1455,18 @@ class MonthHeatmapRenderer {
           config.isDarkMode ? Colors.white : Colors.black,
           config.isDarkMode ? 0.04 : 0.02,
         )!
-            .withValues(alpha: 0.99);
+            .withValues(
+          alpha: (0.24 + (config.opacity * 0.75)).clamp(0.24, 0.99),
+        );
       }
       canvas.drawRRect(rrect, cellPaint);
       canvas.drawRRect(rrect, cellBorder);
       if (cell.isToday) {
         canvas.drawRRect(rrect, todayBorder);
+      }
+
+      if (isOverflowCell) {
+        continue;
       }
 
       final displayColor = cellPaint.color;
@@ -1493,7 +1482,7 @@ class MonthHeatmapRenderer {
           : cell.contributionCount > 0
               ? primaryTextColor
               : primaryTextColor.withValues(alpha: 0.76);
-      final dateFontSize = (boxSize * 0.26).clamp(9.0, 22.0);
+      final dateFontSize = (boxSize * 0.29).clamp(10.0, 24.0);
       final dateCacheKey = (cell.date.day << 3) |
           (isLightCell ? 4 : 0) |
           (cell.isInFocusMonth ? 2 : 0) |
@@ -1512,7 +1501,8 @@ class MonthHeatmapRenderer {
           maxLines: 1,
         ),
       );
-      final showMonthLabel = cell.startsNewMonth && boxSize >= 31.0;
+      final showMonthLabel =
+          cell.isInFocusMonth && cell.startsNewMonth && boxSize >= 31.0;
 
       if (showMonthLabel) {
         final monthPainter = monthTextCache.putIfAbsent(
@@ -1599,61 +1589,63 @@ class MonthHeatmapRenderer {
       painter.dispose();
     }
 
-    footerPainter!.paint(
-      canvas,
-      Offset(
-        heatmapRect.left + ((heatmapRect.width - footerPainter!.width) / 2),
-        heatmapRect.bottom - heatmapStagePad - footerPainter!.height,
-      ),
-    );
-
-    currentY += heatmapStageHeight + sectionGap;
-    final quoteRect = Rect.fromLTWH(
-      contentX,
-      currentY,
-      contentWidth,
-      quoteBandHeight,
-    );
-    final quoteRRect = RRect.fromRectAndRadius(
-      quoteRect,
-      Radius.circular(26.0 * scale),
-    );
-    canvas.drawRRect(
-      quoteRRect,
-      Paint()
-        ..shader = ui.Gradient.linear(
-          quoteRect.topLeft,
-          quoteRect.bottomRight,
-          [
-            accent.withValues(alpha: config.isDarkMode ? 0.12 : 0.08),
-            config.isDarkMode
-                ? const Color(0xFF11171B).withValues(alpha: 0.92)
-                : Colors.white.withValues(alpha: 0.82),
-          ],
-          const [0.0, 1.0],
+    if (showQuoteBand && quotePainter != null && quoteMarkPainter != null) {
+      final resolvedQuotePainter = quotePainter!;
+      final resolvedQuoteMarkPainter = quoteMarkPainter!;
+      currentY += heatmapStageHeight + sectionGap;
+      final quoteRect = Rect.fromLTWH(
+        contentX,
+        currentY,
+        contentWidth,
+        quoteBandHeight,
+      );
+      final quoteRadius = (22.0 * scale) + (config.cornerRadius * scale * 0.75);
+      final quoteRRect = RRect.fromRectAndRadius(
+        quoteRect,
+        Radius.circular(quoteRadius),
+      );
+      canvas.drawRRect(
+        quoteRRect,
+        Paint()
+          ..shader = ui.Gradient.linear(
+            quoteRect.topLeft,
+            quoteRect.bottomRight,
+            [
+              accent.withValues(
+                alpha: (config.isDarkMode ? 0.08 : 0.05) * surfaceOpacity,
+              ),
+              config.isDarkMode
+                  ? const Color(0xFF11171B)
+                      .withValues(alpha: 0.84 * surfaceOpacity)
+                  : Colors.white.withValues(alpha: 0.76 * surfaceOpacity),
+            ],
+            const [0.0, 1.0],
+          ),
+      );
+      canvas.drawRRect(
+        quoteRRect,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (1.0 * scale).clamp(0.9, 1.5)
+          ..color = accent.withValues(
+            alpha: (config.isDarkMode ? 0.10 : 0.08) * surfaceOpacity,
+          ),
+      );
+      resolvedQuotePainter.paint(
+        canvas,
+        Offset(
+          quoteRect.left + quoteBandPadH,
+          quoteRect.top + (quoteRect.height - resolvedQuotePainter.height) / 2,
         ),
-    );
-    canvas.drawRRect(
-      quoteRRect,
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = (1.1 * scale).clamp(0.9, 1.7)
-        ..color = accent.withValues(alpha: config.isDarkMode ? 0.14 : 0.10),
-    );
-    quotePainter!.paint(
-      canvas,
-      Offset(
-        quoteRect.left + quoteBandPadH,
-        quoteRect.top + (quoteRect.height - quotePainter!.height) / 2,
-      ),
-    );
-    quoteMarkPainter!.paint(
-      canvas,
-      Offset(
-        quoteRect.left + quoteBandPadH - (2.0 * scale),
-        quoteRect.top + (12.0 * scale),
-      ),
-    );
+      );
+      resolvedQuoteMarkPainter.paint(
+        canvas,
+        Offset(
+          quoteRect.left + quoteBandPadH - (2.0 * scale),
+          quoteRect.top + (10.0 * scale),
+        ),
+      );
+    }
 
     disposePainters();
   }
@@ -1949,6 +1941,7 @@ class MonthHeatmapRenderer {
       canvas: canvas,
       rect: panelRect,
       radius: (isHome ? 28.0 : 32.0) * scale,
+      config: config,
       isDarkMode: config.isDarkMode,
       isHome: isHome,
       isFullWidth: isFullWidthLockLayout,
@@ -2369,7 +2362,9 @@ class MonthHeatmapRenderer {
             _statsBarMultiplier(config.densityMode, config.heroFocus))
         .clamp(24.0, 72.0)
         .toDouble();
-    final radius = 14.0 * scale;
+    final surfaceOpacity =
+        (0.30 + (config.opacity * 0.70)).clamp(0.30, 1.0).toDouble();
+    final radius = (14.0 * scale) + (config.cornerRadius * 0.85);
     final base = config.isDarkMode ? const Color(0xFF0A0F0B) : Colors.white;
     final border = accent.withValues(alpha: config.isDarkMode ? 0.24 : 0.18);
     final bgRect = Rect.fromLTWH(x, y, width, barHeight);
@@ -2384,9 +2379,15 @@ class MonthHeatmapRenderer {
           bgRect.topLeft,
           bgRect.topRight,
           [
-            base.withValues(alpha: config.isDarkMode ? 0.62 : 0.84),
-            base.withValues(alpha: config.isDarkMode ? 0.52 : 0.76),
-            accent.withValues(alpha: config.isDarkMode ? 0.12 : 0.08),
+            base.withValues(
+              alpha: (config.isDarkMode ? 0.62 : 0.84) * surfaceOpacity,
+            ),
+            base.withValues(
+              alpha: (config.isDarkMode ? 0.52 : 0.76) * surfaceOpacity,
+            ),
+            accent.withValues(
+              alpha: (config.isDarkMode ? 0.12 : 0.08) * surfaceOpacity,
+            ),
           ],
           const [0.0, 0.7, 1.0],
         ),
@@ -2396,19 +2397,21 @@ class MonthHeatmapRenderer {
       Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = (1.0 * scale).clamp(0.8, 1.8)
-        ..color = border,
+        ..color = border.withValues(alpha: surfaceOpacity),
     );
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(x + 1, y + 1, width - 2, barHeight * 0.46),
-        Radius.circular(radius - 1),
+        Radius.circular(math.max(2.0, radius - 1)),
       ),
       Paint()
         ..shader = ui.Gradient.linear(
           Offset(x, y),
           Offset(x, y + barHeight * 0.46),
           [
-            Colors.white.withValues(alpha: config.isDarkMode ? 0.08 : 0.16),
+            Colors.white.withValues(
+              alpha: (config.isDarkMode ? 0.08 : 0.16) * surfaceOpacity,
+            ),
             Colors.transparent,
           ],
         ),
