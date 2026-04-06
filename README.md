@@ -26,7 +26,7 @@ Current product rule: all user-facing features are free. There is no active payw
 
 ### Prerequisites
 
-- Flutter SDK `>=3.24.0`
+- Flutter SDK `>=3.24.0
 - Dart SDK `^3.5.0`
 - Android device or emulator for wallpaper and background-sync behavior
 - Firebase project configured for the app
