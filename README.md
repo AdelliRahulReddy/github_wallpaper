@@ -8,7 +8,7 @@ Current product rule: all user-facing features are free. There is no active payw
 
 - Connects a GitHub account through OAuth and restores a Firebase-backed app session.
 - Fetches contribution data from the GitHub GraphQL API and caches it locally.
-- Selects context-aware motivational quotes from a bundled curated pool instead of calling an AI API at runtime.
+- Selects context-aware motivational quotes from a bundled curated pool instead of calling an AI API at runtime
 - Renders lock-screen-first wallpapers with safe-area-aware previewing and application.
 - Shows Home, Stats, Customize, and Settings tabs around the cached GitHub activity.
 - Generates story-format share cards for `Daily Flex`, `Repo Focus`, `Streak Milestone`, and `Monthly Snapshot`.
