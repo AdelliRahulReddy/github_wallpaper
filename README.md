@@ -2,7 +2,7 @@
 
 GitWall is a free Flutter app that turns GitHub activity into a lock-screen-first wallpaper, a compact developer dashboard, shareable recap cards, and a background refresh workflow.
 
-Current product rule: all user-facing features are free. There is no active paywall, membership gate, or subscription flow in the app.
+Current product rule: all user-facing features are free. There is no active paywall, membership gate, or subscription flow in the app
 
 ## What The App Does
 
